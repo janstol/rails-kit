@@ -1,0 +1,31 @@
+en:
+  time:
+    formats:
+      default: "%Y-%m-%d %H:%M:%S"
+      short: "%b %d, %H:%M"
+      long: "%B %d, %Y %H:%M"
+  activerecord:
+    models:
+      user: User
+      post: Post
+      comment: Comment
+    attributes:
+      user:
+        email: Email
+        name: Name
+        role: Role
+        active: Active
+      post:
+        title: Title
+        body: Body
+        status: Status
+  views:
+    users:
+      index:
+        title: Users
+        new: New User
+      show:
+        title: User Details
+    posts:
+      index:
+        title: Posts

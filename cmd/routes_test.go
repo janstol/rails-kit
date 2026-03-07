@@ -1,0 +1,178 @@
+package cmd
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestRoutesCommandIgnoresInvalidRailsKitConfig(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, ".rails-kit.yml"), ":\n")
+
+	binDir := t.TempDir()
+	bundlePath := filepath.Join(binDir, "bundle")
+	script := "#!/bin/sh\nprintf 'Prefix Verb URI Pattern Controller#Action\\nusers GET /users users#index\\n'\n"
+	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	prevPath := os.Getenv("PATH")
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevRootFlag := rootFlag
+
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	rootFlag = ""
+	routesCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prevPath)
+		_ = os.Chdir(prevWD)
+		rootFlag = prevRootFlag
+	})
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+	})
+
+	err = routesCmd.RunE(routesCmd, nil)
+
+	_ = w.Close()
+	out, readErr := io.ReadAll(r)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(out), "users#index") {
+		t.Fatalf("unexpected output: %s", out)
+	}
+
+	cacheFile := filepath.Join(root, "tmp", "routes_cache.txt")
+	if _, err := os.Stat(cacheFile); err != nil {
+		t.Fatalf("expected cache file to be written: %v", err)
+	}
+}
+
+func TestRoutesFlagsMutuallyExclusive(t *testing.T) {
+	prevRefresh := routesRefresh
+	prevNoCache := routesNoCache
+	t.Cleanup(func() {
+		routesRefresh = prevRefresh
+		routesNoCache = prevNoCache
+	})
+
+	routesRefresh = true
+	routesNoCache = true
+
+	err := routesCmd.RunE(routesCmd, nil)
+	if err == nil {
+		t.Fatal("expected error when both --refresh and --no-cache are set")
+	}
+	if err.Error() != "--refresh and --no-cache are mutually exclusive" {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestRoutesCommandJSONOutputParsesBlankPrefixRows(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
+
+	binDir := t.TempDir()
+	bundlePath := filepath.Join(binDir, "bundle")
+	script := "#!/bin/sh\nprintf 'Prefix  Verb  URI Pattern  Controller#Action\\nroot  GET  /  home#index\\nPATCH/PUT  /users/:id  users#update\\nnew_user  GET  /users/new  users#new\\nGET  /users/:id  users#show\\n'\n"
+	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prevPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prevPath)
+	})
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	}
+	if len(got) != 4 {
+		t.Fatalf("expected 4 routes, got %d: %#v", len(got), got)
+	}
+
+	if got[1]["prefix"] != "" || got[1]["verb"] != "PATCH/PUT" || got[1]["uri_pattern"] != "/users/:id" || got[1]["controller_action"] != "users#update" {
+		t.Fatalf("unexpected blank-prefix update route: %#v", got[1])
+	}
+	if got[3]["prefix"] != "" || got[3]["verb"] != "GET" || got[3]["controller_action"] != "users#show" {
+		t.Fatalf("unexpected blank-prefix show route: %#v", got[3])
+	}
+}
+
+func TestRoutesCommandJSONOutputFailsForNonTabularOutput(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
+
+	binDir := t.TempDir()
+	bundlePath := filepath.Join(binDir, "bundle")
+	script := "#!/bin/sh\nprintf 'Booting app...\\nroutes unavailable\\n'\n"
+	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prevPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prevPath)
+	})
+
+	_, _, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "standard tabular format") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func mustWriteRoutesFile(t *testing.T, path string, content ...string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	body := ""
+	if len(content) > 0 {
+		body = content[0]
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}

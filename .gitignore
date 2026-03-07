@@ -1,0 +1,17 @@
+.claude/plans
+rails-kit
+dist/
+coverage.out
+*.out
+*.test
+.DS_Store
+*.local.*
+.idea/
+.vscode/
+*.swp
+*.swo
+__debug_bin*
+.env
+.envrc
+vendor/
+*.prof

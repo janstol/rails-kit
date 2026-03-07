@@ -1,0 +1,10 @@
+hello_world:
+  user: alice
+  title: Hello World
+  body: My first post
+  status: published
+
+draft_post:
+  user: bob
+  title: Work in Progress
+  status: draft
