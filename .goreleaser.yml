@@ -25,6 +25,16 @@ checksums:
 release:
   name_template: "v{{.Version}}"
 
+brews:
+  - repository:
+      owner: janstol
+      name: homebrew-tap
+    homepage: https://github.com/janstol/rails-kit
+    description: Fast CLI toolkit for exploring Rails codebases — schema, routes, models, fixtures, locales
+    install: bin.install "rails-kit"
+    test: |
+      system "#{bin}/rails-kit", "version"
+
 changelog:
   sort: asc
   filters:

@@ -19,6 +19,12 @@ A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading
 ## Installation
 
 ```sh
+brew install janstol/tap/rails-kit
+```
+
+Or with Go:
+
+```sh
 go install github.com/janstol/rails-kit@latest
 ```
 
