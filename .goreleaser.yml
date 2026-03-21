@@ -31,7 +31,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/janstol/rails-kit
-    description: Fast CLI toolkit for exploring Rails codebases — schema, routes, models, fixtures, locales
+    description: CLI toolkit for exploring Rails codebases without loading Rails
     install: bin.install "rails-kit"
     test: |
       system "#{bin}/rails-kit", "version"
