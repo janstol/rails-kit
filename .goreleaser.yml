@@ -16,7 +16,7 @@ builds:
       - -X github.com/janstol/rails-kit/internal/version.BuildDate={{.Date}}
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -25,10 +25,11 @@ checksum:
 release:
   name_template: "v{{.Version}}"
 
-brews:
+homebrew:
   - repository:
       owner: janstol
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/janstol/rails-kit
     description: Fast CLI toolkit for exploring Rails codebases — schema, routes, models, fixtures, locales
     install: bin.install "rails-kit"
