@@ -13,6 +13,7 @@ A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading
 | `rails-kit locales [scope]` | Extract locale keys by scope |
 | `rails-kit model <name>` | Compact model structure summary |
 | `rails-kit gem [name]` | Inspect gems from `Gemfile.lock` |
+| `rails-kit concerns [name]` | List or inspect Rails concerns |
 | `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code skill |
 | `rails-kit completion bash|zsh|fish` | Generate shell completion scripts |
 | `rails-kit version` | Print version information |
@@ -64,6 +65,7 @@ JSON shapes:
 - `fixtures` with no name returns `[]string`; with a name returns `{ file, entries }`
 - `locales` with no scope returns `[]string`; with a scope returns `{ scope, value }`
 - `gem` with no name returns `[{ name, version }]`; with a name returns `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
+- `concerns` with no name returns `{ model_concerns, controller_concerns }`; with a name returns `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
 - `version` returns `{ version, commit, build_date }`
 
 ### schema
@@ -195,6 +197,23 @@ Parses `Gemfile.lock` directly — no Ruby or Bundler required. Shows each gem's
 
 The lock file path defaults to `Gemfile.lock` at the Rails root and can be overridden with `gemfile_lock_path` in `.rails-kit.yml`.
 
+### concerns
+
+```sh
+rails-kit concerns                          # list all concerns grouped by type
+rails-kit concerns searchable               # show Searchable concern details
+rails-kit concerns model/searchable         # qualify type to disambiguate
+rails-kit concerns controller/authenticatable
+rails-kit concerns --json                   # list concerns as JSON
+rails-kit concerns searchable --json        # concern detail as JSON
+```
+
+Shows concerns from `app/models/concerns/` and `app/controllers/concerns/`. Parsed details include the module name, methods, class methods, and whether the concern uses an `included do` or `class_methods do` block.
+
+When a concern name exists in both model and controller directories, qualify it with `model/` or `controller/` to disambiguate.
+
+The concern directories default to `app/models/concerns` and `app/controllers/concerns` and can be overridden with `model_concerns_path` and `controller_concerns_path` in `.rails-kit.yml`.
+
 ### completion
 
 ```sh
@@ -233,6 +252,8 @@ spec_jobs_path: spec/jobs
 spec_mailers_path: spec/mailers
 spec_services_path: spec/services
 gemfile_lock_path: Gemfile.lock
+model_concerns_path: app/models/concerns
+controller_concerns_path: app/controllers/concerns
 
 # Additional irregular plurals (merged with built-ins)
 plurals:

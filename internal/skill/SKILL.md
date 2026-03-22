@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for reading the codebase without loading Rails or large files. It is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures.
 
-**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `fixtures`, `locales`, `gem`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
 - `schema` (no args) → `[]string`; with table args → object keyed by table name
 - `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` → `{ model, plural, categories }`
@@ -15,6 +15,7 @@ model: haiku
 - `fixtures` (no args) → `[]string`; with name → `{ file, entries }`
 - `locales` (no args) → `[]string`; with scope → `{ scope, value }`
 - `gem` (no args) → `[{ name, version }]`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
+- `concerns` (no args) → `{ model_concerns, controller_concerns }`; with name → `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
 
 ## When to use these tools
 
@@ -27,6 +28,7 @@ model: haiku
 | Look up a locale key or browse translation scopes | `rails-kit locales` |
 | Understand a model's associations, scopes, validations | `rails-kit model` |
 | Check gem versions or find where a gem comes from | `rails-kit gem` |
+| List or inspect model/controller concerns | `rails-kit concerns` |
 
 ---
 
@@ -177,3 +179,18 @@ Delegates:
 - Dynamically generated associations (e.g. via `concern` macros) are not shown
 - Validations inside `with_options` blocks are captured but without the shared options context
 - Lambda bodies are not shown for scopes, only the name and whether it takes args
+
+---
+
+## rails-kit concerns
+
+List or inspect Rails concerns from `app/models/concerns/` and `app/controllers/concerns/`.
+
+```bash
+rails-kit concerns                      # list all concerns grouped by type
+rails-kit concerns searchable           # show Searchable concern details
+rails-kit concerns model/searchable     # qualify type to disambiguate
+rails-kit concerns controller/authenticatable
+```
+
+Use this to understand what reusable modules are available in the project before adding new behaviour to a model or controller.

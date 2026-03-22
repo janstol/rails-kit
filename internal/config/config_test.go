@@ -63,6 +63,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SpecServicesPath != "spec/services" {
 		t.Errorf("SpecServicesPath = %q, want spec/services", cfg.SpecServicesPath)
 	}
+	if cfg.ModelConcernsPath != "app/models/concerns" {
+		t.Errorf("ModelConcernsPath = %q, want app/models/concerns", cfg.ModelConcernsPath)
+	}
+	if cfg.ControllerConcernsPath != "app/controllers/concerns" {
+		t.Errorf("ControllerConcernsPath = %q, want app/controllers/concerns", cfg.ControllerConcernsPath)
+	}
 }
 
 func TestLoadFromFile(t *testing.T) {

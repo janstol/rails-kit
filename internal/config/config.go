@@ -34,8 +34,10 @@ type Config struct {
 	SpecJobsPath        string            `yaml:"spec_jobs_path"`
 	SpecMailersPath     string            `yaml:"spec_mailers_path"`
 	SpecServicesPath    string            `yaml:"spec_services_path"`
-	GemfileLockPath     string            `yaml:"gemfile_lock_path"`
-	Plurals             map[string]string `yaml:"plurals"`
+	GemfileLockPath        string            `yaml:"gemfile_lock_path"`
+	ModelConcernsPath      string            `yaml:"model_concerns_path"`
+	ControllerConcernsPath string            `yaml:"controller_concerns_path"`
+	Plurals                map[string]string `yaml:"plurals"`
 }
 
 // Defaults returns a Config populated with conventional defaults.
@@ -64,7 +66,9 @@ func Defaults() Config {
 		SpecJobsPath:        "spec/jobs",
 		SpecMailersPath:     "spec/mailers",
 		SpecServicesPath:    "spec/services",
-		GemfileLockPath:     "Gemfile.lock",
+		GemfileLockPath:        "Gemfile.lock",
+		ModelConcernsPath:      "app/models/concerns",
+		ControllerConcernsPath: "app/controllers/concerns",
 	}
 }
 
@@ -157,6 +161,12 @@ func Load(railsRoot string) (Config, error) {
 	}
 	if cfg.GemfileLockPath == "" {
 		cfg.GemfileLockPath = "Gemfile.lock"
+	}
+	if cfg.ModelConcernsPath == "" {
+		cfg.ModelConcernsPath = "app/models/concerns"
+	}
+	if cfg.ControllerConcernsPath == "" {
+		cfg.ControllerConcernsPath = "app/controllers/concerns"
 	}
 	return cfg, nil
 }
