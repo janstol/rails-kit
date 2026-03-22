@@ -101,7 +101,7 @@ rails-kit related app/services/admin/user_export_service.rb
 rails-kit related user --json   # output as JSON
 ```
 
-Supported path inputs include model, controller, view, decorator, job, mailer, former, service, datagrid, model/controller test and spec, and fixture paths. Paths are resolved back to the owning model before related-file lookup runs.
+Supported path inputs include model, controller, view, decorator, job, mailer, former, service, datagrid, model/controller test and spec, request/system/helper/job/mailer/service spec, and fixture paths. Paths are resolved back to the owning model before related-file lookup runs.
 
 Matches stay within the exact namespace of the requested model. For example, `rails-kit related user` will not include `admin/users_controller.rb`, `app/views/admin/users/...`, or `app/services/admin/...`, and `rails-kit related admin/user` will not include `app/services/admin/reports/...`.
 
@@ -211,6 +211,12 @@ test_controllers_path: test/controllers
 spec_models_path: spec/models
 spec_controllers_path: spec/controllers
 spec_fixtures_path: spec/fixtures
+spec_requests_path: spec/requests
+spec_system_path: spec/system
+spec_helpers_path: spec/helpers
+spec_jobs_path: spec/jobs
+spec_mailers_path: spec/mailers
+spec_services_path: spec/services
 
 # Additional irregular plurals (merged with built-ins)
 plurals:

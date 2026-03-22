@@ -28,6 +28,12 @@ type Config struct {
 	SpecModelsPath      string            `yaml:"spec_models_path"`
 	SpecControllersPath string            `yaml:"spec_controllers_path"`
 	SpecFixturesPath    string            `yaml:"spec_fixtures_path"`
+	SpecRequestsPath    string            `yaml:"spec_requests_path"`
+	SpecSystemPath      string            `yaml:"spec_system_path"`
+	SpecHelpersPath     string            `yaml:"spec_helpers_path"`
+	SpecJobsPath        string            `yaml:"spec_jobs_path"`
+	SpecMailersPath     string            `yaml:"spec_mailers_path"`
+	SpecServicesPath    string            `yaml:"spec_services_path"`
 	Plurals             map[string]string `yaml:"plurals"`
 }
 
@@ -51,6 +57,12 @@ func Defaults() Config {
 		SpecModelsPath:      "spec/models",
 		SpecControllersPath: "spec/controllers",
 		SpecFixturesPath:    "spec/fixtures",
+		SpecRequestsPath:    "spec/requests",
+		SpecSystemPath:      "spec/system",
+		SpecHelpersPath:     "spec/helpers",
+		SpecJobsPath:        "spec/jobs",
+		SpecMailersPath:     "spec/mailers",
+		SpecServicesPath:    "spec/services",
 	}
 }
 
@@ -122,6 +134,24 @@ func Load(railsRoot string) (Config, error) {
 	}
 	if cfg.SpecFixturesPath == "" {
 		cfg.SpecFixturesPath = "spec/fixtures"
+	}
+	if cfg.SpecRequestsPath == "" {
+		cfg.SpecRequestsPath = "spec/requests"
+	}
+	if cfg.SpecSystemPath == "" {
+		cfg.SpecSystemPath = "spec/system"
+	}
+	if cfg.SpecHelpersPath == "" {
+		cfg.SpecHelpersPath = "spec/helpers"
+	}
+	if cfg.SpecJobsPath == "" {
+		cfg.SpecJobsPath = "spec/jobs"
+	}
+	if cfg.SpecMailersPath == "" {
+		cfg.SpecMailersPath = "spec/mailers"
+	}
+	if cfg.SpecServicesPath == "" {
+		cfg.SpecServicesPath = "spec/services"
 	}
 	return cfg, nil
 }

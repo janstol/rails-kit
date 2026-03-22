@@ -45,6 +45,24 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SpecFixturesPath != "spec/fixtures" {
 		t.Errorf("SpecFixturesPath = %q, want spec/fixtures", cfg.SpecFixturesPath)
 	}
+	if cfg.SpecRequestsPath != "spec/requests" {
+		t.Errorf("SpecRequestsPath = %q, want spec/requests", cfg.SpecRequestsPath)
+	}
+	if cfg.SpecSystemPath != "spec/system" {
+		t.Errorf("SpecSystemPath = %q, want spec/system", cfg.SpecSystemPath)
+	}
+	if cfg.SpecHelpersPath != "spec/helpers" {
+		t.Errorf("SpecHelpersPath = %q, want spec/helpers", cfg.SpecHelpersPath)
+	}
+	if cfg.SpecJobsPath != "spec/jobs" {
+		t.Errorf("SpecJobsPath = %q, want spec/jobs", cfg.SpecJobsPath)
+	}
+	if cfg.SpecMailersPath != "spec/mailers" {
+		t.Errorf("SpecMailersPath = %q, want spec/mailers", cfg.SpecMailersPath)
+	}
+	if cfg.SpecServicesPath != "spec/services" {
+		t.Errorf("SpecServicesPath = %q, want spec/services", cfg.SpecServicesPath)
+	}
 }
 
 func TestLoadFromFile(t *testing.T) {

@@ -84,6 +84,29 @@ func Find(railsRoot string, cfg config.Config, name, plural string) ([]Category,
 		{"Controller spec", func() ([]string, error) {
 			return walkMatchNS(config.ResolvePath(r, cfg.SpecControllersPath), namespace, plural+"_controller_spec.rb")
 		}},
+		{"Request spec", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.SpecRequestsPath), namespace, plural+"_spec.rb")
+		}},
+		{"System spec", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.SpecSystemPath), namespace, plural+"_spec.rb")
+		}},
+		{"Helper spec", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.SpecHelpersPath), namespace, plural+"_helper_spec.rb")
+		}},
+		{"Job spec", func() ([]string, error) {
+			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.SpecJobsPath), name+"_job_spec.rb"))
+		}},
+		{"Mailer spec", func() ([]string, error) {
+			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.SpecMailersPath), name+"_mailer_spec.rb"))
+		}},
+		{"Service spec", func() ([]string, error) {
+			root := config.ResolvePath(r, cfg.SpecServicesPath)
+			results, err := WalkMatchSegment(root, baseName)
+			if err != nil {
+				return results, err
+			}
+			return filterByNamespaceOrModelDir(root, namespace, baseName, results), nil
+		}},
 		{"Fixtures", func() ([]string, error) {
 			if f, err := exactGlob(filepath.Join(fixturesDir, filepath.Dir(name), plural+".yml")); err != nil || len(f) > 0 {
 				return f, err
@@ -278,6 +301,12 @@ var defaultRailsPrefixes = []string{
 	"spec/models/",
 	"spec/controllers/",
 	"spec/fixtures/",
+	"spec/requests/",
+	"spec/system/",
+	"spec/helpers/",
+	"spec/jobs/",
+	"spec/mailers/",
+	"spec/services/",
 }
 
 // NormalizeName strips known Rails path prefixes and file suffixes to produce a
@@ -313,7 +342,7 @@ func NormalizeNameWithPrefixes(input string, extra []string) string {
 	}
 
 	base := filepath.Base(name)
-	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_spec", "_decorator", "_datagrid", "_former", "_service", "_job", "_mailer"} {
+	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_datagrid", "_former", "_service", "_job", "_mailer"} {
 		if strings.HasSuffix(base, suffix) {
 			base = strings.TrimSuffix(base, suffix)
 			break

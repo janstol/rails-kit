@@ -137,6 +137,24 @@ func resolvePathModelName(root string, cfg config.Config, input string, p *plura
 		{prefix: cfg.SpecModelsPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_spec.rb", p)
 		}},
+		{prefix: cfg.SpecRequestsPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_spec.rb", p)
+		}},
+		{prefix: cfg.SpecSystemPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_spec.rb", p)
+		}},
+		{prefix: cfg.SpecHelpersPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_helper_spec.rb", p)
+		}},
+		{prefix: cfg.SpecJobsPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_job_spec.rb", p)
+		}},
+		{prefix: cfg.SpecMailersPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_mailer_spec.rb", p)
+		}},
+		{prefix: cfg.SpecServicesPath, resolve: func(rel string) []string {
+			return StemCandidates(rel, "_service_spec.rb", p)
+		}},
 		{prefix: cfg.FixturesPath, resolve: func(rel string) []string {
 			return []string{FixtureModelName(rel, p)}
 		}},
@@ -300,6 +318,12 @@ func PathPrefixes(cfg config.Config) []string {
 		cfg.SpecModelsPath,
 		cfg.SpecControllersPath,
 		cfg.SpecFixturesPath,
+		cfg.SpecRequestsPath,
+		cfg.SpecSystemPath,
+		cfg.SpecHelpersPath,
+		cfg.SpecJobsPath,
+		cfg.SpecMailersPath,
+		cfg.SpecServicesPath,
 	}
 	var prefixes []string
 	for _, path := range paths {

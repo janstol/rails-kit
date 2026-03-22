@@ -395,9 +395,17 @@ func TestFindDeepNestedService(t *testing.T) {
 func TestFindSpec(t *testing.T) {
 	dir := t.TempDir()
 
-	modelSpec := filepath.Join(dir, "spec", "models", "user_spec.rb")
-	controllerSpec := filepath.Join(dir, "spec", "controllers", "users_controller_spec.rb")
-	for _, f := range []string{modelSpec, controllerSpec} {
+	specFiles := []string{
+		filepath.Join(dir, "spec", "models", "user_spec.rb"),
+		filepath.Join(dir, "spec", "controllers", "users_controller_spec.rb"),
+		filepath.Join(dir, "spec", "requests", "users_spec.rb"),
+		filepath.Join(dir, "spec", "system", "users_spec.rb"),
+		filepath.Join(dir, "spec", "helpers", "users_helper_spec.rb"),
+		filepath.Join(dir, "spec", "jobs", "user_job_spec.rb"),
+		filepath.Join(dir, "spec", "mailers", "user_mailer_spec.rb"),
+		filepath.Join(dir, "spec", "services", "user_service_spec.rb"),
+	}
+	for _, f := range specFiles {
 		if err := os.MkdirAll(filepath.Dir(f), 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -415,11 +423,10 @@ func TestFindSpec(t *testing.T) {
 	for _, c := range cats {
 		found[c.Label] = true
 	}
-	if !found["Model spec"] {
-		t.Error("expected Model spec category")
-	}
-	if !found["Controller spec"] {
-		t.Error("expected Controller spec category")
+	for _, label := range []string{"Model spec", "Controller spec", "Request spec", "System spec", "Helper spec", "Job spec", "Mailer spec", "Service spec"} {
+		if !found[label] {
+			t.Errorf("expected %q category", label)
+		}
 	}
 }
 
@@ -711,6 +718,12 @@ func TestNormalizeName(t *testing.T) {
 		{"user_spec.rb", "user"},
 		{"spec/models/user_spec.rb", "user"},
 		{"spec/controllers/users_controller_spec.rb", "users"},
+		{"spec/requests/users_spec.rb", "users"},
+		{"spec/system/users_spec.rb", "users"},
+		{"spec/helpers/users_helper_spec.rb", "users"},
+		{"spec/jobs/user_job_spec.rb", "user"},
+		{"spec/mailers/user_mailer_spec.rb", "user"},
+		{"spec/services/user_service_spec.rb", "user"},
 		// yaml extension
 		{"users.yaml", "users"},
 		// Multi-level namespace is preserved
