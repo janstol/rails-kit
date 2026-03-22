@@ -6,7 +6,7 @@ A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading
 
 | Command | Description |
 |---------|-------------|
-| `rails-kit schema [table...]` | Extract table definitions from `db/schema.rb` |
+| `rails-kit schema [table...]` | Extract table definitions from `db/schema.rb` or `db/structure.sql` |
 | `rails-kit routes [pattern...]` | Cached, filtered `rails routes` output |
 | `rails-kit related <name>` | List all files related to a model |
 | `rails-kit fixtures [name]` | Summarize test fixture entries |
@@ -77,6 +77,8 @@ rails-kit schema users posts    # show multiple tables
 rails-kit schema --json         # list table names as JSON array
 rails-kit schema users --json   # extract tables as JSON object keyed by table name
 ```
+
+Both `db/schema.rb` (Ruby DSL) and `db/structure.sql` (PostgreSQL DDL, from `pg_dump`) are supported. The format is detected by file extension. If `db/schema.rb` is not found, `db/structure.sql` is tried automatically. Override via `schema_path` in `.rails-kit.yml`.
 
 ### routes
 
@@ -228,7 +230,7 @@ Optional `.rails-kit.yml` at Rails root:
 
 ```yaml
 # All fields optional, shown with defaults
-schema_path: db/schema.rb
+schema_path: db/schema.rb  # or db/structure.sql for SQL-format projects
 fixtures_path: test/fixtures
 locales_path: config/locales
 models_path: app/models

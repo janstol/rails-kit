@@ -154,6 +154,67 @@ func containsAll(s string, want ...string) bool {
 	return true
 }
 
+func TestResolveSchemaPath(t *testing.T) {
+	t.Run("schema.rb exists", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "db"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		schemaRb := filepath.Join(dir, "db", "schema.rb")
+		if err := os.WriteFile(schemaRb, []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, _ := config.Load(dir)
+		got := config.ResolveSchemaPath(dir, cfg)
+		if got != schemaRb {
+			t.Errorf("got %q, want %q", got, schemaRb)
+		}
+	})
+
+	t.Run("only structure.sql exists, falls back", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "db"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		structureSQL := filepath.Join(dir, "db", "structure.sql")
+		if err := os.WriteFile(structureSQL, []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, _ := config.Load(dir)
+		got := config.ResolveSchemaPath(dir, cfg)
+		if got != structureSQL {
+			t.Errorf("got %q, want %q", got, structureSQL)
+		}
+	})
+
+	t.Run("neither exists, returns primary", func(t *testing.T) {
+		dir := t.TempDir()
+		cfg, _ := config.Load(dir)
+		got := config.ResolveSchemaPath(dir, cfg)
+		want := filepath.Join(dir, "db", "schema.rb")
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("explicit structure.sql in config", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "db"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		structureSQL := filepath.Join(dir, "db", "structure.sql")
+		if err := os.WriteFile(structureSQL, []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cfg := config.Defaults()
+		cfg.SchemaPath = "db/structure.sql"
+		got := config.ResolveSchemaPath(dir, cfg)
+		if got != structureSQL {
+			t.Errorf("got %q, want %q", got, structureSQL)
+		}
+	})
+}
+
 func TestResolvePath(t *testing.T) {
 	root := filepath.Join(string(filepath.Separator), "tmp", "rails-app")
 

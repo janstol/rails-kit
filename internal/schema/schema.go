@@ -37,10 +37,16 @@ type Schema struct {
 }
 
 // Parse reads and parses the schema file at schemaPath.
+// Both db/schema.rb (Ruby DSL) and db/structure.sql (PostgreSQL DDL) are supported;
+// the format is detected by file extension.
 func Parse(schemaPath string) (*Schema, error) {
 	lines, err := readLines(schemaPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.HasSuffix(schemaPath, ".sql") {
+		return parseSQLFile(lines), nil
 	}
 
 	s := &Schema{

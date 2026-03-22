@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -177,4 +178,35 @@ func ResolvePath(railsRoot, path string) string {
 		return filepath.Clean(path)
 	}
 	return filepath.Join(railsRoot, path)
+}
+
+// ResolveSchemaPath returns the resolved schema file path.
+// If the configured path does not exist on disk, it tries the alternate format
+// (schema.rb ↔ structure.sql). If neither exists, the primary path is returned
+// so that Parse produces the expected "cannot open schema" error.
+func ResolveSchemaPath(railsRoot string, cfg Config) string {
+	primary := ResolvePath(railsRoot, cfg.SchemaPath)
+	if fileExists(primary) {
+		return primary
+	}
+	alt := ResolvePath(railsRoot, alternateSchemaPath(cfg.SchemaPath))
+	if fileExists(alt) {
+		return alt
+	}
+	return primary
+}
+
+func alternateSchemaPath(path string) string {
+	if strings.HasSuffix(path, "schema.rb") {
+		return strings.TrimSuffix(path, "schema.rb") + "structure.sql"
+	}
+	if strings.HasSuffix(path, "structure.sql") {
+		return strings.TrimSuffix(path, "structure.sql") + "schema.rb"
+	}
+	return path
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

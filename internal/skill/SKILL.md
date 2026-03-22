@@ -34,7 +34,7 @@ model: haiku
 
 ## rails-kit schema
 
-Extract `create_table` blocks from `db/schema.rb`.
+Extract table definitions from `db/schema.rb` or `db/structure.sql`. Both formats are supported and auto-detected. Projects using `config.active_record.schema_format = :sql` have `structure.sql` (PostgreSQL DDL) instead of `schema.rb` — rails-kit handles both transparently.
 
 ```bash
 rails-kit schema                    # list all table names

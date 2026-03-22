@@ -11,18 +11,21 @@ import (
 
 var schemaCmd = &cobra.Command{
 	Use:   "schema [table...]",
-	Short: "Extract table definitions from db/schema.rb",
-	Long: `Extract create_table blocks from db/schema.rb.
+	Short: "Extract table definitions from schema.rb or structure.sql",
+	Long: `Extract table definitions from db/schema.rb or db/structure.sql.
+
+Both formats are supported. If schema.rb is not found, structure.sql is
+tried automatically. The path can also be set via schema_path in .rails-kit.yml.
 
 With no arguments, lists all table names.
-With table names, prints the full create_table block plus associated
+With table names, prints the full table definition plus associated
 indexes and foreign keys for each table.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {
 			return err
 		}
-		schemaPath := config.ResolvePath(root, cfg.SchemaPath)
+		schemaPath := config.ResolveSchemaPath(root, cfg)
 
 		if len(args) == 0 {
 			tables, err := schema.ListTables(schemaPath)
