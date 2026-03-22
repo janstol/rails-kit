@@ -24,10 +24,10 @@ var relatedCmd = &cobra.Command{
 	Use:   "related <name>",
 	Short: "List all files related to a model",
 	Long: `Find all files related to a model: model, controller, views, decorator,
-former, service, datagrid, tests, and fixtures.
+job, mailer, former, service, datagrid, tests, and fixtures.
 
 The name can be a model name (user, order_item) or a related file path
-(model, controller, view, decorator, former, service, datagrid, test/spec, fixture).
+(model, controller, view, decorator, job, mailer, former, service, datagrid, test/spec, fixture).
 Matches stay within the exact namespace of the requested model.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

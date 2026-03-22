@@ -58,7 +58,7 @@ Use this to find path helpers, verify controller actions exist, or check what HT
 
 ## rails-kit related
 
-List all files related to a model: model, controller, views, decorator, former, service, datagrid, tests, fixtures.
+List all files related to a model: model, controller, views, decorator, job, mailer, former, service, datagrid, tests, fixtures.
 
 ```bash
 rails-kit related user
@@ -68,7 +68,7 @@ rails-kit related app/views/users/show.html.erb
 rails-kit related app/services/user_export_service.rb
 ```
 
-Run this first when starting work on a model to get a complete map of relevant files. Supported path inputs include model, controller, view, decorator, former, service, datagrid, test/spec, and fixture paths; each path is resolved back to its owning model first. Matches stay in the exact namespace you asked for, so `rails-kit related user` will not include `admin/users_controller.rb`, `app/views/admin/users/...`, or `app/services/admin/...`.
+Run this first when starting work on a model to get a complete map of relevant files. Supported path inputs include model, controller, view, decorator, job, mailer, former, service, datagrid, test/spec, and fixture paths; each path is resolved back to its owning model first. Matches stay in the exact namespace you asked for, so `rails-kit related user` will not include `admin/users_controller.rb`, `app/views/admin/users/...`, or `app/services/admin/...`.
 
 ---
 

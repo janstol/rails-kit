@@ -36,6 +36,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ServicesPath != "app/services" {
 		t.Errorf("ServicesPath = %q, want app/services", cfg.ServicesPath)
 	}
+	if cfg.JobsPath != "app/jobs" {
+		t.Errorf("JobsPath = %q, want app/jobs", cfg.JobsPath)
+	}
+	if cfg.MailersPath != "app/mailers" {
+		t.Errorf("MailersPath = %q, want app/mailers", cfg.MailersPath)
+	}
 	if cfg.SpecFixturesPath != "spec/fixtures" {
 		t.Errorf("SpecFixturesPath = %q, want spec/fixtures", cfg.SpecFixturesPath)
 	}

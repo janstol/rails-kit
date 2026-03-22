@@ -210,12 +210,46 @@ func TestResolveLookup_ControllerSpecPath(t *testing.T) {
 func TestResolveLookup_UnsupportedPath(t *testing.T) {
 	root := t.TempDir()
 
-	_, _, err := related.ResolveLookup(root, defaultLookupTestConfig(), "app/jobs/user_job.rb", pluralize.Default())
+	_, _, err := related.ResolveLookup(root, defaultLookupTestConfig(), "app/unknown/user_thing.rb", pluralize.Default())
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "unsupported related path") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResolveLookup_JobPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "app", "jobs", "user_job.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "app/jobs/user_job.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
+func TestResolveLookup_MailerPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "app", "mailers", "user_mailer.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "app/mailers/user_mailer.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
 	}
 }
 

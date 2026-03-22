@@ -703,6 +703,10 @@ func TestNormalizeName(t *testing.T) {
 		// New suffixes
 		{"user_former.rb", "user"},
 		{"user_service.rb", "user"},
+		{"user_job.rb", "user"},
+		{"user_mailer.rb", "user"},
+		{"app/jobs/user_job.rb", "user"},
+		{"app/mailers/user_mailer.rb", "user"},
 		// RSpec suffixes
 		{"user_spec.rb", "user"},
 		{"spec/models/user_spec.rb", "user"},
@@ -721,6 +725,109 @@ func TestNormalizeName(t *testing.T) {
 				t.Errorf("NormalizeName(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestFindJob(t *testing.T) {
+	dir := t.TempDir()
+
+	for _, f := range []string{
+		filepath.Join(dir, "app", "models", "user.rb"),
+		filepath.Join(dir, "app", "jobs", "user_job.rb"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cats, err := related.Find(dir, defaultRelatedConfig(), "user", "users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var jobFiles []string
+	for _, c := range cats {
+		if c.Label == "Job" {
+			jobFiles = c.Files
+		}
+	}
+	if len(jobFiles) != 1 {
+		t.Fatalf("expected 1 job file, got %v", jobFiles)
+	}
+	if !containsStr(jobFiles, "app/jobs/user_job.rb") {
+		t.Errorf("expected user job, got %v", jobFiles)
+	}
+}
+
+func TestFindMailer(t *testing.T) {
+	dir := t.TempDir()
+
+	for _, f := range []string{
+		filepath.Join(dir, "app", "models", "user.rb"),
+		filepath.Join(dir, "app", "mailers", "user_mailer.rb"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cats, err := related.Find(dir, defaultRelatedConfig(), "user", "users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var mailerFiles []string
+	for _, c := range cats {
+		if c.Label == "Mailer" {
+			mailerFiles = c.Files
+		}
+	}
+	if len(mailerFiles) != 1 {
+		t.Fatalf("expected 1 mailer file, got %v", mailerFiles)
+	}
+	if !containsStr(mailerFiles, "app/mailers/user_mailer.rb") {
+		t.Errorf("expected user mailer, got %v", mailerFiles)
+	}
+}
+
+func TestFindJobNamespaceIsolation(t *testing.T) {
+	dir := t.TempDir()
+
+	for _, f := range []string{
+		filepath.Join(dir, "app", "models", "user.rb"),
+		filepath.Join(dir, "app", "jobs", "user_job.rb"),
+		filepath.Join(dir, "app", "jobs", "admin", "user_job.rb"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cats, err := related.Find(dir, defaultRelatedConfig(), "user", "users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var jobFiles []string
+	for _, c := range cats {
+		if c.Label == "Job" {
+			jobFiles = c.Files
+		}
+	}
+	if len(jobFiles) != 1 {
+		t.Fatalf("expected only root job, got %v", jobFiles)
+	}
+	if containsStr(jobFiles, "admin") {
+		t.Errorf("did not expect namespaced job, got %v", jobFiles)
 	}
 }
 
