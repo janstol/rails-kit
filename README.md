@@ -12,6 +12,7 @@ A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading
 | `rails-kit fixtures [name]` | Summarize test fixture entries |
 | `rails-kit locales [scope]` | Extract locale keys by scope |
 | `rails-kit model <name>` | Compact model structure summary |
+| `rails-kit gem [name]` | Inspect gems from `Gemfile.lock` |
 | `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code skill |
 | `rails-kit completion bash|zsh|fish` | Generate shell completion scripts |
 | `rails-kit version` | Print version information |
@@ -62,6 +63,7 @@ JSON shapes:
 - `model` returns `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
 - `fixtures` with no name returns `[]string`; with a name returns `{ file, entries }`
 - `locales` with no scope returns `[]string`; with a scope returns `{ scope, value }`
+- `gem` with no name returns `[{ name, version }]`; with a name returns `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
 - `version` returns `{ version, commit, build_date }`
 
 ### schema
@@ -180,6 +182,19 @@ Enums:
   role
 ```
 
+### gem
+
+```sh
+rails-kit gem                   # list all gems with versions
+rails-kit gem rails             # show rails gem details
+rails-kit gem nokogiri --json   # gem detail as JSON
+rails-kit gem --json            # all gems as JSON array
+```
+
+Parses `Gemfile.lock` directly — no Ruby or Bundler required. Shows each gem's version, source type (`rubygems`, `git`, or `path`), source URL, git metadata (revision, branch, tag, ref), and dependencies.
+
+The lock file path defaults to `Gemfile.lock` at the Rails root and can be overridden with `gemfile_lock_path` in `.rails-kit.yml`.
+
 ### completion
 
 ```sh
@@ -217,6 +232,7 @@ spec_helpers_path: spec/helpers
 spec_jobs_path: spec/jobs
 spec_mailers_path: spec/mailers
 spec_services_path: spec/services
+gemfile_lock_path: Gemfile.lock
 
 # Additional irregular plurals (merged with built-ins)
 plurals:

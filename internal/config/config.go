@@ -34,6 +34,7 @@ type Config struct {
 	SpecJobsPath        string            `yaml:"spec_jobs_path"`
 	SpecMailersPath     string            `yaml:"spec_mailers_path"`
 	SpecServicesPath    string            `yaml:"spec_services_path"`
+	GemfileLockPath     string            `yaml:"gemfile_lock_path"`
 	Plurals             map[string]string `yaml:"plurals"`
 }
 
@@ -63,6 +64,7 @@ func Defaults() Config {
 		SpecJobsPath:        "spec/jobs",
 		SpecMailersPath:     "spec/mailers",
 		SpecServicesPath:    "spec/services",
+		GemfileLockPath:     "Gemfile.lock",
 	}
 }
 
@@ -152,6 +154,9 @@ func Load(railsRoot string) (Config, error) {
 	}
 	if cfg.SpecServicesPath == "" {
 		cfg.SpecServicesPath = "spec/services"
+	}
+	if cfg.GemfileLockPath == "" {
+		cfg.GemfileLockPath = "Gemfile.lock"
 	}
 	return cfg, nil
 }

@@ -7,13 +7,14 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for reading the codebase without loading Rails or large files. It is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures.
 
-**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `fixtures`, `locales`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `fixtures`, `locales`, `gem`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
 - `schema` (no args) → `[]string`; with table args → object keyed by table name
 - `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` → `{ model, plural, categories }`
 - `model` → `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
 - `fixtures` (no args) → `[]string`; with name → `{ file, entries }`
 - `locales` (no args) → `[]string`; with scope → `{ scope, value }`
+- `gem` (no args) → `[{ name, version }]`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
 
 ## When to use these tools
 
@@ -25,6 +26,7 @@ model: haiku
 | Inspect test fixtures for a model | `rails-kit fixtures` |
 | Look up a locale key or browse translation scopes | `rails-kit locales` |
 | Understand a model's associations, scopes, validations | `rails-kit model` |
+| Check gem versions or find where a gem comes from | `rails-kit gem` |
 
 ---
 
@@ -106,6 +108,20 @@ Keys are sorted alphabetically (differs from YAML insertion order). Arrays and n
 1. `rails-kit locales` -- see what scopes exist
 2. `rails-kit locales en.views.users` -- check existing keys in the target scope
 3. Add the new key in the correct place
+
+---
+
+## rails-kit gem
+
+Inspect gems from `Gemfile.lock` — versions and source information.
+
+```bash
+rails-kit gem                   # list all gems with versions
+rails-kit gem rails             # show rails gem details (source, URL, dependencies)
+rails-kit gem nokogiri          # show nokogiri details
+```
+
+Use this to quickly check what version of a gem is locked, where it comes from (rubygems, git, or local path), and what its declared dependencies are.
 
 ---
 
