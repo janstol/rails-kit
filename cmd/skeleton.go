@@ -53,7 +53,7 @@ rails-kit commands do not require Prism.`,
 		files, err := runner.ParseFiles(ctx, []string{path})
 		if err != nil {
 			if prism.IsUnavailable(err) {
-				return fmt.Errorf("Prism is not available: install/use Ruby with the prism library available, then retry: %w", err)
+				return fmt.Errorf("prism is not available: install/use Ruby with the prism library available, then retry: %w", err)
 			}
 			return err
 		}
@@ -103,13 +103,13 @@ func resolveRubyPath(root, input string) (string, string, error) {
 	}
 	rel, err := filepath.Rel(absRoot, absPath)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", "", fmt.Errorf("Ruby file is outside Rails root: %s", input)
+		return "", "", fmt.Errorf("ruby file is outside Rails root: %s", input)
 	}
 	if filepath.Ext(absPath) != ".rb" {
 		return "", "", fmt.Errorf("skeleton only supports Ruby files ending in .rb: %s", input)
 	}
 	if _, err := os.Stat(absPath); err != nil {
-		return "", "", fmt.Errorf("Ruby file not found: %s", input)
+		return "", "", fmt.Errorf("ruby file not found: %s", input)
 	}
 	actualRoot, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
@@ -121,7 +121,7 @@ func resolveRubyPath(root, input string) (string, string, error) {
 	}
 	actualRel, err := filepath.Rel(actualRoot, actualPath)
 	if err != nil || actualRel == ".." || strings.HasPrefix(actualRel, ".."+string(filepath.Separator)) {
-		return "", "", fmt.Errorf("Ruby file is outside Rails root: %s", input)
+		return "", "", fmt.Errorf("ruby file is outside Rails root: %s", input)
 	}
 	return absPath, filepath.ToSlash(rel), nil
 }

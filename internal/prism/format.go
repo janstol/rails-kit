@@ -84,7 +84,7 @@ func writeConstants(sb *strings.Builder, indent string, constants []Constant) {
 	}
 	writeBlockHeader(sb, indent+"Constants")
 	for _, c := range constants {
-		sb.WriteString(fmt.Sprintf("%s  %s%s\n", indent, c.Source, lineSuffix(c.StartLine, c.EndLine)))
+		fmt.Fprintf(sb, "%s  %s%s\n", indent, c.Source, lineSuffix(c.StartLine, c.EndLine))
 	}
 }
 
@@ -94,7 +94,7 @@ func writeCalls(sb *strings.Builder, indent, label string, calls []Call) {
 	}
 	writeBlockHeader(sb, indent+label)
 	for _, call := range calls {
-		sb.WriteString(fmt.Sprintf("%s  %s%s\n", indent, call.Source, lineSuffix(call.StartLine, call.EndLine)))
+		fmt.Fprintf(sb, "%s  %s%s\n", indent, call.Source, lineSuffix(call.StartLine, call.EndLine))
 	}
 }
 
@@ -108,7 +108,7 @@ func writeMethods(sb *strings.Builder, indent string, methods []Method) {
 		if params != "" {
 			params = "(" + params + ")"
 		}
-		sb.WriteString(fmt.Sprintf("%s  %s def %s%s%s\n", indent, method.Visibility, method.Name, params, lineSuffix(method.StartLine, method.EndLine)))
+		fmt.Fprintf(sb, "%s  %s def %s%s%s\n", indent, method.Visibility, method.Name, params, lineSuffix(method.StartLine, method.EndLine))
 	}
 }
 

@@ -16,7 +16,7 @@ var (
 	reIncludedDo   = regexp.MustCompile(`^\s*included\s+do\b`)
 	reClassMethods = regexp.MustCompile(`^\s*class_methods\s+do\b`)
 	reDef          = regexp.MustCompile(`^\s*def\s+(\w+[?!=]?)`)
-	reEnd = regexp.MustCompile(`^\s*end\b`)
+	reEnd          = regexp.MustCompile(`^\s*end\b`)
 )
 
 // ConcernDetail holds parsed information about a single concern file.

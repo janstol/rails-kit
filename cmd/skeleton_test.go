@@ -110,7 +110,7 @@ func TestSkeletonCommandReportsMissingPrism(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "Prism is not available") {
+	if !strings.Contains(err.Error(), "prism is not available") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type fixturesJSON struct {
-	File    string                 `json:"file"`
+	File    string         `json:"file"`
 	Entries map[string]any `json:"entries"`
 }
 

@@ -12,29 +12,29 @@ import (
 
 // Config holds optional project-specific settings from .rails-kit.yml.
 type Config struct {
-	SchemaPath          string            `yaml:"schema_path"`
-	FixturesPath        string            `yaml:"fixtures_path"`
-	LocalesPath         string            `yaml:"locales_path"`
-	ModelsPath          string            `yaml:"models_path"`
-	ControllersPath     string            `yaml:"controllers_path"`
-	ViewsPath           string            `yaml:"views_path"`
-	DecoratorsPath      string            `yaml:"decorators_path"`
-	FormersPath         string            `yaml:"formers_path"`
-	ServicesPath        string            `yaml:"services_path"`
-	DatagridsPath       string            `yaml:"datagrids_path"`
-	JobsPath            string            `yaml:"jobs_path"`
-	MailersPath         string            `yaml:"mailers_path"`
-	TestModelsPath      string            `yaml:"test_models_path"`
-	TestControllersPath string            `yaml:"test_controllers_path"`
-	SpecModelsPath      string            `yaml:"spec_models_path"`
-	SpecControllersPath string            `yaml:"spec_controllers_path"`
-	SpecFixturesPath    string            `yaml:"spec_fixtures_path"`
-	SpecRequestsPath    string            `yaml:"spec_requests_path"`
-	SpecSystemPath      string            `yaml:"spec_system_path"`
-	SpecHelpersPath     string            `yaml:"spec_helpers_path"`
-	SpecJobsPath        string            `yaml:"spec_jobs_path"`
-	SpecMailersPath     string            `yaml:"spec_mailers_path"`
-	SpecServicesPath    string            `yaml:"spec_services_path"`
+	SchemaPath             string            `yaml:"schema_path"`
+	FixturesPath           string            `yaml:"fixtures_path"`
+	LocalesPath            string            `yaml:"locales_path"`
+	ModelsPath             string            `yaml:"models_path"`
+	ControllersPath        string            `yaml:"controllers_path"`
+	ViewsPath              string            `yaml:"views_path"`
+	DecoratorsPath         string            `yaml:"decorators_path"`
+	FormersPath            string            `yaml:"formers_path"`
+	ServicesPath           string            `yaml:"services_path"`
+	DatagridsPath          string            `yaml:"datagrids_path"`
+	JobsPath               string            `yaml:"jobs_path"`
+	MailersPath            string            `yaml:"mailers_path"`
+	TestModelsPath         string            `yaml:"test_models_path"`
+	TestControllersPath    string            `yaml:"test_controllers_path"`
+	SpecModelsPath         string            `yaml:"spec_models_path"`
+	SpecControllersPath    string            `yaml:"spec_controllers_path"`
+	SpecFixturesPath       string            `yaml:"spec_fixtures_path"`
+	SpecRequestsPath       string            `yaml:"spec_requests_path"`
+	SpecSystemPath         string            `yaml:"spec_system_path"`
+	SpecHelpersPath        string            `yaml:"spec_helpers_path"`
+	SpecJobsPath           string            `yaml:"spec_jobs_path"`
+	SpecMailersPath        string            `yaml:"spec_mailers_path"`
+	SpecServicesPath       string            `yaml:"spec_services_path"`
 	GemfileLockPath        string            `yaml:"gemfile_lock_path"`
 	ModelConcernsPath      string            `yaml:"model_concerns_path"`
 	ControllerConcernsPath string            `yaml:"controller_concerns_path"`
@@ -44,29 +44,29 @@ type Config struct {
 // Defaults returns a Config populated with conventional defaults.
 func Defaults() Config {
 	return Config{
-		SchemaPath:          "db/schema.rb",
-		FixturesPath:        "test/fixtures",
-		LocalesPath:         "config/locales",
-		ModelsPath:          "app/models",
-		ControllersPath:     "app/controllers",
-		ViewsPath:           "app/views",
-		DecoratorsPath:      "app/decorators",
-		FormersPath:         "app/formers",
-		ServicesPath:        "app/services",
-		DatagridsPath:       "app/datagrids",
-		JobsPath:            "app/jobs",
-		MailersPath:         "app/mailers",
-		TestModelsPath:      "test/models",
-		TestControllersPath: "test/controllers",
-		SpecModelsPath:      "spec/models",
-		SpecControllersPath: "spec/controllers",
-		SpecFixturesPath:    "spec/fixtures",
-		SpecRequestsPath:    "spec/requests",
-		SpecSystemPath:      "spec/system",
-		SpecHelpersPath:     "spec/helpers",
-		SpecJobsPath:        "spec/jobs",
-		SpecMailersPath:     "spec/mailers",
-		SpecServicesPath:    "spec/services",
+		SchemaPath:             "db/schema.rb",
+		FixturesPath:           "test/fixtures",
+		LocalesPath:            "config/locales",
+		ModelsPath:             "app/models",
+		ControllersPath:        "app/controllers",
+		ViewsPath:              "app/views",
+		DecoratorsPath:         "app/decorators",
+		FormersPath:            "app/formers",
+		ServicesPath:           "app/services",
+		DatagridsPath:          "app/datagrids",
+		JobsPath:               "app/jobs",
+		MailersPath:            "app/mailers",
+		TestModelsPath:         "test/models",
+		TestControllersPath:    "test/controllers",
+		SpecModelsPath:         "spec/models",
+		SpecControllersPath:    "spec/controllers",
+		SpecFixturesPath:       "spec/fixtures",
+		SpecRequestsPath:       "spec/requests",
+		SpecSystemPath:         "spec/system",
+		SpecHelpersPath:        "spec/helpers",
+		SpecJobsPath:           "spec/jobs",
+		SpecMailersPath:        "spec/mailers",
+		SpecServicesPath:       "spec/services",
 		GemfileLockPath:        "Gemfile.lock",
 		ModelConcernsPath:      "app/models/concerns",
 		ControllerConcernsPath: "app/controllers/concerns",
