@@ -1,17 +1,18 @@
 ---
 name: rails-kit
-description: Use rails-kit CLI to explore Rails codebase -- schema, routes, models, fixtures, locales, and related files. Use before reading large files.
+description: Use rails-kit CLI to explore Rails codebase -- schema, routes, models, skeletons, fixtures, locales, and related files. Use before reading large files.
 allowed-tools: Bash(rails-kit *)
 model: haiku
 ---
 
-`rails-kit` is a compiled Go binary for reading the codebase without loading Rails or large files. It is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures.
+`rails-kit` is a compiled Go binary for reading the codebase without loading Rails or large files. It is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
 - `schema` (no args) → `[]string`; with table args → object keyed by table name
 - `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` → `{ model, plural, categories }`
 - `model` → `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
+- `skeleton` → `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }`
 - `fixtures` (no args) → `[]string`; with name → `{ file, entries }`
 - `locales` (no args) → `[]string`; with scope → `{ scope, value }`
 - `gem` (no args) → `[{ name, version }]`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
@@ -27,6 +28,7 @@ model: haiku
 | Inspect test fixtures for a model | `rails-kit fixtures` |
 | Look up a locale key or browse translation scopes | `rails-kit locales` |
 | Understand a model's associations, scopes, validations | `rails-kit model` |
+| Inspect a large Ruby service/job/mailer/PORO without reading method bodies | `rails-kit skeleton` |
 | Check gem versions or find where a gem comes from | `rails-kit gem` |
 | List or inspect model/controller concerns | `rails-kit concerns` |
 
@@ -124,6 +126,22 @@ rails-kit gem nokogiri          # show nokogiri details
 ```
 
 Use this to quickly check what version of a gem is locked, where it comes from (rubygems, git, or local path), and what its declared dependencies are.
+
+---
+
+## rails-kit skeleton
+
+Compact Ruby AST skeleton via Prism. It shows class/module nesting, superclass names, constants, includes, Rails macros, generic DSL calls, method signatures, and line numbers while omitting method bodies and comments.
+
+```bash
+rails-kit skeleton user
+rails-kit skeleton app/services/user_export_service.rb
+rails-kit skeleton app/jobs/sync_user_job.rb
+```
+
+Use this before reading large non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `rails-kit model` is still the smaller Rails-specific summary for Active Record models.
+
+Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
 
 ---
 
