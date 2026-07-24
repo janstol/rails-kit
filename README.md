@@ -92,11 +92,20 @@ rails-kit routes --refresh      # force cache regeneration
 rails-kit routes --no-cache     # skip cache entirely (don't read or write)
 rails-kit routes --json         # all routes as JSON array
 rails-kit routes users --json   # filtered routes as JSON array
+rails-kit routes --static       # parse config/routes.rb directly, no Rails boot
 ```
 
 Routes are cached in `tmp/routes_cache.txt`. Cache is invalidated when `config/routes.rb` or any file in `config/routes/` changes. `--refresh` and `--no-cache` are mutually exclusive.
 
 `routes --json` parses the standard tabular `rails routes` output, skips leading boot noise before the header, and correctly handles rows with a blank route prefix. If Rails emits non-tabular output instead of the usual routes table, JSON output errors clearly instead of returning an ambiguous empty array.
+
+#### `--static`: offline routes without booting Rails
+
+`--static` parses `config/routes.rb` directly in pure Go — no `bundle exec`, no Rails boot. It's fast and works even when the app can't boot (wrong Ruby version, missing gems, a broken initializer). If the normal `routes` command fails because Rails won't boot, the error suggests `--static` as a fallback.
+
+This is an **approximation**, not a replacement for `rails routes`. It understands `resources`/`resource`, `namespace`, `root`, and individual verb routes (`get`/`post`/`put`/`patch`/`delete` with `to:`), including nesting and `only:`/`except:`. It does **not** understand engine mounts, `draw`/`concern` route macros, custom route helpers, constraints, or routes drawn by gems (e.g. Devise). Use it to get a quick answer for "what routes exist for X" when Rails can't boot or a fast answer is more valuable than a complete one — not as a source of truth for CI or production route audits.
+
+`--static` cannot be combined with `--refresh` or `--no-cache` (it never touches the cache).
 
 ### related
 

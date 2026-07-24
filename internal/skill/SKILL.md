@@ -56,9 +56,12 @@ Filtered `rails routes` output, cached in `tmp/routes_cache.txt`.
 rails-kit routes                    # all routes
 rails-kit routes users              # routes matching "users"
 rails-kit routes products orders    # routes matching either term
+rails-kit routes --static           # parse config/routes.rb directly, no Rails boot
 ```
 
 Use this to find path helpers, verify controller actions exist, or check what HTTP methods are available.
+
+`--static` skips `bundle exec rails routes` entirely and parses `config/routes.rb` in pure Go. Use it when Rails won't boot, or when a fast approximate answer beats a slow exact one. It only understands `resources`/`resource`, `namespace`, `root`, and verb routes — not engine mounts, `draw`/`concern` macros, or gem-drawn routes (Devise, etc.).
 
 ---
 
