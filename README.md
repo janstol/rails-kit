@@ -1,13 +1,13 @@
 # rails-kit
 
-A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading project structure. Most commands work without loading Rails; `routes` shells out to `bundle exec rails routes` and requires a working Rails environment.
+A compiled CLI toolkit for inspecting Rails projects. Most commands parse project files directly without loading Rails. The default `routes` mode runs `bundle exec rails routes`, while `routes --static` provides a fast, pure-Go approximation without booting Rails. The `skeleton` command uses Ruby and Prism but does not load the Rails application.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `rails-kit schema [table...]` | Extract table definitions from `db/schema.rb` or `db/structure.sql` |
-| `rails-kit routes [pattern...]` | Cached, filtered `rails routes` output |
+| `rails-kit routes [pattern...]` | Cached Rails routes or fast offline static parsing |
 | `rails-kit related <name>` | List all files related to a model |
 | `rails-kit fixtures [name]` | Summarize test fixture entries |
 | `rails-kit locales [scope]` | Extract locale keys by scope |
@@ -55,7 +55,7 @@ Run from anywhere inside a Rails project. `rails-kit` walks up from the current 
 rails-kit --root /path/to/rails/app schema users
 ```
 
-Add `--json` to any command to get machine-readable JSON output suitable for scripts, editor tooling, and AI/agent workflows.
+Most inspection commands support `--json` for machine-readable output suitable for scripts, editor tooling, and AI/agent workflows.
 
 JSON shapes:
 
@@ -103,7 +103,7 @@ Routes are cached in `tmp/routes_cache.txt`. Cache is invalidated when `config/r
 
 `--static` parses `config/routes.rb` directly in pure Go — no `bundle exec`, no Rails boot. It's fast and works even when the app can't boot (wrong Ruby version, missing gems, a broken initializer). If the normal `routes` command fails because Rails won't boot, the error suggests `--static` as a fallback.
 
-This is an **approximation**, not a replacement for `rails routes`. It understands `resources`/`resource`, `namespace`, `root`, and individual verb routes (`get`/`post`/`put`/`patch`/`delete` with `to:`), including nesting, `member`/`collection` blocks, and array or scalar `only:`/`except:` options. It does **not** understand engine mounts, `draw`/`concern` route macros, custom route helpers, constraints, or routes drawn by gems (e.g. Devise). Unsupported or partially modeled route DSL is reported as a warning on stderr while successfully parsed routes remain on stdout, including in JSON mode. Use it to get a quick answer for "what routes exist for X" when Rails can't boot or a fast answer is more valuable than a complete one — not as a source of truth for CI or production route audits.
+This is an **approximation**, not a replacement for `rails routes`. It understands `resources`/`resource`, `namespace`, `scope module:`, `root`, and individual verb routes (`get`/`post`/`put`/`patch`/`delete`), including nesting, `member`/`collection` blocks, explicit or inferred controller actions and helper names, resource `path`/`controller`/`as`/`param` options, and scalar, array, `%i[...]`, or `%w[...]` action filters. It does **not** expand engine mounts, `draw`/`concern` macros, redirects, or routes drawn by gems (e.g. Devise). Constraints are retained as approximate routes and produce warnings because the condition is not modeled. Unsupported or partially modeled route DSL is reported as a warning on stderr while successfully parsed routes remain on stdout, including in JSON mode. Use it to get a quick answer for "what routes exist for X" when Rails can't boot or a fast answer is more valuable than a complete one — not as a source of truth for CI or production route audits.
 
 `--static` cannot be combined with `--refresh` or `--no-cache` (it never touches the cache).
 

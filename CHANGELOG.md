@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- `routes --static` now handles member and collection path contexts correctly, accepts scalar as well as array `only:`/`except:` options, and reports unsupported syntax as line-specific stderr warnings without changing JSON stdout.
+- `routes --static` now uses Rails-style `:id` member parameters; supports scalar, array, `%i[...]`, and `%w[...]` action filters (including empty filters); models resource `path`, `controller`, `as`, and `param` options; infers symbolic verb routes, controllers, actions, and helper names; and understands module scopes. Constraints remain approximate and produce line-specific warnings without changing JSON stdout.
 - Routes cache and metadata files are written through same-directory temporary files and atomically renamed, preventing interrupted writes from publishing partial cache contents.
 
 ## [0.2.0] - 2026-04-26

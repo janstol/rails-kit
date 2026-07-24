@@ -5,7 +5,7 @@ allowed-tools: Bash(rails-kit *)
 model: haiku
 ---
 
-`rails-kit` is a compiled Go binary for reading the codebase without loading Rails or large files. It is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
+`rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
 **`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
 - `schema` (no args) → `[]string`; with table args → object keyed by table name
@@ -23,7 +23,7 @@ model: haiku
 | Need | Tool |
 |------|------|
 | Check what tables exist or inspect a table's columns | `rails-kit schema` |
-| Find a route URL or verify a controller action exists | `rails-kit routes` |
+| Find a route URL or identify its routed controller action | `rails-kit routes` |
 | Find all files related to a model before starting work | `rails-kit related` |
 | Inspect test fixtures for a model | `rails-kit fixtures` |
 | Look up a locale key or browse translation scopes | `rails-kit locales` |
@@ -50,7 +50,7 @@ Use this before reading a model file when you need to know column names and type
 
 ## rails-kit routes
 
-Filtered `rails routes` output, cached in `tmp/routes_cache.txt`.
+By default, runs and filters `bundle exec rails routes`, caching the output in `tmp/routes_cache.txt`. Use `--static` for fast offline parsing without booting Rails.
 
 ```bash
 rails-kit routes                    # all routes
@@ -61,7 +61,7 @@ rails-kit routes --static           # parse config/routes.rb directly, no Rails 
 
 Use this to find path helpers, verify controller actions exist, or check what HTTP methods are available.
 
-`--static` skips `bundle exec rails routes` entirely and parses `config/routes.rb` in pure Go. Use it when Rails won't boot, or when a fast approximate answer beats a slow exact one. It only understands `resources`/`resource`, `namespace`, `root`, and verb routes — not engine mounts, `draw`/`concern` macros, or gem-drawn routes (Devise, etc.).
+`--static` skips `bundle exec rails routes` entirely and parses `config/routes.rb` in pure Go. Use it when Rails won't boot, or when a fast approximate answer beats a slow exact one. It understands `resources`/`resource`, `namespace`, `scope module:`, `root`, and verb routes, including nesting, `member`/`collection` blocks, inferred or explicit controller actions and helper names, resource `path`/`controller`/`as`/`param` options, and scalar, array, `%i[...]`, or `%w[...]` action filters. It does not expand engine mounts, `draw`/`concern` macros, redirects, or gem-drawn routes. Constraints are retained as approximate routes and produce warnings because their conditions are not modeled.
 
 ---
 
@@ -148,7 +148,7 @@ rails-kit skeleton app --exclude 'app/generated/**' --exclude '**/*_generated.rb
 
 Use this before reading large non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `rails-kit model` is still the smaller Rails-specific summary for Active Record models.
 
-Accepts multiple model names, Ruby paths, directories, and quoted glob patterns, processing all resolved files in one Ruby invocation. Directories are recursive; repeatable Rails-root-relative `--exclude` patterns support `**` and apply to directory discovery. Unmatched globs, empty directories, invalid inputs, and batches over 500 unique files fail before output. Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
+Accepts multiple model names, Ruby paths, directories, and quoted glob patterns, processing all resolved files in one Ruby invocation. Directories are recursive; repeatable Rails-root-relative `--exclude` patterns support `**` and apply to directory discovery. Unmatched globs, empty directories, invalid inputs, and batches over 500 unique files fail before output. Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism, although the default `routes` mode still requires Ruby, Bundler, and a bootable Rails application.
 
 ---
 

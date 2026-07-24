@@ -58,11 +58,11 @@ end
 		{"GET", "index", "/users"},
 		{"POST", "create", "/users"},
 		{"GET", "new", "/users/new"},
-		{"GET", "edit", "/users/:user_id/edit"},
-		{"GET", "show", "/users/:user_id"},
-		{"PATCH", "update", "/users/:user_id"},
-		{"PUT", "update", "/users/:user_id"},
-		{"DELETE", "destroy", "/users/:user_id"},
+		{"GET", "edit", "/users/:id/edit"},
+		{"GET", "show", "/users/:id"},
+		{"PATCH", "update", "/users/:id"},
+		{"PUT", "update", "/users/:id"},
+		{"DELETE", "destroy", "/users/:id"},
 	}
 
 	if len(entries) != len(wantActions) {
@@ -386,17 +386,14 @@ end
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Entries) != 1 {
-		t.Fatalf("got %d supported entries, want 1: %#v", len(result.Entries), result.Entries)
+	if len(result.Entries) != 2 {
+		t.Fatalf("got %d supported entries, want 2: %#v", len(result.Entries), result.Entries)
 	}
-	if len(result.Warnings) != 3 {
-		t.Fatalf("got %d warnings, want 3: %#v", len(result.Warnings), result.Warnings)
+	if len(result.Warnings) != 1 {
+		t.Fatalf("got %d warnings, want 1: %#v", len(result.Warnings), result.Warnings)
 	}
-	wantLines := []int{3, 4, 5}
-	for i, warning := range result.Warnings {
-		if warning.Line != wantLines[i] || warning.Message == "" {
-			t.Errorf("warning %d = %#v, want line %d with a message", i, warning, wantLines[i])
-		}
+	if result.Warnings[0].Line != 4 || !strings.Contains(result.Warnings[0].Message, "unsupported route DSL") {
+		t.Errorf("unexpected warning: %#v", result.Warnings[0])
 	}
 }
 
@@ -444,11 +441,11 @@ end
 		t.Fatal(err)
 	}
 
-	// Nested path param should use proper singular "address", not naive "addresse"
+	// Standard member routes use Rails' default :id parameter.
 	for _, e := range entries {
 		if splitCA(e.ControllerAction)[0] == "addresses" && e.URIPattern != "/addresses" && e.URIPattern != "/addresses/new" {
-			if !hasPrefix(e.URIPattern, "/addresses/:address_id") {
-				t.Errorf("expected :address_id param, got path %q", e.URIPattern)
+			if !hasPrefix(e.URIPattern, "/addresses/:id") {
+				t.Errorf("expected :id param, got path %q", e.URIPattern)
 			}
 		}
 	}
@@ -534,5 +531,188 @@ end
 		if ctrl == "users" && !hasPrefix(e.URIPattern, "/admin/users") {
 			t.Errorf("users route should be under /admin/users, got path %q", e.URIPattern)
 		}
+	}
+}
+
+func TestParseStatic_ResourceActionFilterForms(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: %i[index show]
+  resources :posts, only: []
+  resources :comments, except: %w[destroy update]
+  resources :tags, :only => :index
+end
+`)
+	entries, err := routes.ParseStatic(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	counts := map[string]int{}
+	actions := map[string]map[string]bool{}
+	for _, entry := range entries {
+		controller, action := splitCA(entry.ControllerAction)[0], splitCA(entry.ControllerAction)[1]
+		counts[controller]++
+		if actions[controller] == nil {
+			actions[controller] = map[string]bool{}
+		}
+		actions[controller][action] = true
+	}
+	if counts["users"] != 2 || !actions["users"]["index"] || !actions["users"]["show"] {
+		t.Errorf("unexpected user routes: %#v", actions["users"])
+	}
+	if counts["posts"] != 0 {
+		t.Errorf("only: [] produced post routes: %#v", actions["posts"])
+	}
+	if counts["comments"] != 5 || actions["comments"]["destroy"] || actions["comments"]["update"] {
+		t.Errorf("unexpected comment routes: %#v", actions["comments"])
+	}
+	if counts["tags"] != 1 || !actions["tags"]["index"] {
+		t.Errorf("unexpected tag routes: %#v", actions["tags"])
+	}
+}
+
+func TestParseStatic_ResourceOptionsAndNestedParameters(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    resources :users, only: [:show], path: "people", controller: "accounts", as: :members, param: :uuid do
+      resources :posts, only: :index
+    end
+  end
+end
+`)
+	entries, err := routes.ParseStatic(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("got %d routes, want 2: %#v", len(entries), entries)
+	}
+	var parent, child *routes.RouteEntry
+	for i := range entries {
+		switch splitCA(entries[i].ControllerAction)[0] {
+		case "admin/accounts":
+			parent = &entries[i]
+		case "admin/posts":
+			child = &entries[i]
+		}
+	}
+	if parent == nil || parent.URIPattern != "/admin/people/:uuid" || parent.Prefix != "admin_member" {
+		t.Errorf("unexpected parent route: %#v", parent)
+	}
+	if child == nil || child.URIPattern != "/admin/people/:user_uuid/posts" || child.Prefix != "admin_member_posts" {
+		t.Errorf("unexpected child route: %#v", child)
+	}
+}
+
+func TestParseStatic_SymbolicResourceRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: [] do
+    get :search, on: :collection
+    patch :archive, on: :member
+    get :preview
+    member do
+      post :publish
+    end
+    collection do
+      get :lookup, controller: "directory", action: :find, as: :find_users
+    end
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+	want := map[string]struct {
+		verb, path, controller, helper string
+	}{
+		"search":  {"GET", "/users/search", "users", "search_users"},
+		"archive": {"PATCH", "/users/:id/archive", "users", "archive_user"},
+		"preview": {"GET", "/users/:user_id/preview", "users", "user_preview"},
+		"publish": {"POST", "/users/:id/publish", "users", "publish_user"},
+		"find":    {"GET", "/users/lookup", "directory", "user_find_users"},
+	}
+	if len(result.Entries) != len(want) {
+		t.Fatalf("got %d routes, want %d: %#v", len(result.Entries), len(want), result.Entries)
+	}
+	for _, entry := range result.Entries {
+		action := splitCA(entry.ControllerAction)[1]
+		expected, ok := want[action]
+		if !ok {
+			t.Errorf("unexpected route: %#v", entry)
+			continue
+		}
+		if entry.Verb != expected.verb || entry.URIPattern != expected.path ||
+			splitCA(entry.ControllerAction)[0] != expected.controller || entry.Prefix != expected.helper {
+			t.Errorf("%s route = %#v, want %#v", action, entry, expected)
+		}
+	}
+}
+
+func TestParseStatic_HashRocketAndInferredRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "users/profile"
+  get "health", to: "health#show", as: :health
+  patch "users/:id" => "users#update", :as => "update_user", constraints: { id: /\d+/ }
+  get "legacy" => redirect("/new")
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 {
+		t.Fatalf("got %d routes, want 3: %#v", len(result.Entries), result.Entries)
+	}
+	want := map[string]routes.RouteEntry{
+		"profile": {Prefix: "profile", Verb: "GET", URIPattern: "/users/profile", ControllerAction: "users#profile"},
+		"show":    {Prefix: "health", Verb: "GET", URIPattern: "/health", ControllerAction: "health#show"},
+		"update":  {Prefix: "update_user", Verb: "PATCH", URIPattern: "/users/:id", ControllerAction: "users#update"},
+	}
+	for _, entry := range result.Entries {
+		action := splitCA(entry.ControllerAction)[1]
+		if entry != want[action] {
+			t.Errorf("%s route = %#v, want %#v", action, entry, want[action])
+		}
+	}
+	if len(result.Warnings) != 2 ||
+		!strings.Contains(result.Warnings[0].Message, "constraints") ||
+		!strings.Contains(result.Warnings[1].Message, "dynamic") {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+}
+
+func TestParseStatic_ScopeModule(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    scope module: :reports, as: "reports" do
+      resources :users, only: %i[index]
+    end
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+	if len(result.Entries) != 1 {
+		t.Fatalf("got %d routes, want 1: %#v", len(result.Entries), result.Entries)
+	}
+	entry := result.Entries[0]
+	if entry.URIPattern != "/admin/users" ||
+		entry.ControllerAction != "admin/reports/users#index" ||
+		entry.Prefix != "admin_reports_users" {
+		t.Fatalf("unexpected scoped route: %#v", entry)
 	}
 }

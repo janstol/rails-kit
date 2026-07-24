@@ -31,10 +31,11 @@ The cache is stored in tmp/routes_cache.txt and is invalidated when
 --static parses config/routes.rb directly in pure Go, without booting
 Rails or shelling out to bundler. It's fast and works even when the app
 can't boot, but it's an approximation: it understands resources/resource,
-namespace, root, member/collection blocks, action filters, and verb routes,
-but not engine mounts, draw/concern macros, custom route helpers, constraints,
-or routes drawn by gems (e.g. Devise). Unsupported syntax produces warnings
-on stderr. Use it for a quick answer, not as a replacement for "rails routes".`,
+resource path/controller/helper/parameter options, namespace and module scopes,
+root, member/collection blocks, action filters, and verb routes. It does not
+expand engine mounts, draw/concern macros, redirects, or routes drawn by gems.
+Constraints are retained as approximate routes and produce warnings. Use it
+for a quick answer, not as a replacement for "rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
