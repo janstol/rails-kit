@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,7 +178,7 @@ func TestResolveSkeletonPathsRejectsInvalidInputs(t *testing.T) {
 	}{
 		{name: "unmatched glob", input: "app/jobs/*.rb", want: "matched no files"},
 		{name: "invalid glob", input: "app/services/[.rb", want: "invalid skeleton glob"},
-		{name: "directory", input: "app/services/directory.rb", want: "regular Ruby files"},
+		{name: "empty directory", input: "app/services/directory.rb", want: "contains no Ruby files"},
 		{name: "escaping symlink", input: "app/services/outside.rb", want: "outside Rails root"},
 	}
 	for _, tt := range tests {
@@ -187,6 +188,169 @@ func TestResolveSkeletonPathsRejectsInvalidInputs(t *testing.T) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestResolveSkeletonDirectoryRecursesInLexicalOrder(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "beta.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "alpha.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "notes.txt"), "")
+
+	inputs, err := resolveSkeletonPaths(root, config.Defaults(), []string{
+		"app/services",
+		"app/services/admin/alpha.rb",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, len(inputs))
+	for i, input := range inputs {
+		got[i] = input.relPath
+	}
+	want := []string{
+		"app/services/admin/alpha.rb",
+		"app/services/admin/beta.rb",
+		"app/services/zeta.rb",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("resolved paths:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestResolveSkeletonDirectoryAppliesExcludes(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "old_generated.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "generated", "one.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "generated", "nested", "two.rb"), "")
+
+	inputs, err := resolveSkeletonPathsWithExcludes(
+		root,
+		config.Defaults(),
+		[]string{"app/services"},
+		[]string{"app/services/generated/**", "**/*_generated.rb"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 1 || inputs[0].relPath != "app/services/keep.rb" {
+		t.Fatalf("unexpected files after exclusions: %#v", inputs)
+	}
+
+	explicit, err := resolveSkeletonPathsWithExcludes(
+		root,
+		config.Defaults(),
+		[]string{"app/services/old_generated.rb", "app/services/generated/*.rb"},
+		[]string{"**"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(explicit) != 2 {
+		t.Fatalf("directory exclusions affected explicit inputs: %#v", explicit)
+	}
+}
+
+func TestSkeletonExcludeMatching(t *testing.T) {
+	tests := []struct {
+		pattern string
+		value   string
+		want    bool
+	}{
+		{pattern: "app/services/generated/**", value: "app/services/generated", want: true},
+		{pattern: "app/services/generated/**", value: "app/services/generated/nested/file.rb", want: true},
+		{pattern: "**/generated/**", value: "generated/file.rb", want: true},
+		{pattern: "**/generated/**", value: "app/services/generated/nested/file.rb", want: true},
+		{pattern: "**/*_generated.rb", value: "app/services/old_generated.rb", want: true},
+		{pattern: "app/?obs/[a-z]*.rb", value: "app/jobs/sync.rb", want: true},
+		{pattern: "app/services/*.rb", value: "app/services/nested/file.rb", want: false},
+	}
+	for _, tt := range tests {
+		if got := matchSkeletonPath(tt.pattern, tt.value); got != tt.want {
+			t.Errorf("matchSkeletonPath(%q, %q) = %v, want %v", tt.pattern, tt.value, got, tt.want)
+		}
+	}
+}
+
+func TestResolveSkeletonPathsRejectsInvalidExcludes(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	tests := []string{"", "/app/services/**", "../outside/**", "app/services/[bad"}
+	for _, pattern := range tests {
+		t.Run(pattern, func(t *testing.T) {
+			_, err := resolveSkeletonPathsWithExcludes(
+				root,
+				config.Defaults(),
+				[]string{"app/services"},
+				[]string{pattern},
+			)
+			if err == nil {
+				t.Fatalf("expected exclude %q to fail", pattern)
+			}
+		})
+	}
+}
+
+func TestResolveSkeletonDirectorySymlinks(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "shared", "hidden.rb"), "")
+	mustWriteCmdFile(t, filepath.Join(outside, "outside.rb"), "")
+	if err := os.Symlink(
+		filepath.Join(root, "app", "shared"),
+		filepath.Join(root, "app", "services", "linked_directory"),
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	inputs, err := resolveSkeletonPaths(root, config.Defaults(), []string{"app/services"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 1 || inputs[0].relPath != "app/services/keep.rb" {
+		t.Fatalf("directory symlink was followed: %#v", inputs)
+	}
+
+	_, err = resolveSkeletonPaths(root, config.Defaults(), []string{"app/services/linked_directory"})
+	if err == nil || !strings.Contains(err.Error(), "does not follow directory symlinks") {
+		t.Fatalf("unexpected explicit directory symlink error: %v", err)
+	}
+	_, err = resolveSkeletonPaths(root, config.Defaults(), []string{outside})
+	if err == nil || !strings.Contains(err.Error(), "outside Rails root") {
+		t.Fatalf("unexpected outside directory error: %v", err)
+	}
+}
+
+func TestResolveSkeletonDirectoryFileLimit(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	for i := 0; i <= maxSkeletonFiles; i++ {
+		name := fmt.Sprintf("%03d.rb", i)
+		mustWriteCmdFile(t, filepath.Join(root, "bulk", name), "")
+	}
+
+	_, err := resolveSkeletonPaths(root, config.Defaults(), []string{"bulk"})
+	if err == nil || !strings.Contains(err.Error(), "more than 500 unique files") {
+		t.Fatalf("unexpected limit error: %v", err)
+	}
+	inputs, err := resolveSkeletonPathsWithExcludes(
+		root,
+		config.Defaults(),
+		[]string{"bulk"},
+		[]string{"bulk/500.rb"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != maxSkeletonFiles {
+		t.Fatalf("resolved %d files, want %d", len(inputs), maxSkeletonFiles)
 	}
 }
 
@@ -213,7 +377,7 @@ printf '{"files":[{"path":"alpha.rb"},{"path":"zeta.rb"}]}'
 	prismRunner = prism.Runner{Ruby: ruby}
 	t.Cleanup(func() { prismRunner = prevRunner })
 
-	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/services/*.rb"})
+	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
@@ -274,7 +438,7 @@ printf '{"files":[{"classes":[{"name":"Alpha"}]},{"classes":[{"name":"Zeta"}]}]}
 	prismRunner = prism.Runner{Ruby: ruby}
 	t.Cleanup(func() { prismRunner = prevRunner })
 
-	out, errOut, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services/*.rb"})
+	out, errOut, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
@@ -295,6 +459,7 @@ func TestSkeletonCommandSingleMatchGlobKeepsObjectJSON(t *testing.T) {
 	bin := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "sync_job.rb"), "class SyncJob\nend\n")
+	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "ignored_job.rb"), "class IgnoredJob\nend\n")
 	ruby := filepath.Join(bin, "ruby")
 	mustWriteCmdFile(t, ruby, `#!/bin/sh
 cat >/dev/null
@@ -304,10 +469,15 @@ printf '{"files":[{"classes":[{"name":"SyncJob"}]}]}'
 		t.Fatal(err)
 	}
 	prevRunner := prismRunner
+	prevExcludes := skeletonExcludes
 	prismRunner = prism.Runner{Ruby: ruby}
-	t.Cleanup(func() { prismRunner = prevRunner })
+	skeletonExcludes = []string{"app/jobs/ignored*"}
+	t.Cleanup(func() {
+		prismRunner = prevRunner
+		skeletonExcludes = prevExcludes
+	})
 
-	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/jobs/*.rb"})
+	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/jobs"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}

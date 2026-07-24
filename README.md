@@ -206,11 +206,17 @@ rails-kit skeleton app/jobs/sync_user_job.rb
 rails-kit skeleton lib/custom_importer.rb --json
 rails-kit skeleton user app/services/user_export_service.rb
 rails-kit skeleton 'app/jobs/*.rb' --json       # rails-kit expands quoted globs
+rails-kit skeleton app/services                 # recursively inspect Ruby files
+rails-kit skeleton app --exclude 'app/generated/**' --exclude '**/*_generated.rb'
 ```
 
 Shows a compact AST-backed structure for Ruby files without evaluating Ruby or loading Rails. Output includes class/module nesting, superclass names, constants, includes/extends/prepends, Rails macros, generic top-level DSL calls, method signatures, and source line numbers. Method bodies and comments are omitted.
 
-Multiple model names, Ruby paths, and glob patterns can be combined. Relative globs are expanded from the Rails root, matches are sorted, and duplicate files are inspected once. All inputs are validated before Ruby starts; an invalid input or unmatched glob fails the command without partial output. Directory recursion is not supported.
+Multiple model names, Ruby paths, directories, and glob patterns can be combined. Relative globs are expanded from the Rails root, directory files are discovered recursively in lexical order, and duplicate files are inspected once. Directory traversal does not follow directory symlinks.
+
+Repeat `--exclude` with Rails-root-relative patterns to prune directory discovery. Patterns support `*`, `?`, character classes, and `**` across directories. Exclusions do not affect explicitly named files, models, or standalone glob matches, and there are no implicit ignored directories. At most 500 unique files can be inspected in one command.
+
+All inputs are validated before Ruby starts; an invalid input, empty directory, unmatched glob, or oversized batch fails the command without partial output.
 
 The command processes all resolved files in one Ruby invocation and requires the `prism` library. Prism is bundled with modern CRuby releases; older projects may need the `prism` gem available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other `rails-kit` commands do not require Prism.
 

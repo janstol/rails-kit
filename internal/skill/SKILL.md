@@ -142,11 +142,13 @@ rails-kit skeleton app/services/user_export_service.rb
 rails-kit skeleton app/jobs/sync_user_job.rb
 rails-kit skeleton user app/services/user_export_service.rb
 rails-kit skeleton 'app/jobs/*.rb' --json
+rails-kit skeleton app/services
+rails-kit skeleton app --exclude 'app/generated/**' --exclude '**/*_generated.rb'
 ```
 
 Use this before reading large non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `rails-kit model` is still the smaller Rails-specific summary for Active Record models.
 
-Accepts multiple model names, Ruby paths, and quoted glob patterns, processing all resolved files in one Ruby invocation. Relative globs start at the Rails root; unmatched globs and invalid inputs fail before output. Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
+Accepts multiple model names, Ruby paths, directories, and quoted glob patterns, processing all resolved files in one Ruby invocation. Directories are recursive; repeatable Rails-root-relative `--exclude` patterns support `**` and apply to directory discovery. Unmatched globs, empty directories, invalid inputs, and batches over 500 unique files fail before output. Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
 
 ---
 

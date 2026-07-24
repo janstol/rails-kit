@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,6 +17,9 @@ import (
 )
 
 var prismRunner = prism.Runner{}
+var skeletonExcludes []string
+
+const maxSkeletonFiles = 500
 
 type skeletonInput struct {
 	path    string
@@ -28,8 +32,10 @@ var skeletonCmd = &cobra.Command{
 	Long: `Show compact structural skeletons for Ruby files using Prism.
 
 Inputs can be Rails-root-relative .rb paths, absolute .rb paths under the
-Rails root, model names resolvable from the configured models path, or glob
-patterns. Quote globs to have rails-kit expand them from the Rails root.
+Rails root, model names, directories, or glob patterns. Directories are
+searched recursively. Quote globs to have rails-kit expand them from the
+Rails root. Use repeatable --exclude patterns to prune directory discovery;
+at most 500 unique files may be inspected at once.
 
 The command shells out to Ruby and requires Prism to be available. Existing
 rails-kit commands do not require Prism.`,
@@ -40,7 +46,7 @@ rails-kit commands do not require Prism.`,
 			return err
 		}
 
-		inputs, err := resolveSkeletonPaths(root, cfg, args)
+		inputs, err := resolveSkeletonPathsWithExcludes(root, cfg, args, skeletonExcludes)
 		if err != nil {
 			return err
 		}
@@ -86,6 +92,7 @@ rails-kit commands do not require Prism.`,
 
 func init() {
 	rootCmd.AddCommand(skeletonCmd)
+	skeletonCmd.Flags().StringArrayVar(&skeletonExcludes, "exclude", nil, "Exclude a Rails-root-relative glob from directory discovery (repeatable)")
 }
 
 func skeletonTimeout(fileCount int) time.Duration {
@@ -105,10 +112,18 @@ func skeletonTimeout(fileCount int) time.Duration {
 }
 
 func resolveSkeletonPaths(root string, cfg config.Config, inputs []string) ([]skeletonInput, error) {
+	return resolveSkeletonPathsWithExcludes(root, cfg, inputs, nil)
+}
+
+func resolveSkeletonPathsWithExcludes(root string, cfg config.Config, inputs, excludes []string) ([]skeletonInput, error) {
+	normalizedExcludes, err := validateSkeletonExcludes(excludes)
+	if err != nil {
+		return nil, err
+	}
 	var resolved []skeletonInput
 	seen := make(map[string]bool)
 	for _, input := range inputs {
-		expanded, err := expandSkeletonInput(root, cfg, input)
+		expanded, err := expandSkeletonInput(root, cfg, input, normalizedExcludes)
 		if err != nil {
 			return nil, err
 		}
@@ -126,13 +141,21 @@ func resolveSkeletonPaths(root string, cfg config.Config, inputs []string) ([]sk
 			}
 			seen[canonical] = true
 			resolved = append(resolved, item)
+			if len(resolved) > maxSkeletonFiles {
+				return nil, fmt.Errorf("skeleton resolved more than %d unique files; narrow the inputs or add --exclude", maxSkeletonFiles)
+			}
 		}
 	}
 	return resolved, nil
 }
 
-func expandSkeletonInput(root string, cfg config.Config, input string) ([]skeletonInput, error) {
+func expandSkeletonInput(root string, cfg config.Config, input string, excludes []string) ([]skeletonInput, error) {
 	if !strings.ContainsAny(input, "*?[") {
+		if directory, isDirectory, err := skeletonDirectoryCandidate(root, input); err != nil {
+			return nil, err
+		} else if isDirectory {
+			return expandSkeletonDirectory(root, input, directory, excludes)
+		}
 		path, relPath, err := resolveSkeletonPath(root, cfg, input)
 		if err != nil {
 			return nil, err
@@ -160,6 +183,165 @@ func expandSkeletonInput(root string, cfg config.Config, input string) ([]skelet
 		resolved = append(resolved, skeletonInput{path: path, relPath: relPath})
 	}
 	return resolved, nil
+}
+
+func skeletonDirectoryCandidate(root, input string) (string, bool, error) {
+	candidate := input
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(root, candidate)
+	}
+	absPath, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", false, fmt.Errorf("resolving directory: %w", err)
+	}
+	info, err := os.Lstat(absPath)
+	if os.IsNotExist(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("checking skeleton input %s: %w", input, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		targetInfo, statErr := os.Stat(absPath)
+		if statErr == nil && targetInfo.IsDir() {
+			return "", false, fmt.Errorf("skeleton does not follow directory symlinks: %s", input)
+		}
+		return "", false, nil
+	}
+	return absPath, info.IsDir(), nil
+}
+
+func expandSkeletonDirectory(root, original, directory string, excludes []string) ([]skeletonInput, error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolving Rails root: %w", err)
+	}
+	rel, err := filepath.Rel(absRoot, directory)
+	if err != nil || pathOutsideRoot(rel) {
+		return nil, fmt.Errorf("directory is outside Rails root: %s", original)
+	}
+	actualRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolving Rails root: %w", err)
+	}
+	actualDirectory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return nil, fmt.Errorf("resolving directory: %w", err)
+	}
+	actualRel, err := filepath.Rel(actualRoot, actualDirectory)
+	if err != nil || pathOutsideRoot(actualRel) {
+		return nil, fmt.Errorf("directory is outside Rails root: %s", original)
+	}
+
+	var resolved []skeletonInput
+	err = filepath.WalkDir(directory, func(candidate string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		candidateRel, relErr := filepath.Rel(absRoot, candidate)
+		if relErr != nil {
+			return relErr
+		}
+		normalizedRel := filepath.ToSlash(candidateRel)
+		if candidate != directory && entry.IsDir() && matchesAnySkeletonExclude(normalizedRel, excludes) {
+			return filepath.SkipDir
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			if targetInfo, statErr := os.Stat(candidate); statErr == nil && targetInfo.IsDir() {
+				return nil
+			}
+		}
+		if entry.IsDir() || filepath.Ext(candidate) != ".rb" {
+			return nil
+		}
+		if matchesAnySkeletonExclude(normalizedRel, excludes) {
+			return nil
+		}
+		filePath, relPath, resolveErr := resolveRubyPath(root, candidate)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		resolved = append(resolved, skeletonInput{path: filePath, relPath: relPath})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walking skeleton directory %s: %w", original, err)
+	}
+	if len(resolved) == 0 {
+		return nil, fmt.Errorf("skeleton directory %q contains no Ruby files after exclusions", original)
+	}
+	return resolved, nil
+}
+
+func validateSkeletonExcludes(patterns []string) ([]string, error) {
+	normalized := make([]string, len(patterns))
+	for i, pattern := range patterns {
+		pattern = filepath.ToSlash(strings.TrimSpace(pattern))
+		if pattern == "" {
+			return nil, fmt.Errorf("skeleton exclude pattern cannot be empty")
+		}
+		if filepath.IsAbs(patterns[i]) || path.IsAbs(pattern) {
+			return nil, fmt.Errorf("skeleton exclude pattern must be Rails-root-relative: %q", patterns[i])
+		}
+		segments := strings.Split(pattern, "/")
+		for _, segment := range segments {
+			if segment == ".." {
+				return nil, fmt.Errorf("skeleton exclude pattern cannot traverse outside the Rails root: %q", patterns[i])
+			}
+			if segment == "**" {
+				continue
+			}
+			if _, err := path.Match(segment, ""); err != nil {
+				return nil, fmt.Errorf("invalid skeleton exclude pattern %q: %w", patterns[i], err)
+			}
+		}
+		normalized[i] = strings.TrimPrefix(path.Clean(pattern), "./")
+	}
+	return normalized, nil
+}
+
+func matchesAnySkeletonExclude(rel string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if matchSkeletonPath(pattern, rel) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchSkeletonPath(pattern, rel string) bool {
+	patternSegments := strings.Split(pattern, "/")
+	valueSegments := strings.Split(filepath.ToSlash(rel), "/")
+	type state struct{ pattern, value int }
+	memo := make(map[state]bool)
+	visited := make(map[state]bool)
+	var match func(int, int) bool
+	match = func(patternIndex, valueIndex int) bool {
+		key := state{pattern: patternIndex, value: valueIndex}
+		if visited[key] {
+			return memo[key]
+		}
+		visited[key] = true
+
+		var result bool
+		switch {
+		case patternIndex == len(patternSegments):
+			result = valueIndex == len(valueSegments)
+		case patternSegments[patternIndex] == "**":
+			result = match(patternIndex+1, valueIndex) ||
+				(valueIndex < len(valueSegments) && match(patternIndex, valueIndex+1))
+		case valueIndex < len(valueSegments):
+			segmentMatch, err := path.Match(patternSegments[patternIndex], valueSegments[valueIndex])
+			result = err == nil && segmentMatch && match(patternIndex+1, valueIndex+1)
+		}
+		memo[key] = result
+		return result
+	}
+	return match(0, 0)
+}
+
+func pathOutsideRoot(rel string) bool {
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func resolveSkeletonPath(root string, cfg config.Config, input string) (string, string, error) {
