@@ -1,6 +1,7 @@
 .claude/plans
 rails-kit
 dist/
+tmp/
 coverage.out
 *.out
 *.test
