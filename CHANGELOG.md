@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no engine mounts, `draw`/`concern` macros, custom route helpers, constraints, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
+- `skeleton` accepts multiple model names, Ruby paths, and glob patterns, validates and deduplicates them, and parses the resulting files in one Prism process. Single-file JSON remains an object; multi-file JSON is an ordered array.
 
 ### Changed
 

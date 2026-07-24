@@ -12,7 +12,7 @@ A compiled CLI toolkit for Rails projects. Fast, single-binary tools for reading
 | `rails-kit fixtures [name]` | Summarize test fixture entries |
 | `rails-kit locales [scope]` | Extract locale keys by scope |
 | `rails-kit model <name>` | Compact model structure summary |
-| `rails-kit skeleton <path-or-model>` | Compact Ruby AST skeleton via Prism |
+| `rails-kit skeleton <path-or-model> [...]` | Compact Ruby AST skeletons via Prism |
 | `rails-kit gem [name]` | Inspect gems from `Gemfile.lock` |
 | `rails-kit concerns [name]` | List or inspect Rails concerns |
 | `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code skill |
@@ -66,7 +66,7 @@ JSON shapes:
 - `fixtures` with no name returns `[]string`; with a name returns `{ file, entries }`
 - `locales` with no scope returns `[]string`; with a scope returns `{ scope, value }`
 - `gem` with no name returns `[{ name, version }]`; with a name returns `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
-- `skeleton` returns `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }`
+- `skeleton` returns `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }` for one resolved file, or an array of those objects for multiple files
 - `concerns` with no name returns `{ model_concerns, controller_concerns }`; with a name returns `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
 - `version` returns `{ version, commit, build_date }`
 
@@ -204,11 +204,15 @@ rails-kit skeleton user                         # Prism skeleton for app/models/
 rails-kit skeleton app/services/user_export_service.rb
 rails-kit skeleton app/jobs/sync_user_job.rb
 rails-kit skeleton lib/custom_importer.rb --json
+rails-kit skeleton user app/services/user_export_service.rb
+rails-kit skeleton 'app/jobs/*.rb' --json       # rails-kit expands quoted globs
 ```
 
 Shows a compact AST-backed structure for Ruby files without evaluating Ruby or loading Rails. Output includes class/module nesting, superclass names, constants, includes/extends/prepends, Rails macros, generic top-level DSL calls, method signatures, and source line numbers. Method bodies and comments are omitted.
 
-The command shells out to Ruby and requires the `prism` library. Prism is bundled with modern CRuby releases; older projects may need the `prism` gem available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other `rails-kit` commands do not require Prism.
+Multiple model names, Ruby paths, and glob patterns can be combined. Relative globs are expanded from the Rails root, matches are sorted, and duplicate files are inspected once. All inputs are validated before Ruby starts; an invalid input or unmatched glob fails the command without partial output. Directory recursion is not supported.
+
+The command processes all resolved files in one Ruby invocation and requires the `prism` library. Prism is bundled with modern CRuby releases; older projects may need the `prism` gem available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other `rails-kit` commands do not require Prism.
 
 Use `skeleton` for larger non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `model` remains the smaller Rails-specific summary for Active Record models.
 

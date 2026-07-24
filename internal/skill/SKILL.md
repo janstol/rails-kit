@@ -12,7 +12,7 @@ model: haiku
 - `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` → `{ model, plural, categories }`
 - `model` → `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
-- `skeleton` → `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }`
+- `skeleton` → one `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }` object, or an array for multiple resolved files
 - `fixtures` (no args) → `[]string`; with name → `{ file, entries }`
 - `locales` (no args) → `[]string`; with scope → `{ scope, value }`
 - `gem` (no args) → `[{ name, version }]`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
@@ -140,11 +140,13 @@ Compact Ruby AST skeleton via Prism. It shows class/module nesting, superclass n
 rails-kit skeleton user
 rails-kit skeleton app/services/user_export_service.rb
 rails-kit skeleton app/jobs/sync_user_job.rb
+rails-kit skeleton user app/services/user_export_service.rb
+rails-kit skeleton 'app/jobs/*.rb' --json
 ```
 
 Use this before reading large non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `rails-kit model` is still the smaller Rails-specific summary for Active Record models.
 
-Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
+Accepts multiple model names, Ruby paths, and quoted glob patterns, processing all resolved files in one Ruby invocation. Relative globs start at the Rails root; unmatched globs and invalid inputs fail before output. Requires Ruby with the `prism` library available. `skeleton` first tries the Ruby on `PATH`; if Prism is unavailable, it retries through the user's interactive shell from the Rails root so common Ruby version managers can activate normally. Other rails-kit commands do not require Prism.
 
 ---
 
