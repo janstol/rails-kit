@@ -124,6 +124,26 @@ func TestResolve(t *testing.T) {
 		}
 	})
 
+	t.Run("by CamelCase class name", func(t *testing.T) {
+		path, err := model.Resolve(testdataRoot, "app/models", "Post")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasSuffix(path, "post.rb") {
+			t.Errorf("unexpected path: %s", path)
+		}
+	})
+
+	t.Run("namespaced CamelCase class name", func(t *testing.T) {
+		path, err := model.Resolve(testdataRoot, "app/models", "Admin::Dashboard")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasSuffix(filepath.ToSlash(path), "admin/dashboard.rb") {
+			t.Errorf("unexpected path: %s", path)
+		}
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		_, err := model.Resolve(testdataRoot, "app/models", "nonexistent")
 		if err == nil {
@@ -436,6 +456,44 @@ func TestResolve_RelativeModelsPathWithPrefix(t *testing.T) {
 
 	// Passing "app/models/user.rb" with a relative modelsPath should not double the prefix.
 	got, err := model.Resolve(dir, "app/models", "app/models/user.rb")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != modelFile {
+		t.Fatalf("got %q, want %q", got, modelFile)
+	}
+}
+
+func TestResolve_CamelCaseMultiWordName(t *testing.T) {
+	dir := t.TempDir()
+	modelFile := filepath.Join(dir, "app", "models", "s3_bucket_archive_policy.rb")
+	if err := os.MkdirAll(filepath.Dir(modelFile), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.WriteFile(modelFile, []byte("class S3BucketArchivePolicy\nend\n"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	got, err := model.Resolve(dir, "app/models", "S3BucketArchivePolicy")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != modelFile {
+		t.Fatalf("got %q, want %q", got, modelFile)
+	}
+}
+
+func TestResolve_CamelCaseOrderItem(t *testing.T) {
+	dir := t.TempDir()
+	modelFile := filepath.Join(dir, "app", "models", "order_item.rb")
+	if err := os.MkdirAll(filepath.Dir(modelFile), 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := os.WriteFile(modelFile, []byte("class OrderItem\nend\n"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	got, err := model.Resolve(dir, "app/models", "OrderItem")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

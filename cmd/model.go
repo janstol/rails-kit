@@ -41,7 +41,8 @@ var modelCmd = &cobra.Command{
 
 Extracts: concerns, associations, validations, scopes, callbacks, enums, delegates.
 
-The name can be a model name (user, order_item) or a file path ending in .rb.`,
+The name can be a model name (user, order_item), a CamelCase class name
+(OrderItem, S3BucketArchivePolicy), or a file path ending in .rb.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()

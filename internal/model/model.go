@@ -60,6 +60,11 @@ var (
 	reAllowNil     = regexp.MustCompile(`allow_nil:\s*true`)
 	reAllowBlank   = regexp.MustCompile(`allow_blank:\s*true`)
 	reOn           = regexp.MustCompile(`on:\s*:(\w+)`)
+
+	// Used in underscore
+	reHasUpper        = regexp.MustCompile(`[A-Z]`)
+	reAcronymBoundary = regexp.MustCompile(`([A-Z\d]+)([A-Z][a-z])`)
+	reWordBoundary    = regexp.MustCompile(`([a-z\d])([A-Z])`)
 )
 
 // Summary holds the extracted model structure.
@@ -123,7 +128,7 @@ func Resolve(railsRoot, modelsPath, input string) (string, error) {
 		return "", fmt.Errorf("model file not found: %s", input)
 	}
 
-	name := strings.ToLower(input)
+	name := underscore(input)
 	normalizedName := normalizeLookupName(name)
 	target := normalizedName + ".rb"
 	basenameOnly := filepath.Base(normalizedName) == normalizedName
@@ -175,6 +180,19 @@ func Resolve(railsRoot, modelsPath, input string) (string, error) {
 		return matches[0], nil
 	}
 	return "", fmt.Errorf("model file not found for '%s'", input)
+}
+
+// underscore converts a CamelCase or namespaced class name into its Rails
+// autoloading-style snake_case path, mirroring ActiveSupport's `underscore`.
+// Inputs without uppercase letters (already snake_case) are returned unchanged.
+func underscore(input string) string {
+	if !reHasUpper.MatchString(input) {
+		return input
+	}
+	result := strings.ReplaceAll(input, "::", "/")
+	result = reAcronymBoundary.ReplaceAllString(result, "${1}_${2}")
+	result = reWordBoundary.ReplaceAllString(result, "${1}_${2}")
+	return strings.ToLower(result)
 }
 
 func normalizeLookupName(name string) string {
