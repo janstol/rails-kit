@@ -15,7 +15,7 @@ A compiled CLI toolkit for inspecting Rails projects. Most commands parse projec
 | `rails-kit skeleton <path-or-model> [...]` | Compact Ruby AST skeletons via Prism |
 | `rails-kit gem [name]` | Inspect gems from `Gemfile.lock` |
 | `rails-kit concerns [name]` | List or inspect Rails concerns |
-| `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code skill |
+| `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code or Codex skill |
 | `rails-kit completion bash|zsh|fish` | Generate shell completion scripts |
 | `rails-kit version` | Print version information |
 
@@ -316,16 +316,20 @@ mise exec -- just test-coverage  # test with coverage report
 mise exec -- just lint           # run golangci-lint
 ```
 
-## Claude Code Skill
+## Agent Skill
 
 ```sh
-rails-kit skill install
-rails-kit skill install --global
-rails-kit skill uninstall
-rails-kit skill uninstall --global
+rails-kit skill install                         # install globally for Claude Code
+rails-kit skill install --target codex          # install globally for Codex
+rails-kit skill install --target all            # install globally for both
+rails-kit skill install --local --target codex  # install into the current Rails project
+rails-kit skill uninstall --target codex
+rails-kit skill uninstall --local --target all
 ```
 
-Local install/uninstall targets the detected Rails root or `--root`. Local uninstall validates that `--root` is a Rails app before removing anything.
+Skill installation and removal are global by default. Claude Code skills use `~/.claude/skills/rails-kit`; Codex skills use `~/.agents/skills/rails-kit` and include Codex UI metadata in `agents/openai.yaml`. Use `--local` for the corresponding directory inside the detected Rails root or `--root`. Local uninstall validates that `--root` is a Rails app before removing anything.
+
+The default target is `claude`; choose `codex` or `all` with `--target`. The former `--global` flag remains accepted as a deprecated compatibility alias, but global scope no longer requires a flag.
 
 ## Known Differences from Ruby Scripts
 

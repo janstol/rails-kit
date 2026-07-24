@@ -1,0 +1,6 @@
+interface:
+  display_name: "rails-kit"
+  short_description: "Inspect Rails projects with rails-kit"
+  default_prompt: "Use $rails-kit to inspect this Rails project before reading large files."
+policy:
+  allow_implicit_invocation: true
