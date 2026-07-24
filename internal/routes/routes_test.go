@@ -420,6 +420,13 @@ func TestRefresh(t *testing.T) {
 	if string(data) != sampleRoutes {
 		t.Fatalf("cache content mismatch:\n%s", data)
 	}
+	tempFiles, err := filepath.Glob(filepath.Join(dir, "tmp", ".routes_cache.txt.tmp-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tempFiles) != 0 {
+		t.Fatalf("atomic write left temporary files: %v", tempFiles)
+	}
 }
 
 func TestCacheReturnsFreshOutputWhenTmpDirCreationFails(t *testing.T) {
@@ -485,6 +492,13 @@ func TestCacheReturnsFreshOutputWhenCacheFileWriteFails(t *testing.T) {
 	}
 	if !info.IsDir() {
 		t.Fatalf("expected %s to remain a directory", cacheDir)
+	}
+	tempFiles, err := filepath.Glob(filepath.Join(dir, "tmp", ".routes_cache.txt.tmp-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tempFiles) != 0 {
+		t.Fatalf("failed atomic write left temporary files: %v", tempFiles)
 	}
 }
 

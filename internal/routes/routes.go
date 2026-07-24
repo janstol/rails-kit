@@ -54,18 +54,55 @@ func writeCacheFiles(railsRoot string, out string, stderr io.Writer) {
 		_, _ = fmt.Fprintf(stderr, "Warning: could not create routes cache directory: %v\n", err)
 		return
 	}
-	if err := os.WriteFile(cacheFile, []byte(out), 0644); err != nil {
-		_, _ = fmt.Fprintf(stderr, "Warning: could not write routes cache: %v\n", err)
-		return
-	}
-
 	// Track whether config/routes/ existed at cache-write time.
 	flagFile := filepath.Join(railsRoot, "tmp", "routes_dir.flag")
 	if _, err := os.Stat(routesDir); err == nil {
-		_ = os.WriteFile(flagFile, []byte{}, 0644)
+		if err := writeFileAtomic(flagFile, nil, 0644); err != nil {
+			_, _ = fmt.Fprintf(stderr, "Warning: could not write routes cache metadata: %v\n", err)
+			return
+		}
 	} else {
-		_ = os.Remove(flagFile)
+		if err := os.Remove(flagFile); err != nil && !os.IsNotExist(err) {
+			_, _ = fmt.Fprintf(stderr, "Warning: could not update routes cache metadata: %v\n", err)
+			return
+		}
 	}
+
+	// Publish the cache last so its mtime marks a completely written cache state.
+	if err := writeFileAtomic(cacheFile, []byte(out), 0644); err != nil {
+		_, _ = fmt.Fprintf(stderr, "Warning: could not write routes cache: %v\n", err)
+		return
+	}
+}
+
+func writeFileAtomic(path string, data []byte, perm fs.FileMode) (retErr error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer func() {
+		if retErr != nil {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 // Refresh unconditionally runs `bundle exec rails routes` and writes the result to cache.

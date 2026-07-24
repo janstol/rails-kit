@@ -226,6 +226,36 @@ end
 	}
 }
 
+func TestRoutesStaticWarningsStayOnStderr(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+Rails.application.routes.draw do
+  resources :posts, only: :index
+  mount Sidekiq::Web => "/sidekiq"
+end
+`)
+
+	prevStatic := routesStatic
+	t.Cleanup(func() { routesStatic = prevStatic })
+	routesStatic = true
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("warning corrupted JSON stdout: %v\noutput: %s", err, out)
+	}
+	if len(got) != 1 || got[0]["controller_action"] != "posts#index" {
+		t.Fatalf("unexpected routes: %#v", got)
+	}
+	if !strings.Contains(errOut, "Warning:") || !strings.Contains(errOut, ":4: unsupported route DSL") {
+		t.Fatalf("expected line-specific warning on stderr, got %q", errOut)
+	}
+}
+
 func TestRoutesStaticCannotCombineWithCacheFlags(t *testing.T) {
 	prevStatic := routesStatic
 	prevRefresh := routesRefresh

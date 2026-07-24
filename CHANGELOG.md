@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no engine mounts, `draw`/`concern` macros, custom route helpers, constraints, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
 
+### Changed
+
+- `routes --static` now handles member and collection path contexts correctly, accepts scalar as well as array `only:`/`except:` options, and reports unsupported syntax as line-specific stderr warnings without changing JSON stdout.
+- Routes cache and metadata files are written through same-directory temporary files and atomically renamed, preventing interrupted writes from publishing partial cache contents.
+
 ## [0.2.0] - 2026-04-26
 
 ### Added

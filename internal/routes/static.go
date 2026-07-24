@@ -10,14 +10,21 @@ import (
 )
 
 var (
-	reNamespace   = regexp.MustCompile(`^\s*namespace\s+:(\w+)`)
-	reResources   = regexp.MustCompile(`^\s*resources?\s+:(\w+)`)
-	reOnly        = regexp.MustCompile(`only:\s*\[([^\]]+)\]`)
-	reExcept      = regexp.MustCompile(`except:\s*\[([^\]]+)\]`)
-	reVerbRoute   = regexp.MustCompile(`^\s*(get|post|put|patch|delete)\s+['"]([^'"]+)['"].*?to:\s*['"]([^'"]+)['"]`)
-	reRoot        = regexp.MustCompile(`^\s*root\s+(?:to:\s*)?['"]([^'"]+)['"]`)
-	reBlockEnd    = regexp.MustCompile(`^\s*end\b`)
-	reBlockOpener = regexp.MustCompile(`\bdo\b`)
+	reNamespace     = regexp.MustCompile(`^\s*namespace\s+:(\w+)`)
+	reResources     = regexp.MustCompile(`^\s*resources?\s+:(\w+)`)
+	reOnly          = regexp.MustCompile(`only:\s*\[([^\]]+)\]`)
+	reExcept        = regexp.MustCompile(`except:\s*\[([^\]]+)\]`)
+	reOnlyScalar    = regexp.MustCompile(`only:\s*(:\w+|['"][^'"]+['"])`)
+	reExceptScalar  = regexp.MustCompile(`except:\s*(:\w+|['"][^'"]+['"])`)
+	reVerbRoute     = regexp.MustCompile(`^\s*(get|post|put|patch|delete)\s+['"]([^'"]+)['"].*?to:\s*['"]([^'"]+)['"]`)
+	reRoot          = regexp.MustCompile(`^\s*root\s+(?:to:\s*)?['"]([^'"]+)['"]`)
+	reBlockEnd      = regexp.MustCompile(`^\s*end\b`)
+	reBlockOpener   = regexp.MustCompile(`\bdo\b`)
+	reMember        = regexp.MustCompile(`^\s*member\s+do\b`)
+	reCollection    = regexp.MustCompile(`^\s*collection\s+do\b`)
+	reUnsupported   = regexp.MustCompile(`^\s*(scope|constraints?|mount|draw|concerns?|devise_\w+|direct|resolve|match)\b`)
+	reVerbStart     = regexp.MustCompile(`^\s*(get|post|put|patch|delete)\b`)
+	reIgnoredOption = regexp.MustCompile(`\b(path|controller|as):`)
 )
 
 // routeFrame holds path and controller namespace context for a nesting level.
@@ -25,23 +32,45 @@ type routeFrame struct {
 	depth            int    // block depth when this frame was pushed
 	pathPrefix       string // accumulated URL prefix, e.g. "/admin"
 	controllerPrefix string // accumulated controller namespace, e.g. "admin/"
+	collectionPath   string // current resource collection path, if any
+	memberPath       string // current resource member path, if any
 }
 
-// ParseStatic parses config/routes.rb and returns a slice of RouteEntry.
-// It handles resources, namespace, root, and individual verb routes.
-// Blocks not explicitly handled (scope, member, collection, etc.) are
-// depth-tracked so that nested resources inside them resolve correctly.
+// StaticWarning describes route syntax that the approximate parser skipped or
+// only partially modeled.
+type StaticWarning struct {
+	Line    int
+	Message string
+}
+
+// StaticResult contains parsed routes and non-fatal approximation warnings.
+type StaticResult struct {
+	Entries  []RouteEntry
+	Warnings []StaticWarning
+}
+
+// ParseStatic parses config/routes.rb and returns route entries.
 func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, error) {
-	f, err := os.Open(routesPath)
+	result, err := ParseStaticDetailed(routesPath, p)
 	if err != nil {
 		return nil, err
+	}
+	return result.Entries, nil
+}
+
+// ParseStaticDetailed parses config/routes.rb and returns routes plus approximation warnings.
+// It handles resources, namespace, root, and individual verb routes.
+func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResult, error) {
+	f, err := os.Open(routesPath)
+	if err != nil {
+		return StaticResult{}, err
 	}
 	defer f.Close() //nolint:errcheck
 
 	var (
-		entries []RouteEntry
-		stack   []routeFrame
-		depth   int
+		result StaticResult
+		stack  []routeFrame
+		depth  int
 	)
 
 	// Start with a root frame.
@@ -52,7 +81,9 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 	}
 
 	scanner := bufio.NewScanner(f)
+	lineNumber := 0
 	for scanner.Scan() {
+		lineNumber++
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
@@ -69,6 +100,32 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 		}
 
 		hasDo := reBlockOpener.MatchString(trimmed)
+
+		// member/collection alter the path context for custom routes.
+		if reMember.MatchString(line) {
+			cf := currentFrame()
+			if cf.memberPath == "" {
+				result.Warnings = append(result.Warnings, StaticWarning{Line: lineNumber, Message: "member block outside a resource was skipped"})
+			} else {
+				cf.depth = depth
+				cf.pathPrefix = cf.memberPath
+				stack = append(stack, cf)
+			}
+			depth++
+			continue
+		}
+		if reCollection.MatchString(line) {
+			cf := currentFrame()
+			if cf.collectionPath == "" {
+				result.Warnings = append(result.Warnings, StaticWarning{Line: lineNumber, Message: "collection block outside a resource was skipped"})
+			} else {
+				cf.depth = depth
+				cf.pathPrefix = cf.collectionPath
+				stack = append(stack, cf)
+			}
+			depth++
+			continue
+		}
 
 		// namespace :name do
 		if m := reNamespace.FindStringSubmatch(line); m != nil && hasDo {
@@ -93,24 +150,35 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 
 			actions := resourceActions(line, singular)
 			newEntries := expandResources(name, controller, cf.pathPrefix, actions, singular, p)
-			entries = append(entries, newEntries...)
+			result.Entries = append(result.Entries, newEntries...)
+
+			if option := reIgnoredOption.FindStringSubmatch(line); option != nil {
+				result.Warnings = append(result.Warnings, StaticWarning{
+					Line:    lineNumber,
+					Message: option[1] + ": option on resource is not modeled",
+				})
+			}
 
 			if hasDo {
-				// Nested resources: path prefix gains "/:name_singular_id"
 				singularName := p.Singularize(name)
-				if singular {
-					stack = append(stack, routeFrame{
-						depth:            depth,
-						pathPrefix:       cf.pathPrefix + "/" + name,
-						controllerPrefix: cf.controllerPrefix,
-					})
-				} else {
-					stack = append(stack, routeFrame{
-						depth:            depth,
-						pathPrefix:       cf.pathPrefix + "/" + name + "/:" + singularName + "_id",
-						controllerPrefix: cf.controllerPrefix,
-					})
+				collectionPath := cf.pathPrefix + "/" + name
+				memberPath := collectionPath
+				nestedPath := collectionPath
+				if !singular {
+					memberPath += "/:id"
+					nestedPath += "/:" + singularName + "_id"
 				}
+				frame := routeFrame{
+					depth:            depth,
+					pathPrefix:       nestedPath,
+					controllerPrefix: cf.controllerPrefix,
+					collectionPath:   collectionPath,
+					memberPath:       memberPath,
+				}
+				if singular {
+					frame.pathPrefix = collectionPath
+				}
+				stack = append(stack, frame)
 				depth++
 			}
 			continue
@@ -122,7 +190,7 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 			if len(parts) == 2 {
 				cf := currentFrame()
 				controller := cf.controllerPrefix + parts[0]
-				entries = append(entries, RouteEntry{
+				result.Entries = append(result.Entries, RouteEntry{
 					Prefix:           "root",
 					Verb:             "GET",
 					URIPattern:       cf.pathPrefix + "/",
@@ -146,14 +214,26 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 					fullPath += "/"
 				}
 				fullPath += path
-				entries = append(entries, RouteEntry{
+				result.Entries = append(result.Entries, RouteEntry{
 					Prefix:           "",
 					Verb:             verb,
 					URIPattern:       fullPath,
 					ControllerAction: controller + "#" + parts[1],
 				})
+				if option := reIgnoredOption.FindStringSubmatch(line); option != nil {
+					result.Warnings = append(result.Warnings, StaticWarning{
+						Line:    lineNumber,
+						Message: option[1] + ": option on route is not modeled",
+					})
+				}
 			}
 			continue
+		}
+
+		if reUnsupported.MatchString(line) {
+			result.Warnings = append(result.Warnings, StaticWarning{Line: lineNumber, Message: "unsupported route DSL: " + trimmed})
+		} else if reVerbStart.MatchString(line) {
+			result.Warnings = append(result.Warnings, StaticWarning{Line: lineNumber, Message: "unsupported verb route syntax: " + trimmed})
 		}
 
 		// Track depth for any other block openers we don't handle specially
@@ -163,7 +243,10 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 		}
 	}
 
-	return entries, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return StaticResult{}, err
+	}
+	return result, nil
 }
 
 // resourceActions returns the set of RESTful actions for a resources/resource line,
@@ -177,7 +260,20 @@ func resourceActions(line string, singular bool) map[string]bool {
 	if m := reOnly.FindStringSubmatch(line); m != nil {
 		return parseActionList(m[1])
 	}
+	if m := reOnlyScalar.FindStringSubmatch(line); m != nil {
+		return parseActionList(m[1])
+	}
 	if m := reExcept.FindStringSubmatch(line); m != nil {
+		excluded := parseActionList(m[1])
+		result := make(map[string]bool, len(all))
+		for _, a := range all {
+			if !excluded[a] {
+				result[a] = true
+			}
+		}
+		return result
+	}
+	if m := reExceptScalar.FindStringSubmatch(line); m != nil {
 		excluded := parseActionList(m[1])
 		result := make(map[string]bool, len(all))
 		for _, a := range all {

@@ -294,9 +294,109 @@ end
 	// Verb routes inside member/collection blocks should also be captured.
 	if findRoute(entries, "GET", "publish") == nil {
 		t.Error("missing verb route GET publish from member block")
+	} else if got := findRoute(entries, "GET", "publish").URIPattern; got != "/posts/:id/publish" {
+		t.Errorf("member route path = %q, want /posts/:id/publish", got)
 	}
 	if findRoute(entries, "GET", "drafts") == nil {
 		t.Error("missing verb route GET drafts from collection block")
+	} else if got := findRoute(entries, "GET", "drafts").URIPattern; got != "/posts/drafts" {
+		t.Errorf("collection route path = %q, want /posts/drafts", got)
+	}
+}
+
+func TestParseStatic_NestedMemberAndCollectionPaths(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    resources :accounts do
+      resources :posts do
+        member do
+          get 'publish', to: 'posts#publish'
+        end
+        collection do
+          get 'drafts', to: 'posts#drafts'
+        end
+      end
+    end
+  end
+end
+`)
+	entries, err := routes.ParseStatic(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	member := findRoute(entries, "GET", "publish")
+	if member == nil || member.URIPattern != "/admin/accounts/:account_id/posts/:id/publish" {
+		t.Fatalf("unexpected nested member route: %#v", member)
+	}
+	collection := findRoute(entries, "GET", "drafts")
+	if collection == nil || collection.URIPattern != "/admin/accounts/:account_id/posts/drafts" {
+		t.Fatalf("unexpected nested collection route: %#v", collection)
+	}
+	if splitCA(member.ControllerAction)[0] != "admin/posts" {
+		t.Errorf("member controller = %q, want admin/posts", member.ControllerAction)
+	}
+}
+
+func TestParseStatic_ScalarOnlyAndExcept(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: :index
+  resource :profile, except: 'destroy'
+end
+`)
+	entries, err := routes.ParseStatic(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var userEntries, profileEntries []routes.RouteEntry
+	for _, entry := range entries {
+		switch splitCA(entry.ControllerAction)[0] {
+		case "users":
+			userEntries = append(userEntries, entry)
+		case "profile":
+			profileEntries = append(profileEntries, entry)
+		}
+	}
+	if len(userEntries) != 1 || splitCA(userEntries[0].ControllerAction)[1] != "index" {
+		t.Fatalf("scalar only produced unexpected routes: %#v", userEntries)
+	}
+	if len(profileEntries) != 6 {
+		t.Fatalf("scalar except produced %d routes, want 6: %#v", len(profileEntries), profileEntries)
+	}
+	for _, entry := range profileEntries {
+		if splitCA(entry.ControllerAction)[1] == "destroy" {
+			t.Fatalf("scalar except retained destroy route: %#v", entry)
+		}
+	}
+}
+
+func TestParseStaticDetailed_WarnsForUnsupportedSyntax(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: :index, path: "people"
+  scope "/admin" do
+    get :health, to: "health#show"
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 {
+		t.Fatalf("got %d supported entries, want 1: %#v", len(result.Entries), result.Entries)
+	}
+	if len(result.Warnings) != 3 {
+		t.Fatalf("got %d warnings, want 3: %#v", len(result.Warnings), result.Warnings)
+	}
+	wantLines := []int{3, 4, 5}
+	for i, warning := range result.Warnings {
+		if warning.Line != wantLines[i] || warning.Message == "" {
+			t.Errorf("warning %d = %#v, want line %d with a message", i, warning, wantLines[i])
+		}
 	}
 }
 

@@ -31,10 +31,10 @@ The cache is stored in tmp/routes_cache.txt and is invalidated when
 --static parses config/routes.rb directly in pure Go, without booting
 Rails or shelling out to bundler. It's fast and works even when the app
 can't boot, but it's an approximation: it understands resources/resource,
-namespace, root, and verb routes, but not engine mounts, draw/concern
-macros, custom route helpers, constraints, or routes drawn by gems
-(e.g. Devise). Use it for a quick answer, not as a replacement for
-"rails routes".`,
+namespace, root, member/collection blocks, action filters, and verb routes,
+but not engine mounts, draw/concern macros, custom route helpers, constraints,
+or routes drawn by gems (e.g. Devise). Unsupported syntax produces warnings
+on stderr. Use it for a quick answer, not as a replacement for "rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
@@ -50,10 +50,14 @@ macros, custom route helpers, constraints, or routes drawn by gems
 
 		if routesStatic {
 			routesPath := filepath.Join(root, "config", "routes.rb")
-			entries, err := routes.ParseStatic(routesPath, pluralize.Default())
+			result, err := routes.ParseStaticDetailed(routesPath, pluralize.Default())
 			if err != nil {
 				return fmt.Errorf("parsing %s: %w", routesPath, err)
 			}
+			for _, warning := range result.Warnings {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", routesPath, warning.Line, warning.Message)
+			}
+			entries := result.Entries
 			if len(args) > 0 {
 				entries, err = routes.FilterEntries(entries, args)
 				if err != nil {
