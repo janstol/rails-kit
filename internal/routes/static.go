@@ -23,7 +23,14 @@ var (
 	reScopeModule = regexp.MustCompile(`^\s*scope\s+module:\s*`)
 	reDraw        = regexp.MustCompile(`^\s*draw\b`)
 	reDrawName    = regexp.MustCompile(`^[A-Za-z0-9_/-]+$`)
-	reUnsupported = regexp.MustCompile(`^\s*(scope|constraints?|mount|concerns?|devise_\w+|direct|resolve|match)\b`)
+	reConcern     = regexp.MustCompile(`^\s*concern\s+:([A-Za-z_]\w*)\b(.*)$`)
+	reConcernArgs = regexp.MustCompile(`\bdo\s*\|`)
+	reConcernAny  = regexp.MustCompile(`^\s*concern\b`)
+	reConcerns    = regexp.MustCompile(`^\s*concerns\b`)
+	reConcernName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+	reOptionStart = regexp.MustCompile(`^(?:[A-Za-z_]\w*\s*:|:[A-Za-z_]\w*\s*=>)`)
+	reRubyBlock   = regexp.MustCompile(`^\s*(if|unless|case|begin|while|until|for)\b`)
+	reUnsupported = regexp.MustCompile(`^\s*(scope|constraints?|mount|devise_\w+|direct|resolve|match)\b`)
 )
 
 // routeFrame holds URL, controller, helper, and resource context for a block.
@@ -66,6 +73,7 @@ type resourceOptions struct {
 	controller string
 	helper     string
 	param      string
+	concerns   []string
 	actions    map[string]bool
 }
 
@@ -83,9 +91,18 @@ type verbDeclaration struct {
 }
 
 type staticParser struct {
-	pluralizer *pluralize.Pluralizer
-	drawRoot   string
-	active     map[string]bool
+	pluralizer    *pluralize.Pluralizer
+	drawRoot      string
+	active        map[string]bool
+	concerns      map[string]routeConcern
+	activeConcern map[string]bool
+}
+
+type routeConcern struct {
+	path       string
+	content    string
+	lineOffset int
+	supported  bool
 }
 
 // ParseStatic parses config/routes.rb and returns route entries.
@@ -104,9 +121,11 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 		return StaticResult{}, fmt.Errorf("resolving routes directory: %w", err)
 	}
 	parser := staticParser{
-		pluralizer: p,
-		drawRoot:   drawRoot,
-		active:     make(map[string]bool),
+		pluralizer:    p,
+		drawRoot:      drawRoot,
+		active:        make(map[string]bool),
+		concerns:      make(map[string]routeConcern),
+		activeConcern: make(map[string]bool),
 	}
 	return parser.parseFile(routesPath, routeFrame{depth: -1})
 }
@@ -128,6 +147,10 @@ func (p *staticParser) parseFile(routesPath string, initialFrame routeFrame) (St
 	p.active[canonicalPath] = true
 	defer delete(p.active, canonicalPath)
 
+	return p.parseScanner(routesPath, bufio.NewScanner(f), initialFrame, 0)
+}
+
+func (p *staticParser) parseScanner(routesPath string, scanner *bufio.Scanner, initialFrame routeFrame, lineOffset int) (StaticResult, error) {
 	initialFrame.depth = -1
 	var (
 		result StaticResult
@@ -136,13 +159,54 @@ func (p *staticParser) parseFile(routesPath string, initialFrame routeFrame) (St
 	)
 	currentFrame := func() routeFrame { return stack[len(stack)-1] }
 
-	scanner := bufio.NewScanner(f)
-	lineNumber := 0
+	lineNumber := lineOffset
 	for scanner.Scan() {
 		lineNumber++
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(stripInlineComment(line))
 		if trimmed == "" {
+			continue
+		}
+
+		if match := reConcern.FindStringSubmatch(trimmed); match != nil {
+			name := match[1]
+			definitionLine := lineNumber
+			remainder := strings.TrimSpace(match[2])
+			hasBlock := reBlockOpener.MatchString(remainder)
+			supported := hasBlock &&
+				!strings.Contains(remainder, ",") &&
+				!reConcernArgs.MatchString(remainder)
+			if !hasBlock {
+				p.concerns[name] = routeConcern{path: routesPath, supported: false}
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "callable or dynamic route concern is not modeled: "+name))
+				continue
+			}
+
+			body, bodyOffset, complete := captureConcernBody(scanner, &lineNumber)
+			if !complete {
+				p.concerns[name] = routeConcern{path: routesPath, supported: false}
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, definitionLine, "unterminated route concern: "+name))
+				break
+			}
+			if !supported {
+				p.concerns[name] = routeConcern{path: routesPath, supported: false}
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, bodyOffset, "parameterized route concern is not modeled: "+name))
+				continue
+			}
+			p.concerns[name] = routeConcern{
+				path:       routesPath,
+				content:    body,
+				lineOffset: bodyOffset,
+				supported:  true,
+			}
+			continue
+		}
+		if reConcernAny.MatchString(trimmed) {
+			definitionLine := lineNumber
+			if reBlockOpener.MatchString(trimmed) {
+				_, _, _ = captureConcernBody(scanner, &lineNumber)
+			}
+			result.Warnings = append(result.Warnings, staticWarning(routesPath, definitionLine, "dynamic route concern definition is not modeled: "+trimmed))
 			continue
 		}
 
@@ -257,32 +321,54 @@ func (p *staticParser) parseFile(routesPath string, initialFrame routeFrame) (St
 				singularResource,
 			)...)
 
+			singularName := p.pluralizer.Singularize(name)
+			memberPath := collectionPath
+			nestedPath := collectionPath
+			if !singularResource {
+				memberPath = joinRoutePath(collectionPath, ":"+param)
+				nestedPath = joinRoutePath(collectionPath, ":"+singularName+"_"+param)
+			}
+			frame := cf
+			frame.pathPrefix = nestedPath
+			frame.helperPrefix = memberHelper + "_"
+			frame.collectionPath = collectionPath
+			frame.memberPath = memberPath
+			frame.resourcePath = nestedPath
+			frame.resourceName = helperBase
+			frame.resourceSingular = p.pluralizer.Singularize(helperBase)
+			frame.resourceParam = param
+			frame.resourceController = resourceController
+			frame.collectionHelper = collectionHelper
+			frame.memberHelper = memberHelper
+			frame.routeMode = "resource"
+			frame.defaultController = resourceController
+
+			if len(options.concerns) > 0 {
+				expanded := p.expandConcerns(options.concerns, routesPath, lineNumber, frame)
+				result.Entries = append(result.Entries, expanded.Entries...)
+				result.Warnings = append(result.Warnings, expanded.Warnings...)
+			}
+
 			if hasDo {
-				singularName := p.pluralizer.Singularize(name)
-				memberPath := collectionPath
-				nestedPath := collectionPath
-				if !singularResource {
-					memberPath = joinRoutePath(collectionPath, ":"+param)
-					nestedPath = joinRoutePath(collectionPath, ":"+singularName+"_"+param)
-				}
-				frame := cf
 				frame.depth = depth
-				frame.pathPrefix = nestedPath
-				frame.helperPrefix = memberHelper + "_"
-				frame.collectionPath = collectionPath
-				frame.memberPath = memberPath
-				frame.resourcePath = nestedPath
-				frame.resourceName = helperBase
-				frame.resourceSingular = p.pluralizer.Singularize(helperBase)
-				frame.resourceParam = param
-				frame.resourceController = resourceController
-				frame.collectionHelper = collectionHelper
-				frame.memberHelper = memberHelper
-				frame.routeMode = "resource"
-				frame.defaultController = resourceController
 				stack = append(stack, frame)
 				depth++
 			}
+			continue
+		}
+
+		if reConcerns.MatchString(trimmed) {
+			names, hasOptions, parseErr := parseConcernInvocation(trimmed)
+			if parseErr != nil {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, parseErr.Error()))
+				continue
+			}
+			if hasOptions {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "route concern invocation options are not modeled"))
+			}
+			expanded := p.expandConcerns(names, routesPath, lineNumber, currentFrame())
+			result.Entries = append(result.Entries, expanded.Entries...)
+			result.Warnings = append(result.Warnings, expanded.Warnings...)
 			continue
 		}
 
@@ -365,6 +451,120 @@ func (p *staticParser) parseFile(routesPath string, initialFrame routeFrame) (St
 	return result, nil
 }
 
+func captureConcernBody(scanner *bufio.Scanner, lineNumber *int) (string, int, bool) {
+	lineOffset := *lineNumber
+	depth := 1
+	var lines []string
+	for scanner.Scan() {
+		(*lineNumber)++
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(stripInlineComment(line))
+		if reBlockEnd.MatchString(trimmed) {
+			depth--
+			if depth == 0 {
+				return strings.Join(lines, "\n"), lineOffset, true
+			}
+			lines = append(lines, line)
+			continue
+		}
+		lines = append(lines, line)
+		if reBlockOpener.MatchString(trimmed) || reRubyBlock.MatchString(trimmed) {
+			depth++
+		}
+	}
+	return strings.Join(lines, "\n"), lineOffset, false
+}
+
+func parseConcernInvocation(line string) ([]string, bool, error) {
+	value := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "concerns"))
+	if strings.HasPrefix(value, "(") {
+		if !strings.HasSuffix(value, ")") {
+			return nil, false, fmt.Errorf("unsupported route concern syntax: %s", line)
+		}
+		value = strings.TrimSpace(value[1 : len(value)-1])
+	}
+	if value == "" {
+		return nil, false, fmt.Errorf("route concern invocation has no names")
+	}
+
+	var (
+		nameValues []string
+		remainder  string
+	)
+	switch {
+	case strings.HasPrefix(value, "["):
+		end := strings.IndexByte(value, ']')
+		if end < 0 {
+			return nil, false, fmt.Errorf("unsupported route concern syntax: %s", line)
+		}
+		nameValues = splitOptionItems(value[1:end])
+		remainder = strings.TrimSpace(strings.TrimPrefix(value[end+1:], ","))
+	case strings.HasPrefix(value, "%i[") || strings.HasPrefix(value, "%w["):
+		end := strings.IndexByte(value, ']')
+		if end < 0 {
+			return nil, false, fmt.Errorf("unsupported route concern syntax: %s", line)
+		}
+		nameValues = splitOptionItems(value[3:end])
+		remainder = strings.TrimSpace(strings.TrimPrefix(value[end+1:], ","))
+	default:
+		for _, item := range strings.Split(value, ",") {
+			item = strings.TrimSpace(item)
+			if reOptionStart.MatchString(item) {
+				remainder = item
+				break
+			}
+			nameValues = append(nameValues, item)
+		}
+	}
+
+	names := make([]string, 0, len(nameValues))
+	for _, value := range nameValues {
+		name := normalizeOptionScalar(value)
+		if !reConcernName.MatchString(name) {
+			return nil, false, fmt.Errorf("dynamic route concern name is not modeled: %s", line)
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return nil, false, fmt.Errorf("route concern invocation has no names")
+	}
+	return names, remainder != "", nil
+}
+
+func (p *staticParser) expandConcerns(names []string, routesPath string, lineNumber int, frame routeFrame) StaticResult {
+	var result StaticResult
+	for _, name := range names {
+		concern, ok := p.concerns[name]
+		if !ok {
+			result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "route concern was not found: "+name))
+			continue
+		}
+		if !concern.supported {
+			continue
+		}
+		if p.activeConcern[name] {
+			result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "cyclic route concern was skipped: "+name))
+			continue
+		}
+
+		p.activeConcern[name] = true
+		expanded, err := p.parseScanner(
+			concern.path,
+			bufio.NewScanner(strings.NewReader(concern.content)),
+			frame,
+			concern.lineOffset,
+		)
+		delete(p.activeConcern, name)
+		if err != nil {
+			result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "route concern could not be parsed: "+err.Error()))
+			continue
+		}
+		result.Entries = append(result.Entries, expanded.Entries...)
+		result.Warnings = append(result.Warnings, expanded.Warnings...)
+	}
+	return result
+}
+
 func parseDrawName(line string) (string, error) {
 	value := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "draw"))
 	if strings.HasPrefix(value, "(") {
@@ -439,6 +639,7 @@ func parseResourceOptions(line string, singular bool) resourceOptions {
 	options.controller, _ = optionScalar(line, "controller")
 	options.helper, _ = optionScalar(line, "as")
 	options.param, _ = optionScalar(line, "param")
+	options.concerns, _ = optionValues(line, "concerns")
 	return options
 }
 
@@ -455,6 +656,18 @@ func allResourceActions(singular bool) map[string]bool {
 }
 
 func optionList(line, key string) (map[string]bool, bool) {
+	values, ok := optionValues(line, key)
+	if !ok {
+		return nil, false
+	}
+	result := make(map[string]bool, len(values))
+	for _, value := range values {
+		result[value] = true
+	}
+	return result, true
+}
+
+func optionValues(line, key string) ([]string, bool) {
 	raw, ok := optionRawValue(line, key)
 	if !ok {
 		return nil, false
@@ -466,12 +679,16 @@ func optionList(line, key string) (map[string]bool, bool) {
 	case strings.HasPrefix(raw, "["):
 		raw = strings.TrimSuffix(strings.TrimPrefix(raw, "["), "]")
 	default:
-		return map[string]bool{normalizeOptionScalar(raw): true}, true
+		value := normalizeOptionScalar(raw)
+		if value == "" {
+			return []string{}, true
+		}
+		return []string{value}, true
 	}
-	result := make(map[string]bool)
+	var result []string
 	for _, item := range splitOptionItems(raw) {
 		if value := normalizeOptionScalar(item); value != "" {
-			result[value] = true
+			result = append(result, value)
 		}
 	}
 	return result, true

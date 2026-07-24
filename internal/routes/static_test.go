@@ -877,6 +877,225 @@ end
 	}
 }
 
+func TestParseStatic_ConcernDefinitionAndResourceExpansion(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :commentable do
+    resources :comments, only: :index
+  end
+
+  namespace :admin do
+    resources :users, only: [] do
+      concerns :commentable
+    end
+  end
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	entry := result.Entries[0]
+	if entry.URIPattern != "/admin/users/:user_id/comments" ||
+		entry.ControllerAction != "admin/comments#index" ||
+		entry.Prefix != "admin_user_comments" {
+		t.Fatalf("concern did not inherit resource context: %#v", entry)
+	}
+}
+
+func TestParseStatic_ConcernInvocationFormsAndInlineResources(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :commentable do
+    resources :comments, only: :index
+  end
+  concern :taggable do
+    resources :tags, only: :index
+  end
+
+  resources :posts, only: [], concerns: [:commentable, :taggable]
+  resource :profile, only: [], concerns: :taggable
+  namespace :admin do
+    concerns :commentable, :taggable
+  end
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 5 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	wantPaths := map[string]bool{
+		"/posts/:post_id/comments": true,
+		"/posts/:post_id/tags":     true,
+		"/profile/tags":            true,
+		"/admin/comments":          true,
+		"/admin/tags":              true,
+	}
+	for _, entry := range result.Entries {
+		if !wantPaths[entry.URIPattern] {
+			t.Errorf("unexpected concern route: %#v", entry)
+		}
+	}
+}
+
+func TestParseStatic_ConcernRegistrySpansDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  draw :definitions
+  draw :usage
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "definitions.rb"), `
+concern :reportable do
+  resources :reports, only: :index
+end
+`)
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "usage.rb"), `
+namespace :admin do
+  concerns :reportable
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/admin/reports" ||
+		result.Entries[0].ControllerAction != "admin/reports#index" {
+		t.Fatalf("unexpected cross-file concern route: %#v", result.Entries[0])
+	}
+}
+
+func TestParseStatic_NestedConcernUsesLatestDefinition(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :searchable do
+    get "old", to: "search#old"
+  end
+  concern :searchable do
+    get "new", to: "search#new"
+  end
+  concern :container do
+    concerns :searchable
+  end
+
+  concerns [:container]
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/new" || result.Entries[0].ControllerAction != "search#new" {
+		t.Fatalf("latest concern definition was not used: %#v", result.Entries)
+	}
+}
+
+func TestParseStatic_ConcernFailuresWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :external, GenericCallable.new
+  concern dynamic_name do
+    resources :ignored
+  end
+  concern :parameterized do |options|
+    resources :comments, options
+  end
+  concern :recursive do
+    concerns :recursive
+  end
+  concern :available do
+    resources :reports, only: :index
+  end
+
+  concerns :external
+  concerns :parameterized
+  concerns :missing
+  concerns :recursive
+  concerns :available, only: [:index]
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || result.Entries[0].ControllerAction != "reports#index" {
+		t.Fatalf("valid concern routes were not preserved: %#v", result.Entries)
+	}
+	joined := ""
+	for _, warning := range result.Warnings {
+		joined += warning.Message + "\n"
+	}
+	for _, fragment := range []string{
+		"callable or dynamic",
+		"parameterized",
+		"was not found",
+		"cyclic route concern",
+		"invocation options",
+	} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("warnings missing %q: %s", fragment, joined)
+		}
+	}
+}
+
+func TestParseStatic_ConcernBodyWarningKeepsSourceLine(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :mountable do
+    mount Generic::Engine => "/engine"
+  end
+  concerns :mountable
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 1 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+	warning := result.Warnings[0]
+	if warning.Path != path || warning.Line != 4 || !strings.Contains(warning.Message, "unsupported route DSL") {
+		t.Fatalf("unexpected concern warning source: %#v", warning)
+	}
+}
+
+func TestParseStatic_UnterminatedConcernWarns(t *testing.T) {
+	path := writeRoutesFile(t, `
+concern :broken do
+  resources :comments
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 0 || len(result.Warnings) != 1 ||
+		result.Warnings[0].Line != 2 ||
+		!strings.Contains(result.Warnings[0].Message, "unterminated") {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
 func mustWriteStaticRouteFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

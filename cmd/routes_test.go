@@ -290,6 +290,40 @@ mount Generic::Engine => "/engine"
 	}
 }
 
+func TestRoutesStaticConcernWarningsStayOnStderr(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	routesPath := filepath.Join(root, "config", "routes.rb")
+	mustWriteRoutesFile(t, routesPath, `
+Rails.application.routes.draw do
+  concern :mountable do
+    mount Generic::Engine => "/engine"
+  end
+  concerns :mountable
+end
+`)
+
+	prevStatic := routesStatic
+	t.Cleanup(func() { routesStatic = prevStatic })
+	routesStatic = true
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("warning corrupted JSON stdout: %v\noutput: %s", err, out)
+	}
+	if len(got) != 0 {
+		t.Fatalf("unexpected routes: %#v", got)
+	}
+	sourceSuffix := filepath.Join("config", "routes.rb") + ":4: unsupported route DSL"
+	if !strings.Contains(errOut, sourceSuffix) {
+		t.Fatalf("expected concern-body warning on stderr, got %q", errOut)
+	}
+}
+
 func TestRoutesStaticCannotCombineWithCacheFlags(t *testing.T) {
 	prevStatic := routesStatic
 	prevRefresh := routesRefresh
