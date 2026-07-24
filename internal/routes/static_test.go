@@ -392,7 +392,9 @@ end
 	if len(result.Warnings) != 1 {
 		t.Fatalf("got %d warnings, want 1: %#v", len(result.Warnings), result.Warnings)
 	}
-	if result.Warnings[0].Line != 4 || !strings.Contains(result.Warnings[0].Message, "unsupported route DSL") {
+	if result.Warnings[0].Path != path ||
+		result.Warnings[0].Line != 4 ||
+		!strings.Contains(result.Warnings[0].Message, "unsupported route DSL") {
 		t.Errorf("unexpected warning: %#v", result.Warnings[0])
 	}
 }
@@ -714,5 +716,173 @@ end
 		entry.ControllerAction != "admin/reports/users#index" ||
 		entry.Prefix != "admin_reports_users" {
 		t.Fatalf("unexpected scoped route: %#v", entry)
+	}
+}
+
+func TestParseStatic_DrawFormsPreserveOrder(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "before", to: "before#show"
+  draw :users
+  draw("reports")
+  draw 'health'
+  get "after", to: "after#show"
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "users.rb"), `get "users", to: "users#index"`)
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "reports.rb"), `get "reports", to: "reports#index"`)
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "health.rb"), `get "health", to: "health#show"`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+	var targets []string
+	for _, entry := range result.Entries {
+		targets = append(targets, entry.ControllerAction)
+	}
+	want := []string{"before#show", "users#index", "reports#index", "health#show", "after#show"}
+	if strings.Join(targets, ",") != strings.Join(want, ",") {
+		t.Fatalf("targets = %#v, want %#v", targets, want)
+	}
+}
+
+func TestParseStatic_DrawInheritsResourceContext(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    resources :users, only: [] do
+      draw :comments
+    end
+  end
+end
+`)
+	mustWriteStaticRouteFile(t, filepath.Join(filepath.Dir(path), "routes", "comments.rb"), `
+resources :comments, only: :index
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	entry := result.Entries[0]
+	if entry.URIPattern != "/admin/users/:user_id/comments" ||
+		entry.ControllerAction != "admin/comments#index" ||
+		entry.Prefix != "admin_user_comments" {
+		t.Fatalf("drawn route did not inherit context: %#v", entry)
+	}
+}
+
+func TestParseStatic_NestedAndRepeatedDraws(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  draw :shared
+  draw :nested
+  draw :shared
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "shared.rb"), `get "shared", to: "shared#show"`)
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "nested.rb"), `draw(:leaf)`)
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "leaf.rb"), `get "leaf", to: "leaf#show"`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 3 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].ControllerAction != "shared#show" ||
+		result.Entries[1].ControllerAction != "leaf#show" ||
+		result.Entries[2].ControllerAction != "shared#show" {
+		t.Fatalf("unexpected draw order: %#v", result.Entries)
+	}
+}
+
+func TestParseStatic_DrawFailuresWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  draw :missing
+  draw dynamic_name
+  draw "../outside"
+  draw :cycle
+  draw :unsupported
+  get "available", to: "available#show"
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "cycle.rb"), `draw :cycle`)
+	unsupportedPath := filepath.Join(routesDir, "unsupported.rb")
+	mustWriteStaticRouteFile(t, unsupportedPath, `
+mount Generic::Engine => "/engine"
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || result.Entries[0].ControllerAction != "available#show" {
+		t.Fatalf("valid routes were not preserved: %#v", result.Entries)
+	}
+	if len(result.Warnings) != 5 {
+		t.Fatalf("got %d warnings, want 5: %#v", len(result.Warnings), result.Warnings)
+	}
+	messages := make([]string, len(result.Warnings))
+	for i, warning := range result.Warnings {
+		messages[i] = warning.Message
+	}
+	joined := strings.Join(messages, "\n")
+	for _, fragment := range []string{"could not be read", "dynamic draw", "unsafe or unsupported", "cyclic draw", "unsupported route DSL"} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("warnings missing %q: %s", fragment, joined)
+		}
+	}
+	last := result.Warnings[len(result.Warnings)-1]
+	if last.Path != unsupportedPath || last.Line != 2 {
+		t.Fatalf("drawn warning source = %#v, want %s:2", last, unsupportedPath)
+	}
+}
+
+func TestParseStatic_DrawRejectsEscapingSymlink(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  draw :linked
+end
+`)
+	outside := filepath.Join(filepath.Dir(path), "outside.rb")
+	mustWriteStaticRouteFile(t, outside, `get "outside"`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	if err := os.MkdirAll(routesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(routesDir, "linked.rb")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 0 || len(result.Warnings) != 1 ||
+		!strings.Contains(result.Warnings[0].Message, "through a symlink") {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
+func mustWriteStaticRouteFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

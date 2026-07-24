@@ -32,10 +32,11 @@ The cache is stored in tmp/routes_cache.txt and is invalidated when
 Rails or shelling out to bundler. It's fast and works even when the app
 can't boot, but it's an approximation: it understands resources/resource,
 resource path/controller/helper/parameter options, namespace and module scopes,
-root, member/collection blocks, action filters, and verb routes. It does not
-expand engine mounts, draw/concern macros, redirects, or routes drawn by gems.
-Constraints are retained as approximate routes and produce warnings. Use it
-for a quick answer, not as a replacement for "rails routes".`,
+root, recursively drawn route files, member/collection blocks, action filters,
+and verb routes. It does not expand engine mounts, concern macros, redirects,
+or routes drawn by gems. Constraints are retained as approximate routes and
+produce warnings. Use it for a quick answer, not as a replacement for
+"rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
@@ -56,7 +57,7 @@ for a quick answer, not as a replacement for "rails routes".`,
 				return fmt.Errorf("parsing %s: %w", routesPath, err)
 			}
 			for _, warning := range result.Warnings {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", routesPath, warning.Line, warning.Message)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", warning.Path, warning.Line, warning.Message)
 			}
 			entries := result.Entries
 			if len(args) > 0 {

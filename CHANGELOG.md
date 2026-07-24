@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no engine mounts, `draw`/`concern` macros, custom route helpers, constraints, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
+- `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no engine mounts, concern macros, redirects, full constraint evaluation, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
 - `skeleton` accepts multiple model names, Ruby paths, and glob patterns, validates and deduplicates them, and parses the resulting files in one Prism process. Single-file JSON remains an object; multi-file JSON is an ordered array.
 - `skeleton` accepts recursive directory inputs with repeatable root-relative `--exclude` patterns, including `**` matching. Directory batches are capped at 500 unique Ruby files.
 - `skill install|uninstall` supports Claude Code, Codex, or both through `--target claude|codex|all`. Codex installations use `.agents/skills` and include `agents/openai.yaml` metadata.
@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - `routes --static` now uses Rails-style `:id` member parameters; supports scalar, array, `%i[...]`, and `%w[...]` action filters (including empty filters); models resource `path`, `controller`, `as`, and `param` options; infers symbolic verb routes, controllers, actions, and helper names; and understands module scopes. Constraints remain approximate and produce line-specific warnings without changing JSON stdout.
+- `routes --static` recursively expands safe `draw` declarations from `config/routes`, preserves surrounding route context and declaration order, detects cycles, and reports warnings with the originating file and line.
 - Routes cache and metadata files are written through same-directory temporary files and atomically renamed, preventing interrupted writes from publishing partial cache contents.
 - Skill installation and removal are now global by default. Use `--local` for repository-scoped installation; the former `--global` flag remains as a deprecated compatibility alias.
 

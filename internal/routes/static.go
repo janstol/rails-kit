@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -20,7 +21,9 @@ var (
 	reMember      = regexp.MustCompile(`^\s*member\s+do\b`)
 	reCollection  = regexp.MustCompile(`^\s*collection\s+do\b`)
 	reScopeModule = regexp.MustCompile(`^\s*scope\s+module:\s*`)
-	reUnsupported = regexp.MustCompile(`^\s*(scope|constraints?|mount|draw|concerns?|devise_\w+|direct|resolve|match)\b`)
+	reDraw        = regexp.MustCompile(`^\s*draw\b`)
+	reDrawName    = regexp.MustCompile(`^[A-Za-z0-9_/-]+$`)
+	reUnsupported = regexp.MustCompile(`^\s*(scope|constraints?|mount|concerns?|devise_\w+|direct|resolve|match)\b`)
 )
 
 // routeFrame holds URL, controller, helper, and resource context for a block.
@@ -46,6 +49,7 @@ type routeFrame struct {
 // StaticWarning describes route syntax that the approximate parser skipped or
 // only partially modeled.
 type StaticWarning struct {
+	Path    string
 	Line    int
 	Message string
 }
@@ -78,6 +82,12 @@ type verbDeclaration struct {
 	dynamic     bool
 }
 
+type staticParser struct {
+	pluralizer *pluralize.Pluralizer
+	drawRoot   string
+	active     map[string]bool
+}
+
 // ParseStatic parses config/routes.rb and returns route entries.
 func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, error) {
 	result, err := ParseStaticDetailed(routesPath, p)
@@ -89,15 +99,39 @@ func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, erro
 
 // ParseStaticDetailed parses config/routes.rb and returns routes plus approximation warnings.
 func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResult, error) {
+	drawRoot, err := filepath.Abs(filepath.Join(filepath.Dir(routesPath), "routes"))
+	if err != nil {
+		return StaticResult{}, fmt.Errorf("resolving routes directory: %w", err)
+	}
+	parser := staticParser{
+		pluralizer: p,
+		drawRoot:   drawRoot,
+		active:     make(map[string]bool),
+	}
+	return parser.parseFile(routesPath, routeFrame{depth: -1})
+}
+
+func (p *staticParser) parseFile(routesPath string, initialFrame routeFrame) (StaticResult, error) {
 	f, err := os.Open(routesPath)
 	if err != nil {
 		return StaticResult{}, err
 	}
 	defer f.Close() //nolint:errcheck
 
+	canonicalPath, err := filepath.Abs(routesPath)
+	if err != nil {
+		return StaticResult{}, fmt.Errorf("resolving route file: %w", err)
+	}
+	if resolved, resolveErr := filepath.EvalSymlinks(canonicalPath); resolveErr == nil {
+		canonicalPath = resolved
+	}
+	p.active[canonicalPath] = true
+	defer delete(p.active, canonicalPath)
+
+	initialFrame.depth = -1
 	var (
 		result StaticResult
-		stack  = []routeFrame{{depth: -1}}
+		stack  = []routeFrame{initialFrame}
 		depth  int
 	)
 	currentFrame := func() routeFrame { return stack[len(stack)-1] }
@@ -124,7 +158,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 		if reMember.MatchString(trimmed) {
 			cf := currentFrame()
 			if cf.memberPath == "" {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, "member block outside a resource was skipped"))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "member block outside a resource was skipped"))
 			} else {
 				cf.depth = depth
 				cf.pathPrefix = cf.memberPath
@@ -137,7 +171,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 		if reCollection.MatchString(trimmed) {
 			cf := currentFrame()
 			if cf.collectionPath == "" {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, "collection block outside a resource was skipped"))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "collection block outside a resource was skipped"))
 			} else {
 				cf.depth = depth
 				cf.pathPrefix = cf.collectionPath
@@ -166,7 +200,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 		if reScopeModule.MatchString(trimmed) && hasDo {
 			moduleName, ok := optionScalar(trimmed, "module")
 			if !ok {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, "unsupported scope module syntax: "+trimmed))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "unsupported scope module syntax: "+trimmed))
 				depth++
 				continue
 			}
@@ -207,7 +241,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 				helperBase = options.helper
 			}
 			collectionHelper := cf.helperPrefix + helperBase
-			memberHelper := cf.helperPrefix + p.Singularize(helperBase)
+			memberHelper := cf.helperPrefix + p.pluralizer.Singularize(helperBase)
 			param := options.param
 			if param == "" {
 				param = "id"
@@ -224,7 +258,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 			)...)
 
 			if hasDo {
-				singularName := p.Singularize(name)
+				singularName := p.pluralizer.Singularize(name)
 				memberPath := collectionPath
 				nestedPath := collectionPath
 				if !singularResource {
@@ -239,7 +273,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 				frame.memberPath = memberPath
 				frame.resourcePath = nestedPath
 				frame.resourceName = helperBase
-				frame.resourceSingular = p.Singularize(helperBase)
+				frame.resourceSingular = p.pluralizer.Singularize(helperBase)
 				frame.resourceParam = param
 				frame.resourceController = resourceController
 				frame.collectionHelper = collectionHelper
@@ -266,30 +300,59 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 			continue
 		}
 
+		if reDraw.MatchString(trimmed) {
+			name, parseErr := parseDrawName(trimmed)
+			if parseErr != nil {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, parseErr.Error()))
+				continue
+			}
+			drawPath, resolveErr := p.resolveDrawPath(name)
+			if resolveErr != nil {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, resolveErr.Error()))
+				continue
+			}
+			canonicalDrawPath := drawPath
+			if resolved, evalErr := filepath.EvalSymlinks(drawPath); evalErr == nil {
+				canonicalDrawPath = resolved
+			}
+			if p.active[canonicalDrawPath] {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "cyclic draw was skipped: "+name))
+				continue
+			}
+			drawn, drawErr := p.parseFile(drawPath, currentFrame())
+			if drawErr != nil {
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "drawn route file could not be read: "+drawErr.Error()))
+				continue
+			}
+			result.Entries = append(result.Entries, drawn.Entries...)
+			result.Warnings = append(result.Warnings, drawn.Warnings...)
+			continue
+		}
+
 		if reVerbStart.MatchString(trimmed) {
 			declaration, parseErr := parseVerbDeclaration(trimmed)
 			if parseErr != nil {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, parseErr.Error()))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, parseErr.Error()))
 				continue
 			}
 			if declaration.dynamic {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, "dynamic route target is not modeled: "+trimmed))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "dynamic route target is not modeled: "+trimmed))
 				continue
 			}
 			entry, resolveErr := resolveVerbDeclaration(declaration, currentFrame())
 			if resolveErr != nil {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, resolveErr.Error()))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, resolveErr.Error()))
 				continue
 			}
 			result.Entries = append(result.Entries, entry)
 			if declaration.constraints {
-				result.Warnings = append(result.Warnings, staticWarning(lineNumber, "route constraints are not modeled"))
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "route constraints are not modeled"))
 			}
 			continue
 		}
 
 		if reUnsupported.MatchString(trimmed) {
-			result.Warnings = append(result.Warnings, staticWarning(lineNumber, "unsupported route DSL: "+trimmed))
+			result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "unsupported route DSL: "+trimmed))
 		}
 		if hasDo {
 			depth++
@@ -300,6 +363,63 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 		return StaticResult{}, err
 	}
 	return result, nil
+}
+
+func parseDrawName(line string) (string, error) {
+	value := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "draw"))
+	if strings.HasPrefix(value, "(") {
+		if !strings.HasSuffix(value, ")") {
+			return "", fmt.Errorf("unsupported draw syntax: %s", line)
+		}
+		value = strings.TrimSpace(value[1 : len(value)-1])
+	}
+
+	var name string
+	switch {
+	case strings.HasPrefix(value, ":"):
+		name = strings.TrimSpace(strings.TrimPrefix(value, ":"))
+	case len(value) >= 2 && (value[0] == '\'' || value[0] == '"') && value[len(value)-1] == value[0]:
+		name = value[1 : len(value)-1]
+	default:
+		return "", fmt.Errorf("dynamic draw target is not modeled: %s", line)
+	}
+	if !reDrawName.MatchString(name) {
+		return "", fmt.Errorf("unsafe or unsupported draw target: %s", line)
+	}
+	for _, segment := range strings.Split(name, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", fmt.Errorf("unsafe or unsupported draw target: %s", line)
+		}
+	}
+	return name, nil
+}
+
+func (p *staticParser) resolveDrawPath(name string) (string, error) {
+	candidate := filepath.Clean(filepath.Join(p.drawRoot, filepath.FromSlash(name)+".rb"))
+	if !pathWithin(p.drawRoot, candidate) {
+		return "", fmt.Errorf("draw target escapes config/routes: %s", name)
+	}
+
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return candidate, nil
+	}
+	resolvedRoot := p.drawRoot
+	if root, rootErr := filepath.EvalSymlinks(p.drawRoot); rootErr == nil {
+		resolvedRoot = root
+	}
+	if !pathWithin(resolvedRoot, resolved) {
+		return "", fmt.Errorf("draw target escapes config/routes through a symlink: %s", name)
+	}
+	return candidate, nil
+}
+
+func pathWithin(root, candidate string) bool {
+	relative, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func parseResourceOptions(line string, singular bool) resourceOptions {
@@ -689,6 +809,6 @@ func stripInlineComment(line string) string {
 	return line
 }
 
-func staticWarning(line int, message string) StaticWarning {
-	return StaticWarning{Line: line, Message: message}
+func staticWarning(path string, line int, message string) StaticWarning {
+	return StaticWarning{Path: path, Line: line, Message: message}
 }
