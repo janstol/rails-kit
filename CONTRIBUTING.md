@@ -35,6 +35,7 @@ mise exec -- just tidy           # go mod tidy
 
 ## Pull Requests
 
-- Run `mise exec -- just test` and `mise exec -- just lint` before submitting
+- Run `mise exec -- just test`, `MISE_OFFLINE=1 mise exec -- go test -race ./...`, and `mise exec -- just lint` before submitting
+- CI also runs `govulncheck ./...` and blocks reachable known vulnerabilities
 - Keep PRs focused — one concern per PR
 - Add tests for new behavior
