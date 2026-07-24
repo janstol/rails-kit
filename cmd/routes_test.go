@@ -199,6 +199,38 @@ end
 	}
 }
 
+func TestRoutesStaticLiteralRedirectJSON(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+Rails.application.routes.draw do
+  get "old", to: redirect("/new", status: 307), as: :legacy
+end
+`)
+
+	prevStatic := routesStatic
+	t.Cleanup(func() { routesStatic = prevStatic })
+	routesStatic = true
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	}
+	if len(got) != 1 ||
+		got[0]["prefix"] != "legacy" ||
+		got[0]["uri_pattern"] != "/old" ||
+		got[0]["controller_action"] != "redirect(307, /new)" {
+		t.Fatalf("unexpected redirect route: %#v", got)
+	}
+	if errOut != "" {
+		t.Fatalf("unexpected redirect warning: %q", errOut)
+	}
+}
+
 func TestRoutesStaticFiltersAndFormatsTable(t *testing.T) {
 	root := t.TempDir()
 	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))

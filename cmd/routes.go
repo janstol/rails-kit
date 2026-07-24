@@ -33,8 +33,9 @@ Rails or shelling out to bundler. It's fast and works even when the app
 can't boot, but it's an approximation: it understands resources/resource,
 resource path/controller/helper/parameter options, namespace and module scopes,
 root, recursively drawn route files, member/collection blocks, action filters,
-static block-defined route concerns, and verb routes. It does not expand engine
-mounts, callable or parameterized concerns, redirects, or routes drawn by gems.
+static block-defined route concerns, verb routes, and literal string redirects
+with optional numeric status codes. It does not expand engine mounts, callable
+or parameterized concerns, dynamic redirects, or routes drawn by gems.
 Constraints are retained as approximate routes and produce warnings. Use it for
 a quick answer, not as a replacement for "rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {

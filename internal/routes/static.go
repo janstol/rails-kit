@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/janstol/rails-kit/internal/pluralize"
@@ -78,16 +79,23 @@ type resourceOptions struct {
 }
 
 type verbDeclaration struct {
-	verb        string
-	routePath   string
-	symbolic    bool
-	target      string
-	controller  string
-	action      string
-	helper      string
-	on          string
-	constraints bool
-	dynamic     bool
+	verb            string
+	routePath       string
+	symbolic        bool
+	target          string
+	redirect        *redirectDeclaration
+	controller      string
+	action          string
+	helper          string
+	on              string
+	constraints     bool
+	dynamic         bool
+	dynamicRedirect bool
+}
+
+type redirectDeclaration struct {
+	destination string
+	status      int
 }
 
 type staticParser struct {
@@ -422,7 +430,11 @@ func (p *staticParser) parseScanner(routesPath string, scanner *bufio.Scanner, i
 				continue
 			}
 			if declaration.dynamic {
-				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, "dynamic route target is not modeled: "+trimmed))
+				message := "dynamic route target is not modeled: " + trimmed
+				if declaration.dynamicRedirect {
+					message = "dynamic redirect target is not modeled: " + trimmed
+				}
+				result.Warnings = append(result.Warnings, staticWarning(routesPath, lineNumber, message))
 				continue
 			}
 			entry, resolveErr := resolveVerbDeclaration(declaration, currentFrame())
@@ -703,6 +715,15 @@ func optionScalar(line, key string) (string, bool) {
 }
 
 func optionRawValue(line, key string) (string, bool) {
+	value, ok := optionTail(line, key)
+	if !ok {
+		return "", false
+	}
+	end := optionValueEnd(value)
+	return strings.TrimSpace(value[:end]), true
+}
+
+func optionTail(line, key string) (string, bool) {
 	pattern := regexp.MustCompile(`(?:\b` + regexp.QuoteMeta(key) + `\s*:|:` + regexp.QuoteMeta(key) + `\s*=>)\s*`)
 	location := pattern.FindStringIndex(line)
 	if location == nil {
@@ -712,8 +733,7 @@ func optionRawValue(line, key string) (string, bool) {
 	if value == "" {
 		return "", false
 	}
-	end := optionValueEnd(value)
-	return strings.TrimSpace(value[:end]), true
+	return value, true
 }
 
 func optionValueEnd(value string) int {
@@ -771,24 +791,180 @@ func parseVerbDeclaration(line string) (verbDeclaration, error) {
 	}
 
 	remainder = strings.TrimSpace(remainder)
+	optionsText := remainder
+	declaration.controller, _ = optionScalar(optionsText, "controller")
+	declaration.action, _ = optionScalar(optionsText, "action")
+	declaration.helper, _ = optionScalar(optionsText, "as")
+	declaration.on, _ = optionScalar(optionsText, "on")
+	declaration.constraints = hasOption(optionsText, "constraints")
+
 	if strings.HasPrefix(remainder, "=>") {
-		targetArg, rest, targetOK := consumeRouteArgument(strings.TrimSpace(strings.TrimPrefix(remainder, "=>")))
-		if !targetOK || strings.HasPrefix(targetArg, "redirect") {
-			declaration.dynamic = true
-			return declaration, nil
+		targetInput := strings.TrimSpace(strings.TrimPrefix(remainder, "=>"))
+		if strings.HasPrefix(targetInput, "redirect") {
+			redirect, _, redirectErr := parseRedirectCall(targetInput)
+			if redirectErr != nil {
+				declaration.dynamic = true
+				declaration.dynamicRedirect = true
+				return declaration, nil
+			}
+			declaration.redirect = &redirect
+		} else {
+			targetArg, _, targetOK := consumeRouteArgument(targetInput)
+			if !targetOK {
+				declaration.dynamic = true
+				return declaration, nil
+			}
+			declaration.target = normalizeOptionScalar(targetArg)
 		}
-		declaration.target = normalizeOptionScalar(targetArg)
-		remainder = rest
 	}
-	if target, ok := optionScalar(remainder, "to"); ok {
-		declaration.target = target
+	if toTail, ok := optionTail(optionsText, "to"); ok {
+		toTail = strings.TrimSpace(toTail)
+		if strings.HasPrefix(toTail, "redirect") {
+			redirect, _, redirectErr := parseRedirectCall(toTail)
+			if redirectErr != nil {
+				declaration.dynamic = true
+				declaration.dynamicRedirect = true
+				return declaration, nil
+			}
+			declaration.redirect = &redirect
+		} else if target, targetOK := optionScalar(optionsText, "to"); targetOK {
+			declaration.target = target
+		}
 	}
-	declaration.controller, _ = optionScalar(remainder, "controller")
-	declaration.action, _ = optionScalar(remainder, "action")
-	declaration.helper, _ = optionScalar(remainder, "as")
-	declaration.on, _ = optionScalar(remainder, "on")
-	declaration.constraints = hasOption(remainder, "constraints")
+	if declaration.redirect == nil && strings.Contains(optionsText, "redirect") {
+		declaration.dynamic = true
+		declaration.dynamicRedirect = true
+		return declaration, nil
+	}
 	return declaration, nil
+}
+
+func parseRedirectCall(input string) (redirectDeclaration, string, error) {
+	body, remainder, ok := consumeFunctionCall(input, "redirect")
+	if !ok {
+		return redirectDeclaration{}, "", fmt.Errorf("dynamic redirect target")
+	}
+	arguments := splitTopLevelArguments(body)
+	if len(arguments) == 0 {
+		return redirectDeclaration{}, "", fmt.Errorf("redirect has no destination")
+	}
+
+	destinationArg := strings.TrimSpace(arguments[0])
+	destination, rest, literal := consumeRouteArgument(destinationArg)
+	if !literal || rest != "" || len(destination) < 2 ||
+		(destination[0] != '\'' && destination[0] != '"') ||
+		strings.Contains(destination, "#{") {
+		return redirectDeclaration{}, "", fmt.Errorf("dynamic redirect target")
+	}
+
+	redirect := redirectDeclaration{
+		destination: destination[1 : len(destination)-1],
+		status:      301,
+	}
+	for _, argument := range arguments[1:] {
+		argument = strings.TrimSpace(argument)
+		if !strings.HasPrefix(argument, "status:") {
+			return redirectDeclaration{}, "", fmt.Errorf("dynamic redirect options")
+		}
+		statusText := strings.TrimSpace(strings.TrimPrefix(argument, "status:"))
+		status, err := strconv.Atoi(statusText)
+		if err != nil || status < 100 || status > 999 {
+			return redirectDeclaration{}, "", fmt.Errorf("invalid redirect status")
+		}
+		redirect.status = status
+	}
+	return redirect, remainder, nil
+}
+
+func consumeFunctionCall(input, name string) (string, string, bool) {
+	input = strings.TrimSpace(input)
+	if !strings.HasPrefix(input, name) {
+		return "", "", false
+	}
+	position := len(name)
+	for position < len(input) && (input[position] == ' ' || input[position] == '\t') {
+		position++
+	}
+	if position >= len(input) || input[position] != '(' {
+		return "", "", false
+	}
+
+	start := position + 1
+	depth := 1
+	var quote byte
+	escaped := false
+	for position = start; position < len(input); position++ {
+		char := input[position]
+		if quote != 0 {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if char == '\\' {
+				escaped = true
+				continue
+			}
+			if char == quote {
+				quote = 0
+			}
+			continue
+		}
+		switch char {
+		case '\'', '"':
+			quote = char
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				remainder := strings.TrimSpace(strings.TrimPrefix(input[position+1:], ","))
+				return input[start:position], remainder, true
+			}
+		}
+	}
+	return "", "", false
+}
+
+func splitTopLevelArguments(input string) []string {
+	var (
+		result  []string
+		start   int
+		depth   int
+		quote   byte
+		escaped bool
+	)
+	for position := 0; position < len(input); position++ {
+		char := input[position]
+		if quote != 0 {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if char == '\\' {
+				escaped = true
+				continue
+			}
+			if char == quote {
+				quote = 0
+			}
+			continue
+		}
+		switch char {
+		case '\'', '"':
+			quote = char
+		case '(', '[', '{':
+			depth++
+		case ')', ']', '}':
+			depth--
+		case ',':
+			if depth == 0 {
+				result = append(result, strings.TrimSpace(input[start:position]))
+				start = position + 1
+			}
+		}
+	}
+	result = append(result, strings.TrimSpace(input[start:]))
+	return result
 }
 
 func consumeRouteArgument(input string) (string, string, bool) {
@@ -825,11 +1001,6 @@ func hasOption(line, key string) bool {
 }
 
 func resolveVerbDeclaration(declaration verbDeclaration, frame routeFrame) (RouteEntry, error) {
-	controller, action := resolveVerbTarget(declaration, frame)
-	if controller == "" || action == "" {
-		return RouteEntry{}, fmt.Errorf("could not infer controller/action for route: %s %s", declaration.verb, declaration.routePath)
-	}
-
 	mode := declaration.on
 	if mode == "" {
 		mode = frame.routeMode
@@ -851,6 +1022,24 @@ func resolveVerbDeclaration(declaration verbDeclaration, frame routeFrame) (Rout
 		return RouteEntry{}, fmt.Errorf("unsupported route location: %s", mode)
 	}
 	routePath := joinRoutePath(basePath, declaration.routePath)
+
+	if declaration.redirect != nil {
+		helper := declaration.helper
+		if helper != "" {
+			helper = frame.helperPrefix + helper
+		}
+		return RouteEntry{
+			Prefix:           helper,
+			Verb:             declaration.verb,
+			URIPattern:       routePath,
+			ControllerAction: fmt.Sprintf("redirect(%d, %s)", declaration.redirect.status, declaration.redirect.destination),
+		}, nil
+	}
+
+	controller, action := resolveVerbTarget(declaration, frame)
+	if controller == "" || action == "" {
+		return RouteEntry{}, fmt.Errorf("could not infer controller/action for route: %s %s", declaration.verb, declaration.routePath)
+	}
 
 	helper := declaration.helper
 	if helper != "" {

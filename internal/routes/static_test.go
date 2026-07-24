@@ -670,13 +670,14 @@ end
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Entries) != 3 {
-		t.Fatalf("got %d routes, want 3: %#v", len(result.Entries), result.Entries)
+	if len(result.Entries) != 4 {
+		t.Fatalf("got %d routes, want 4: %#v", len(result.Entries), result.Entries)
 	}
 	want := map[string]routes.RouteEntry{
 		"profile": {Prefix: "profile", Verb: "GET", URIPattern: "/users/profile", ControllerAction: "users#profile"},
 		"show":    {Prefix: "health", Verb: "GET", URIPattern: "/health", ControllerAction: "health#show"},
 		"update":  {Prefix: "update_user", Verb: "PATCH", URIPattern: "/users/:id", ControllerAction: "users#update"},
+		"":        {Prefix: "", Verb: "GET", URIPattern: "/legacy", ControllerAction: "redirect(301, /new)"},
 	}
 	for _, entry := range result.Entries {
 		action := splitCA(entry.ControllerAction)[1]
@@ -684,10 +685,115 @@ end
 			t.Errorf("%s route = %#v, want %#v", action, entry, want[action])
 		}
 	}
-	if len(result.Warnings) != 2 ||
-		!strings.Contains(result.Warnings[0].Message, "constraints") ||
-		!strings.Contains(result.Warnings[1].Message, "dynamic") {
+	if len(result.Warnings) != 1 ||
+		!strings.Contains(result.Warnings[0].Message, "constraints") {
 		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+}
+
+func TestParseStatic_LiteralRedirects(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    get "old", to: redirect("/new?from=old#details"), as: :legacy
+    get "docs/:id" => redirect('/wiki/%{id}', status: 307)
+    get "external", to: redirect("https://example.test/new")
+    get "relative", to: redirect("current,page")
+  end
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 || len(result.Entries) != 4 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := map[string]routes.RouteEntry{
+		"/admin/old": {
+			Prefix:           "admin_legacy",
+			Verb:             "GET",
+			URIPattern:       "/admin/old",
+			ControllerAction: "redirect(301, /new?from=old#details)",
+		},
+		"/admin/docs/:id": {
+			Verb:             "GET",
+			URIPattern:       "/admin/docs/:id",
+			ControllerAction: "redirect(307, /wiki/%{id})",
+		},
+		"/admin/external": {
+			Verb:             "GET",
+			URIPattern:       "/admin/external",
+			ControllerAction: "redirect(301, https://example.test/new)",
+		},
+		"/admin/relative": {
+			Verb:             "GET",
+			URIPattern:       "/admin/relative",
+			ControllerAction: "redirect(301, current,page)",
+		},
+	}
+	for _, entry := range result.Entries {
+		if entry != want[entry.URIPattern] {
+			t.Errorf("redirect route = %#v, want %#v", entry, want[entry.URIPattern])
+		}
+	}
+}
+
+func TestParseStatic_RedirectPreservesResourceContextAndConstraintsWarning(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: [] do
+    get :legacy, on: :member, to: redirect("/users", status: 308), constraints: { id: /\d+/ }
+  end
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	entry := result.Entries[0]
+	if entry.Prefix != "" || entry.Verb != "GET" ||
+		entry.URIPattern != "/users/:id/legacy" ||
+		entry.ControllerAction != "redirect(308, /users)" {
+		t.Fatalf("unexpected resource redirect: %#v", entry)
+	}
+	if !strings.Contains(result.Warnings[0].Message, "constraints") {
+		t.Fatalf("unexpected warning: %#v", result.Warnings[0])
+	}
+}
+
+func TestParseStatic_DynamicRedirectsWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "interpolated", to: redirect("https://#{request.host}/new")
+  get "callable", to: redirect(GenericRedirect.new)
+  get "options", to: redirect(path: "/new")
+  get "status", to: redirect("/new", status: :temporary_redirect)
+  get "block", to: redirect { |params| "/#{params[:id]}" }
+  get "available", to: redirect("/new")
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 ||
+		result.Entries[0].ControllerAction != "redirect(301, /new)" {
+		t.Fatalf("valid redirect was not preserved: %#v", result.Entries)
+	}
+	if len(result.Warnings) != 5 {
+		t.Fatalf("got %d warnings, want 5: %#v", len(result.Warnings), result.Warnings)
+	}
+	for _, warning := range result.Warnings {
+		if !strings.Contains(warning.Message, "dynamic redirect target") {
+			t.Errorf("unexpected warning: %#v", warning)
+		}
 	}
 }
 
