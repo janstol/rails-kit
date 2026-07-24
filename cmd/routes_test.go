@@ -163,6 +163,88 @@ func TestRoutesCommandJSONOutputFailsForNonTabularOutput(t *testing.T) {
 	}
 }
 
+func TestRoutesStaticCommand(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+Rails.application.routes.draw do
+  root to: "posts#index"
+  resources :posts, only: [:index, :show]
+end
+`)
+
+	prevStatic := routesStatic
+	t.Cleanup(func() { routesStatic = prevStatic })
+	routesStatic = true
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 routes, got %d: %#v", len(got), got)
+	}
+	if got[0]["controller_action"] != "posts#index" || got[0]["prefix"] != "root" {
+		t.Fatalf("unexpected root route: %#v", got[0])
+	}
+
+	// No cache file should be written for --static.
+	if _, statErr := os.Stat(filepath.Join(root, "tmp", "routes_cache.txt")); statErr == nil {
+		t.Fatal("expected no cache file to be written for --static")
+	}
+}
+
+func TestRoutesStaticFiltersAndFormatsTable(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+Rails.application.routes.draw do
+  resources :posts, only: [:index]
+  resources :comments, only: [:index]
+end
+`)
+
+	prevStatic := routesStatic
+	t.Cleanup(func() { routesStatic = prevStatic })
+	routesStatic = true
+
+	out, errOut, err := runCmdForTestJSON(t, routesCmd, root, []string{"comments"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	var got []map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	}
+	if len(got) != 1 || got[0]["controller_action"] != "comments#index" {
+		t.Fatalf("unexpected filtered routes: %#v", got)
+	}
+}
+
+func TestRoutesStaticCannotCombineWithCacheFlags(t *testing.T) {
+	prevStatic := routesStatic
+	prevRefresh := routesRefresh
+	t.Cleanup(func() {
+		routesStatic = prevStatic
+		routesRefresh = prevRefresh
+	})
+	routesStatic = true
+	routesRefresh = true
+
+	err := routesCmd.RunE(routesCmd, nil)
+	if err == nil {
+		t.Fatal("expected error when combining --static and --refresh")
+	}
+	if !strings.Contains(err.Error(), "--static cannot be combined") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func mustWriteRoutesFile(t *testing.T, path string, content ...string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

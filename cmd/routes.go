@@ -3,15 +3,18 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"github.com/janstol/rails-kit/internal/pluralize"
 	"github.com/janstol/rails-kit/internal/routes"
 )
 
 var (
 	routesRefresh bool
 	routesNoCache bool
+	routesStatic  bool
 )
 
 var routesCmd = &cobra.Command{
@@ -23,15 +26,45 @@ With no arguments, prints all routes (using cache if available).
 With patterns, prints only routes matching any pattern (case-insensitive).
 
 The cache is stored in tmp/routes_cache.txt and is invalidated when
-	config/routes.rb or any file in config/routes/ is modified.`,
+	config/routes.rb or any file in config/routes/ is modified.
+
+--static parses config/routes.rb directly in pure Go, without booting
+Rails or shelling out to bundler. It's fast and works even when the app
+can't boot, but it's an approximation: it understands resources/resource,
+namespace, root, and verb routes, but not engine mounts, draw/concern
+macros, custom route helpers, constraints, or routes drawn by gems
+(e.g. Devise). Use it for a quick answer, not as a replacement for
+"rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
+		}
+		if routesStatic && (routesRefresh || routesNoCache) {
+			return fmt.Errorf("--static cannot be combined with --refresh or --no-cache")
 		}
 
 		root, err := resolveRailsRoot()
 		if err != nil {
 			return err
+		}
+
+		if routesStatic {
+			routesPath := filepath.Join(root, "config", "routes.rb")
+			entries, err := routes.ParseStatic(routesPath, pluralize.Default())
+			if err != nil {
+				return fmt.Errorf("parsing %s: %w", routesPath, err)
+			}
+			if len(args) > 0 {
+				entries, err = routes.FilterEntries(entries, args)
+				if err != nil {
+					return fmt.Errorf("filtering routes: %w", err)
+				}
+			}
+			if jsonFlag {
+				return printJSON(entries)
+			}
+			fmt.Print(routes.FormatTable(entries))
+			return nil
 		}
 
 		var output string
@@ -44,7 +77,7 @@ The cache is stored in tmp/routes_cache.txt and is invalidated when
 			output, err = routes.Cache(cmd.Context(), root, os.Stderr)
 		}
 		if err != nil {
-			return fmt.Errorf("fetching routes: %w", err)
+			return fmt.Errorf("fetching routes: %w (hint: try --static for an offline, pure-Go approximation)", err)
 		}
 
 		if len(args) == 0 {
@@ -79,4 +112,5 @@ func init() {
 	rootCmd.AddCommand(routesCmd)
 	routesCmd.Flags().BoolVar(&routesRefresh, "refresh", false, "Force cache regeneration")
 	routesCmd.Flags().BoolVar(&routesNoCache, "no-cache", false, "Skip cache entirely (don't read or write)")
+	routesCmd.Flags().BoolVar(&routesStatic, "static", false, "Parse config/routes.rb directly (offline, pure Go, approximate)")
 }

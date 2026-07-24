@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -216,6 +217,43 @@ func parseLine(line string) (RouteEntry, bool) {
 		URIPattern:       m[3],
 		ControllerAction: m[4],
 	}, true
+}
+
+// FormatTable renders entries as a columnar table matching `rails routes` output.
+func FormatTable(entries []RouteEntry) string {
+	var buf strings.Builder
+	w := tabwriter.NewWriter(&buf, 0, 2, 2, ' ', 0)
+	_, _ = fmt.Fprintln(w, "Prefix\tVerb\tURI Pattern\tController#Action")
+	for _, e := range entries {
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", e.Prefix, e.Verb, e.URIPattern, e.ControllerAction)
+	}
+	_ = w.Flush()
+	return buf.String()
+}
+
+// FilterEntries returns entries whose Prefix, Verb, URIPattern, or ControllerAction
+// contains any of the given patterns (case-insensitive).
+// Returns an error if no entries match.
+func FilterEntries(entries []RouteEntry, patterns []string) ([]RouteEntry, error) {
+	lowered := make([]string, len(patterns))
+	for i, p := range patterns {
+		lowered[i] = strings.ToLower(p)
+	}
+
+	var matching []RouteEntry
+	for _, e := range entries {
+		haystack := strings.ToLower(e.Prefix + " " + e.Verb + " " + e.URIPattern + " " + e.ControllerAction)
+		for _, p := range lowered {
+			if strings.Contains(haystack, p) {
+				matching = append(matching, e)
+				break
+			}
+		}
+	}
+	if len(matching) == 0 {
+		return nil, fmt.Errorf("no routes matching: %s", strings.Join(patterns, ", "))
+	}
+	return matching, nil
 }
 
 func CacheValid(cacheFile, routesRb, routesDir string) bool {
