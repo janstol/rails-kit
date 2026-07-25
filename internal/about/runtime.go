@@ -58,7 +58,7 @@ func (runner Runner) Inspect(ctx context.Context, root string) (RuntimeInfo, err
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return RuntimeInfo{}, fmt.Errorf("timed out")
 		}
-		return RuntimeInfo{}, fmt.Errorf("Rails runner exited: %w", err)
+		return RuntimeInfo{}, fmt.Errorf("rails runner exited: %w", err)
 	}
 	for _, line := range strings.Split(string(output), "\n") {
 		if !strings.HasPrefix(line, sentinel) {

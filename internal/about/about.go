@@ -151,7 +151,9 @@ func databaseAdapters(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 	seen := make(map[string]bool)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
