@@ -5,7 +5,7 @@ A fast, compiled CLI for inspecting Rails projects. Most commands read project f
 ## Installation
 
 ```sh
-brew install janstol/tap/rails-kit
+brew install --cask janstol/tap/rails-kit
 ```
 
 Or install with Go:
