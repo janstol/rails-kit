@@ -31,13 +31,22 @@ The cache is stored in tmp/routes_cache.txt and is invalidated when
 --static parses config/routes.rb directly in pure Go, without booting
 Rails or shelling out to bundler. It's fast and works even when the app
 can't boot, but it's an approximation: it understands resources/resource,
-resource path/controller/helper/parameter options, namespace and module scopes,
-root, recursively drawn route files, member/collection blocks, action filters,
-static block-defined route concerns, verb routes, and literal string redirects
-with optional numeric status codes. It does not expand engine mounts, callable
-or parameterized concerns, dynamic redirects, or routes drawn by gems.
-Constraints are retained as approximate routes and produce warnings. Use it for
-a quick answer, not as a replacement for "rails routes".`,
+resource path/controller/helper/parameter options, namespaces, static
+path/module/helper/controller scopes, standard or parenthesized namespaces,
+static controller blocks, root, recursively drawn route files,
+member/collection blocks, single-declaration inline namespace/member/collection
+blocks, action filters, static block-defined route concerns, single-line or
+comma-continued verb and match routes, and literal string redirects with
+optional numeric status codes. Static engine, Rack, and constant-qualified
+receiver mount points are represented, but their internal routes are not
+expanded. Generated resource helpers follow Rails inspector output: only the
+first enabled route sharing a helper displays its prefix. Conditional mounts are
+included without evaluating their conditions and produce warnings. Callable or
+parameterized concerns, executable inline blocks, dynamic redirects, and routes
+drawn by gems are not modeled. Inline regex constraints for named path
+parameters are included in endpoint text; other constraints remain approximate
+and produce warnings. Use it for a quick answer, not as a replacement for
+"rails routes".`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")

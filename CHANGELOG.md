@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no engine mounts, callable route concerns, full constraint evaluation, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
+- `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no internal engine route expansion, callable route concerns, full constraint evaluation, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
 - `skeleton` accepts multiple model names, Ruby paths, and glob patterns, validates and deduplicates them, and parses the resulting files in one Prism process. Single-file JSON remains an object; multi-file JSON is an ordered array.
 - `skeleton` accepts recursive directory inputs with repeatable root-relative `--exclude` patterns, including `**` matching. Directory batches are capped at 500 unique Ruby files.
 - `skill install|uninstall` supports Claude Code, Codex, or both through `--target claude|codex|all`. Codex installations use `.agents/skills` and include `agents/openai.yaml` metadata.
@@ -19,6 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `routes --static` recursively expands safe `draw` declarations from `config/routes`, preserves surrounding route context and declaration order, detects cycles, and reports warnings with the originating file and line.
 - `routes --static` registers and expands static block-defined route concerns across drawn files, including multiple-name and inline resource forms, while warning on missing, cyclic, callable, or parameterized concerns.
 - `routes --static` models literal string redirects, including hash-rocket declarations and optional numeric status codes, using Rails inspector-style endpoint text. Dynamic, callable, block, and option-hash redirects remain unsupported and produce source-specific warnings.
+- `routes --static` models single-line `match` routes with static `via:` symbols, arrays, `%i[...]`, `%w[...]`, or `:all`, including Rails-style combined verb output. Missing, dynamic, or unsupported methods produce source-specific warnings.
+- `routes --static` combines comma-continued verb and `match` declarations before parsing, preserving explicit endpoints, helpers, methods, redirects, constraints, and source-line warnings.
+- `routes --static` models parenthesized namespaces and single-declaration inline namespace, member, and collection blocks. Executable or multi-statement inline blocks are skipped with source-specific warnings.
+- Generated `resources` and `resource` routes now display each shared helper prefix only on its first enabled route, matching Rails inspector table and JSON output.
+- `routes --static` models inline regex constraints for named path parameters and appends them to endpoint text in Rails inspector style. Unsupported or partially modeled constraints retain their routes and produce source-specific warnings.
+- `routes --static` represents static constant engine and Rack mount points using hash-rocket or `at:` syntax, including scoped paths and Rails-style inferred helpers. Internal engine routes and dynamic mount declarations remain unexpanded.
+- `routes --static` represents constant-qualified, zero-argument mount receivers without inventing helpers. Postfix-conditional mounts are retained with warnings because their runtime conditions are not evaluated.
+- `routes --static` composes positional or option-based static scope paths, controller modules/defaults, and helper prefixes across nested routes, resources, concerns, and drawn files. Dynamic scopes are skipped with source-specific warnings.
+- `routes --static` models static `controller` blocks as inherited default endpoint context across scopes, resources, concerns, and drawn files. Dynamic controller blocks are skipped with source-specific warnings.
 - Routes cache and metadata files are written through same-directory temporary files and atomically renamed, preventing interrupted writes from publishing partial cache contents.
 - Skill installation and removal are now global by default. Use `--local` for repository-scoped installation; the former `--global` flag remains as a deprecated compatibility alias.
 

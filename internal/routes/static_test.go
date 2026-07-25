@@ -151,6 +151,141 @@ end
 	}
 }
 
+func TestParseStatic_ParenthesizedNamespaces(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users, only: [] do
+    namespace(:exports) do
+      resources :reports, only: :create
+    end
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := routes.RouteEntry{
+		Prefix:           "user_exports_reports",
+		Verb:             "POST",
+		URIPattern:       "/users/:user_id/exports/reports",
+		ControllerAction: "exports/reports#create",
+	}
+	if result.Entries[0] != want {
+		t.Fatalf("route = %#v, want %#v", result.Entries[0], want)
+	}
+}
+
+func TestParseStatic_StaticInlineRouteBlocks(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace(:admin) { resources :reports, only: %i[new create] }
+  namespace :api { get "status/{ready}", to: "status#show" }
+  namespace(:v1) { get "items/:id", to: "items#show", constraints: { id: /[0-9]{2}/ } }
+  resources :users, only: [] do
+    member { get :preview }
+    collection { post :search }
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 6 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "admin_reports", Verb: "POST", URIPattern: "/admin/reports", ControllerAction: "admin/reports#create"},
+		{Prefix: "new_admin_report", Verb: "GET", URIPattern: "/admin/reports/new", ControllerAction: "admin/reports#new"},
+		{Prefix: "api_show", Verb: "GET", URIPattern: "/api/status/{ready}", ControllerAction: "api/status#show"},
+		{Prefix: "v1_show", Verb: "GET", URIPattern: "/v1/items/:id", ControllerAction: "v1/items#show {id: /[0-9]{2}/}"},
+		{Prefix: "preview_user", Verb: "GET", URIPattern: "/users/:id/preview", ControllerAction: "users#preview"},
+		{Prefix: "search_users", Verb: "POST", URIPattern: "/users/search", ControllerAction: "users#search"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("route %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
+func TestParseStatic_UnsupportedInlineRouteBlocksWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace(:dynamic) { ACTIONS.each { |action| get action } }
+  namespace(:multiple) { get "one"; get "two" }
+  namespace(:nested) { resources :items do }
+  namespace(:broken) { resources :items
+  member(extra) { get :invalid }
+  member { get :outside }
+  get "valid", to: "items#index"
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 6 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/valid" {
+		t.Fatalf("following valid route was lost: %#v", result.Entries)
+	}
+	joined := ""
+	for _, warning := range result.Warnings {
+		joined += warning.Message + "\n"
+	}
+	for _, fragment := range []string{
+		"dynamic inline namespace",
+		"malformed inline namespace",
+		"dynamic inline member",
+		"member block outside a resource",
+	} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("warnings missing %q: %s", fragment, joined)
+		}
+	}
+}
+
+func TestParseStatic_InlineAndParenthesizedNamespacesInConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :visible do
+    namespace(:audit) { get "summary", to: "reports#summary" }
+  end
+  concerns :visible
+  draw :extra
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `
+namespace(:api) do
+  get "detail", to: "reports#detail"
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "audit_summary", Verb: "GET", URIPattern: "/audit/summary", ControllerAction: "audit/reports#summary"},
+		{Prefix: "api_detail", Verb: "GET", URIPattern: "/api/detail", ControllerAction: "api/reports#detail"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("route %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
 func TestParseStatic_NestedResources(t *testing.T) {
 	path := writeRoutesFile(t, `
 Rails.application.routes.draw do
@@ -207,6 +342,384 @@ end
 	}
 	if got["POST"] != "sessions#create" {
 		t.Errorf("POST route: got %q, want %q", got["POST"], "sessions#create")
+	}
+}
+
+func TestParseStatic_MultilineVerbAndMatchRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "/items,archived/:id",
+      to: "items#show",
+      as: :item_preview,
+      constraints: {
+        id: /[0-9]+/
+      }
+  match "/items",
+        to: "items#update",
+        via: [
+          :put,
+          :patch
+        ],
+        as: :items
+  get "/legacy",
+      to: redirect(
+        "/items",
+        status: 302
+      ),
+      as: :legacy # trailing comment
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "item_preview", Verb: "GET", URIPattern: "/items,archived/:id", ControllerAction: "items#show {id: /[0-9]+/}"},
+		{Prefix: "items", Verb: "PUT|PATCH", URIPattern: "/items", ControllerAction: "items#update"},
+		{Prefix: "legacy", Verb: "GET", URIPattern: "/legacy", ControllerAction: "redirect(302, /items)"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("route %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
+func TestParseStatic_MultilineVerbWarningsUseStartingLine(t *testing.T) {
+	path := writeRoutesFile(t, `
+get "/dynamic",
+    to: target_for(:item)
+get "/valid",
+    to: "items#index"
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].ControllerAction != "items#index" {
+		t.Fatalf("following route was corrupted: %#v", result.Entries)
+	}
+	if result.Warnings[0].Line != 2 ||
+		!strings.Contains(result.Warnings[0].Message, "dynamic route target") {
+		t.Fatalf("unexpected warning: %#v", result.Warnings[0])
+	}
+}
+
+func TestParseStatic_MultilineVerbsInConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :visible do
+    get "/summary",
+        to: "reports#summary",
+        as: :summary
+  end
+  concerns :visible
+  draw :extra
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	drawnPath := filepath.Join(routesDir, "extra.rb")
+	mustWriteStaticRouteFile(t, drawnPath, `get "/dynamic",
+  to: target_for(:item)
+get "/detail",
+  to: "reports#detail",
+  as: :detail`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].Prefix != "summary" ||
+		result.Entries[0].ControllerAction != "reports#summary" ||
+		result.Entries[1].Prefix != "detail" ||
+		result.Entries[1].ControllerAction != "reports#detail" {
+		t.Fatalf("multiline expansion lost route metadata: %#v", result.Entries)
+	}
+	if result.Warnings[0].Path != drawnPath ||
+		result.Warnings[0].Line != 1 ||
+		!strings.Contains(result.Warnings[0].Message, "dynamic route target") {
+		t.Fatalf("unexpected drawn-file warning: %#v", result.Warnings[0])
+	}
+}
+
+func TestParseStatic_UnterminatedMultilineVerbWarns(t *testing.T) {
+	path := writeRoutesFile(t, `get "/unfinished",`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 0 || len(result.Warnings) != 1 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Warnings[0].Line != 1 ||
+		result.Warnings[0].Message != "unterminated multiline route declaration" {
+		t.Fatalf("unexpected warning: %#v", result.Warnings[0])
+	}
+}
+
+func TestParseStatic_MatchRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    match "reports", to: "reports#index", via: :get, as: :reports
+    match "events", controller: "events", action: :create, via: [:post, :options]
+    match "legacy" => redirect("/new"), via: %i[get head]
+  end
+  resources :users do
+    match "preview", action: :preview, on: :member, via: %w[head options], constraints: { id: /\d+/ }
+  end
+  match "/fallback", to: "fallback#show", via: :all
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 13 {
+		t.Fatalf("got %d entries, want 13: %#v", len(result.Entries), result.Entries)
+	}
+
+	want := map[string]routes.RouteEntry{
+		"/admin/reports": {
+			Prefix:           "admin_reports",
+			Verb:             "GET",
+			URIPattern:       "/admin/reports",
+			ControllerAction: "admin/reports#index",
+		},
+		"/admin/events": {
+			Prefix:           "admin_create",
+			Verb:             "POST|OPTIONS",
+			URIPattern:       "/admin/events",
+			ControllerAction: "admin/events#create",
+		},
+		"/admin/legacy": {
+			Verb:             "GET|HEAD",
+			URIPattern:       "/admin/legacy",
+			ControllerAction: "redirect(301, /new)",
+		},
+		"/users/:id/preview": {
+			Prefix:           "preview_user",
+			Verb:             "HEAD|OPTIONS",
+			URIPattern:       "/users/:id/preview",
+			ControllerAction: `users#preview {id: /\d+/}`,
+		},
+		"/fallback": {
+			Prefix:           "show",
+			Verb:             "",
+			URIPattern:       "/fallback",
+			ControllerAction: "fallback#show",
+		},
+	}
+	found := 0
+	for _, entry := range result.Entries {
+		expected, ok := want[entry.URIPattern]
+		if !ok {
+			continue
+		}
+		found++
+		if entry != expected {
+			t.Errorf("route %q = %#v, want %#v", entry.URIPattern, entry, expected)
+		}
+	}
+	if found != len(want) {
+		t.Errorf("found %d match routes, want %d", found, len(want))
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+}
+
+func TestParseStatic_InvalidMatchRoutesWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  match "/missing", to: "items#show"
+  match "/empty", to: "items#show", via: []
+  match "/unknown", to: "items#show", via: :trace
+  match "/dynamic", to: "items#show", via: methods
+  match "/mixed", to: "items#show", via: [:all, :get]
+  match "/callable", to: ->(_env) { [200, {}, []] }, via: :get
+  match "/valid", to: "items#show", via: :get
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || result.Entries[0].URIPattern != "/valid" {
+		t.Fatalf("valid match route was not preserved: %#v", result.Entries)
+	}
+	if len(result.Warnings) != 6 {
+		t.Fatalf("got %d warnings, want 6: %#v", len(result.Warnings), result.Warnings)
+	}
+	joined := ""
+	for _, warning := range result.Warnings {
+		joined += warning.Message + "\n"
+	}
+	for _, fragment := range []string{"requires a static via", "empty via", "trace", "methods", "all", "dynamic route target"} {
+		if !strings.Contains(joined, fragment) {
+			t.Errorf("warnings missing %q: %s", fragment, joined)
+		}
+	}
+}
+
+func TestParseStatic_MountRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  mount GenericRack => "/legacy"
+  namespace :admin do
+    mount Generic::HTTPServer, at: "/service", as: :gateway
+  end
+  resources :users, only: [] do
+    mount Generic::Engine, at: "tools", as: nil
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "generic_rack", Verb: "", URIPattern: "/legacy", ControllerAction: "GenericRack"},
+		{Prefix: "admin_gateway", Verb: "", URIPattern: "/admin/service", ControllerAction: "Generic::HTTPServer"},
+		{Prefix: "", Verb: "", URIPattern: "/users/:user_id/tools", ControllerAction: "Generic::Engine"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("mount %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+	table := routes.FormatTable(result.Entries)
+	if !strings.Contains(table, "generic_rack") || !strings.Contains(table, "/legacy") || !strings.Contains(table, "GenericRack") {
+		t.Fatalf("mount with blank verb was not formatted: %q", table)
+	}
+}
+
+func TestParseStatic_MountReceiverTargets(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  mount GenericServer.server => "/socket"
+  namespace :admin do
+    mount Generic::Engine.routes, at: "/engine", as: :mounted_engine
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "", Verb: "", URIPattern: "/socket", ControllerAction: "GenericServer.server"},
+		{Prefix: "admin_mounted_engine", Verb: "", URIPattern: "/admin/engine", ControllerAction: "Generic::Engine.routes"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("mount %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
+func TestParseStatic_ConditionalMountsAreIncludedWithWarnings(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  mount Generic::Engine, at: "/enabled" if feature_enabled?
+  mount GenericServer.server => "/fallback" unless disabled?({ reason: "if needed" })
+  mount Generic::Quoted, at: "/path if available"
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 || len(result.Warnings) != 2 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/enabled" ||
+		result.Entries[1].URIPattern != "/fallback" ||
+		result.Entries[2].URIPattern != "/path if available" {
+		t.Fatalf("conditional parsing changed mount paths: %#v", result.Entries)
+	}
+	for _, warning := range result.Warnings {
+		if warning.Message != "conditional mount is included without evaluating its condition" {
+			t.Errorf("unexpected warning: %#v", warning)
+		}
+	}
+}
+
+func TestParseStatic_MountsInConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :mountable do
+    mount GenericRack, at: "rack"
+  end
+  namespace :admin do
+    concerns :mountable
+    draw :extra
+  end
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `mount Generic::Engine => "/engine"`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].Prefix != "admin_generic_rack" ||
+		result.Entries[0].URIPattern != "/admin/rack" ||
+		result.Entries[1].Prefix != "admin_generic_engine" ||
+		result.Entries[1].URIPattern != "/admin/engine" {
+		t.Fatalf("mount context was not preserved: %#v", result.Entries)
+	}
+}
+
+func TestParseStatic_DynamicMountsWarnAndContinue(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  mount app_for(:generic), at: "/dynamic-target"
+  mount Generic::Engine.routes(:isolated), at: "/routes-call"
+  mount GenericRack, at: dynamic_path
+  mount GenericRack, at: "/interpolated/#{segment}"
+  mount GenericRack, at: "/approximate" if feature_enabled?
+  mount GenericRack, at: "/malformed" if
+  mount GenericRack,
+    at: "/multiline"
+  mount GenericRack, at: "/valid"
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 7 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/approximate" ||
+		result.Entries[1].URIPattern != "/valid" {
+		t.Fatalf("valid and approximate mounts were not preserved: %#v", result.Entries)
+	}
+	if result.Warnings[4].Message != "conditional mount is included without evaluating its condition" {
+		t.Fatalf("unexpected conditional mount warning: %#v", result.Warnings[4])
+	}
+	if !strings.Contains(result.Warnings[5].Message, "malformed postfix condition") {
+		t.Fatalf("unexpected malformed condition warning: %#v", result.Warnings[5])
 	}
 }
 
@@ -373,7 +886,7 @@ end
 	}
 }
 
-func TestParseStaticDetailed_WarnsForUnsupportedSyntax(t *testing.T) {
+func TestParseStaticDetailed_PositionalScopePath(t *testing.T) {
 	path := writeRoutesFile(t, `
 Rails.application.routes.draw do
   resources :users, only: :index, path: "people"
@@ -389,13 +902,12 @@ end
 	if len(result.Entries) != 2 {
 		t.Fatalf("got %d supported entries, want 2: %#v", len(result.Entries), result.Entries)
 	}
-	if len(result.Warnings) != 1 {
-		t.Fatalf("got %d warnings, want 1: %#v", len(result.Warnings), result.Warnings)
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
 	}
-	if result.Warnings[0].Path != path ||
-		result.Warnings[0].Line != 4 ||
-		!strings.Contains(result.Warnings[0].Message, "unsupported route DSL") {
-		t.Errorf("unexpected warning: %#v", result.Warnings[0])
+	if result.Entries[1].URIPattern != "/admin/health" ||
+		result.Entries[1].ControllerAction != "health#show" {
+		t.Errorf("unexpected scoped route: %#v", result.Entries[1])
 	}
 }
 
@@ -574,6 +1086,103 @@ end
 	}
 }
 
+func TestParseStatic_ResourceHelpersAppearOnFirstEnabledRoute(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  resources :users
+  resources :photos, only: :create
+  resources :records, only: :update
+  resources :logs, only: :destroy
+  resource :profile
+  resource :session, only: :create
+  resource :preference, only: :update
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected warnings: %#v", result.Warnings)
+	}
+
+	type routeKey struct {
+		controller string
+		action     string
+		verb       string
+	}
+	got := make(map[routeKey]string)
+	for _, entry := range result.Entries {
+		controllerAction := splitCA(entry.ControllerAction)
+		got[routeKey{controllerAction[0], controllerAction[1], entry.Verb}] = entry.Prefix
+	}
+	want := map[routeKey]string{
+		{"users", "index", "GET"}:         "users",
+		{"users", "create", "POST"}:       "",
+		{"users", "show", "GET"}:          "user",
+		{"users", "update", "PATCH"}:      "",
+		{"users", "update", "PUT"}:        "",
+		{"users", "destroy", "DELETE"}:    "",
+		{"photos", "create", "POST"}:      "photos",
+		{"records", "update", "PATCH"}:    "record",
+		{"records", "update", "PUT"}:      "",
+		{"logs", "destroy", "DELETE"}:     "log",
+		{"profile", "show", "GET"}:        "profile",
+		{"profile", "create", "POST"}:     "",
+		{"profile", "update", "PATCH"}:    "",
+		{"profile", "update", "PUT"}:      "",
+		{"profile", "destroy", "DELETE"}:  "",
+		{"session", "create", "POST"}:     "session",
+		{"preference", "update", "PATCH"}: "preference",
+		{"preference", "update", "PUT"}:   "",
+	}
+	for key, prefix := range want {
+		if got[key] != prefix {
+			t.Errorf("%#v prefix = %q, want %q", key, got[key], prefix)
+		}
+	}
+
+	table := routes.FormatTable(result.Entries)
+	if !strings.Contains(table, "POST    /users") ||
+		!strings.Contains(table, "PATCH   /users/:id") {
+		t.Fatalf("blank resource prefixes were not rendered: %q", table)
+	}
+	filtered, filterErr := routes.FilterEntries(result.Entries, []string{"users#create"})
+	if filterErr != nil || len(filtered) != 1 || filtered[0].Prefix != "" {
+		t.Fatalf("blank-prefix route was not filterable: %#v, %v", filtered, filterErr)
+	}
+}
+
+func TestParseStatic_ResourceHelperSuppressionInConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :mutable do
+    resource :profile, only: :update
+  end
+  namespace :admin do
+    concerns :mutable
+    draw :extra
+  end
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `resources :reports, only: :create`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	wantPrefixes := []string{"admin_profile", "", "admin_reports"}
+	for index, prefix := range wantPrefixes {
+		if result.Entries[index].Prefix != prefix {
+			t.Errorf("route %d prefix = %q, want %q", index, result.Entries[index].Prefix, prefix)
+		}
+	}
+}
+
 func TestParseStatic_ResourceOptionsAndNestedParameters(t *testing.T) {
 	path := writeRoutesFile(t, `
 Rails.application.routes.draw do
@@ -674,10 +1283,10 @@ end
 		t.Fatalf("got %d routes, want 4: %#v", len(result.Entries), result.Entries)
 	}
 	want := map[string]routes.RouteEntry{
-		"profile": {Prefix: "profile", Verb: "GET", URIPattern: "/users/profile", ControllerAction: "users#profile"},
-		"show":    {Prefix: "health", Verb: "GET", URIPattern: "/health", ControllerAction: "health#show"},
-		"update":  {Prefix: "update_user", Verb: "PATCH", URIPattern: "/users/:id", ControllerAction: "users#update"},
-		"":        {Prefix: "", Verb: "GET", URIPattern: "/legacy", ControllerAction: "redirect(301, /new)"},
+		"profile":             {Prefix: "profile", Verb: "GET", URIPattern: "/users/profile", ControllerAction: "users#profile"},
+		"show":                {Prefix: "health", Verb: "GET", URIPattern: "/health", ControllerAction: "health#show"},
+		"update {id: /\\d+/}": {Prefix: "update_user", Verb: "PATCH", URIPattern: "/users/:id", ControllerAction: `users#update {id: /\d+/}`},
+		"":                    {Prefix: "", Verb: "GET", URIPattern: "/legacy", ControllerAction: "redirect(301, /new)"},
 	}
 	for _, entry := range result.Entries {
 		action := splitCA(entry.ControllerAction)[1]
@@ -685,8 +1294,7 @@ end
 			t.Errorf("%s route = %#v, want %#v", action, entry, want[action])
 		}
 	}
-	if len(result.Warnings) != 1 ||
-		!strings.Contains(result.Warnings[0].Message, "constraints") {
+	if len(result.Warnings) != 0 {
 		t.Fatalf("unexpected warnings: %#v", result.Warnings)
 	}
 }
@@ -753,17 +1361,107 @@ end
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Entries) != 1 || len(result.Warnings) != 1 {
+	if len(result.Entries) != 1 || len(result.Warnings) != 0 {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 	entry := result.Entries[0]
 	if entry.Prefix != "" || entry.Verb != "GET" ||
 		entry.URIPattern != "/users/:id/legacy" ||
-		entry.ControllerAction != "redirect(308, /users)" {
+		entry.ControllerAction != `redirect(308, /users) {id: /\d+/}` {
 		t.Fatalf("unexpected resource redirect: %#v", entry)
 	}
-	if !strings.Contains(result.Warnings[0].Message, "constraints") {
-		t.Fatalf("unexpected warning: %#v", result.Warnings[0])
+}
+
+func TestParseStatic_PathConstraints(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "/items/:section/:id", to: "items#show", constraints: { :id => /[0-9]+/i, section: /[a-z\/]{2,4}/mx }
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	entry := result.Entries[0]
+	if entry.ControllerAction != `items#show {id: /[0-9]+/i, section: /[a-z\/]{2,4}/mx}` {
+		t.Fatalf("unexpected constrained route: %#v", entry)
+	}
+}
+
+func TestParseStatic_PathConstraintsInConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :constrained do
+    get "items/:token", to: "items#show", constraints: { token: /[a-z]+/ }
+  end
+  namespace :admin do
+    concerns :constrained
+    draw :extra
+  end
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"),
+		`get "reports/:slug", to: "reports#show", constraints: { slug: /[a-z-]+/ }`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := map[string]string{
+		"/admin/items/:token":  `admin/items#show {token: /[a-z]+/}`,
+		"/admin/reports/:slug": `admin/reports#show {slug: /[a-z-]+/}`,
+	}
+	for _, entry := range result.Entries {
+		if entry.ControllerAction != want[entry.URIPattern] {
+			t.Errorf("route %q = %#v, want endpoint %q", entry.URIPattern, entry, want[entry.URIPattern])
+		}
+	}
+}
+
+func TestParseStatic_UnsupportedPathConstraintsWarnAndPreserveRoutes(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  get "/partial/:id", to: "items#show", constraints: { id: /[0-9]+/, host: /example/ }
+  get "/string/:id", to: "items#show", constraints: { id: "numeric" }
+  get "/object/:id", to: "items#show", constraints: ConstraintObject.new
+  get "/callable/:id", to: "items#show", constraints: ->(request) { request.local? }
+  get "/interpolated/:id", to: "items#show", constraints: { id: /#{pattern}/ }
+  get "/malformed/:id", to: "items#show", constraints: { id: /[0-9]+/
+  get "/valid/:id", to: "items#show", constraints: { id: /[0-9]+/ }
+end
+`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 7 || len(result.Warnings) != 6 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].ControllerAction != `items#show {id: /[0-9]+/}` ||
+		result.Warnings[0].Message != "route constraints are only partially modeled" {
+		t.Fatalf("unexpected partial constraint result: %#v, %#v", result.Entries[0], result.Warnings[0])
+	}
+	for _, entry := range result.Entries[1:6] {
+		if strings.Contains(entry.ControllerAction, " {") {
+			t.Errorf("unsupported constraint leaked into endpoint: %#v", entry)
+		}
+	}
+	if result.Entries[6].ControllerAction != `items#show {id: /[0-9]+/}` {
+		t.Fatalf("valid route after warnings was not modeled: %#v", result.Entries[6])
+	}
+	for _, warning := range result.Warnings[1:] {
+		if warning.Message != "route constraints are not modeled" {
+			t.Errorf("unexpected warning: %#v", warning)
+		}
 	}
 }
 
@@ -822,6 +1520,217 @@ end
 		entry.ControllerAction != "admin/reports/users#index" ||
 		entry.Prefix != "admin_reports_users" {
 		t.Fatalf("unexpected scoped route: %#v", entry)
+	}
+}
+
+func TestParseStatic_ScopeOptionsComposeIndependently(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  namespace :admin do
+    scope path: :api, module: "v1", as: :api do
+      get "reports", to: "reports#index"
+      scope controller: :health, as: "ops" do
+        get :status
+      end
+    end
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "admin_api_index", Verb: "GET", URIPattern: "/admin/api/reports", ControllerAction: "admin/v1/reports#index"},
+		{Prefix: "admin_api_ops_status", Verb: "GET", URIPattern: "/admin/api/status", ControllerAction: "admin/v1/health#status"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("route %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
+func TestParseStatic_ScopeContextFlowsIntoConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :visible do
+    get "items", to: "items#index"
+  end
+  scope "/public", module: :api, as: :public do
+    concerns :visible
+    draw :extra
+  end
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `get "reports", to: "reports#index"`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/public/items" ||
+		result.Entries[0].ControllerAction != "api/items#index" ||
+		result.Entries[0].Prefix != "public_index" ||
+		result.Entries[1].URIPattern != "/public/reports" ||
+		result.Entries[1].ControllerAction != "api/reports#index" ||
+		result.Entries[1].Prefix != "public_index" {
+		t.Fatalf("scope context was not inherited: %#v", result.Entries)
+	}
+}
+
+func TestParseStatic_ControllerBlocks(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  controller :items do
+    get "show"
+    get "explicit", to: "other#index"
+    controller "previews" do
+      get "latest"
+    end
+  end
+  namespace :admin do
+    scope path: :api, module: :v1, as: :api do
+      controller :items do
+        get "status"
+      end
+    end
+  end
+  resources :users, only: [] do
+    controller :previews do
+      get "preview", on: :member
+    end
+  end
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 5 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	want := []routes.RouteEntry{
+		{Prefix: "show", Verb: "GET", URIPattern: "/show", ControllerAction: "items#show"},
+		{Prefix: "index", Verb: "GET", URIPattern: "/explicit", ControllerAction: "other#index"},
+		{Prefix: "latest", Verb: "GET", URIPattern: "/latest", ControllerAction: "previews#latest"},
+		{Prefix: "admin_api_status", Verb: "GET", URIPattern: "/admin/api/status", ControllerAction: "admin/v1/items#status"},
+		{Prefix: "preview_user", Verb: "GET", URIPattern: "/users/:id/preview", ControllerAction: "previews#preview"},
+	}
+	for index, entry := range result.Entries {
+		if entry != want[index] {
+			t.Errorf("route %d = %#v, want %#v", index, entry, want[index])
+		}
+	}
+}
+
+func TestParseStatic_ControllerContextFlowsIntoConcernsAndDrawnFiles(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  concern :visible do
+    get "summary"
+  end
+  controller :reports do
+    concerns :visible
+    draw :extra
+  end
+end
+`)
+	routesDir := filepath.Join(filepath.Dir(path), "routes")
+	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `get "detail"`)
+
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 2 || len(result.Warnings) != 0 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].ControllerAction != "reports#summary" ||
+		result.Entries[1].ControllerAction != "reports#detail" {
+		t.Fatalf("controller context was not inherited: %#v", result.Entries)
+	}
+}
+
+func TestParseStatic_DynamicControllerBlocksWarnAndSkip(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  controller dynamic_controller do
+    get "dynamic"
+  end
+  controller "#{controller_name}" do
+    get "interpolated"
+  end
+  controller app.controller do
+    get "callable"
+  end
+  controller :missing
+  get "valid", to: "items#index"
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || len(result.Warnings) != 4 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/valid" {
+		t.Fatalf("valid route after controller warnings was lost: %#v", result.Entries)
+	}
+	for _, warning := range result.Warnings {
+		if !strings.Contains(warning.Message, "controller") {
+			t.Errorf("unexpected warning: %#v", warning)
+		}
+	}
+}
+
+func TestParseStatic_UnsafeScopesWarnAndSkipOrApproximate(t *testing.T) {
+	path := writeRoutesFile(t, `
+Rails.application.routes.draw do
+  scope dynamic_path do
+    get "dynamic", to: "items#index"
+  end
+  scope "/conflict", path: "/other" do
+    get "conflict", to: "items#index"
+  end
+  scope "/interpolated/#{segment}" do
+    get "interpolated", to: "items#index"
+  end
+  resources :users, only: [] do
+    scope path: "tools", as: :tools do
+      get "preview", to: "users#preview", on: :member
+    end
+  end
+  scope path: "/public", defaults: { format: :json } do
+    get "approximate", to: "items#index"
+  end
+  scope "/missing"
+  get "valid", to: "items#index"
+end
+`)
+	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 3 || len(result.Warnings) != 5 {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+	if result.Entries[0].URIPattern != "/tools/users/:id/preview" ||
+		result.Entries[0].Prefix != "preview_tools_user" ||
+		result.Entries[1].URIPattern != "/public/approximate" ||
+		result.Entries[2].URIPattern != "/valid" {
+		t.Fatalf("unsafe scopes leaked routes or valid routes were lost: %#v", result.Entries)
+	}
+	if result.Warnings[3].Message != "scope options are only partially modeled" {
+		t.Fatalf("unexpected partial scope warning: %#v", result.Warnings[3])
 	}
 }
 
@@ -928,7 +1837,7 @@ end
 	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "cycle.rb"), `draw :cycle`)
 	unsupportedPath := filepath.Join(routesDir, "unsupported.rb")
 	mustWriteStaticRouteFile(t, unsupportedPath, `
-mount Generic::Engine => "/engine"
+mount engine_for(:generic), at: "/engine"
 `)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
@@ -946,7 +1855,7 @@ mount Generic::Engine => "/engine"
 		messages[i] = warning.Message
 	}
 	joined := strings.Join(messages, "\n")
-	for _, fragment := range []string{"could not be read", "dynamic draw", "unsafe or unsupported", "cyclic draw", "unsupported route DSL"} {
+	for _, fragment := range []string{"could not be read", "dynamic draw", "unsafe or unsupported", "cyclic draw", "dynamic mount target"} {
 		if !strings.Contains(joined, fragment) {
 			t.Errorf("warnings missing %q: %s", fragment, joined)
 		}
@@ -1166,7 +2075,7 @@ func TestParseStatic_ConcernBodyWarningKeepsSourceLine(t *testing.T) {
 	path := writeRoutesFile(t, `
 Rails.application.routes.draw do
   concern :mountable do
-    mount Generic::Engine => "/engine"
+    mount engine_for(:generic), at: "/engine"
   end
   concerns :mountable
 end
@@ -1180,7 +2089,7 @@ end
 		t.Fatalf("unexpected warnings: %#v", result.Warnings)
 	}
 	warning := result.Warnings[0]
-	if warning.Path != path || warning.Line != 4 || !strings.Contains(warning.Message, "unsupported route DSL") {
+	if warning.Path != path || warning.Line != 4 || !strings.Contains(warning.Message, "dynamic mount target") {
 		t.Fatalf("unexpected concern warning source: %#v", warning)
 	}
 }
