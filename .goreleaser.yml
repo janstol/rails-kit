@@ -36,13 +36,11 @@ homebrew_casks:
     binaries:
       - rails-kit
     url:
-      verified: github.com/janstol/rails-kit/
+      template: "https://github.com/janstol/rails-kit/releases/download/v#{version}/{{ .ArtifactName }}"
     hooks:
       post:
         install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rails-kit"]
-          end
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rails-kit"] if OS.mac?
 
 changelog:
   sort: asc
