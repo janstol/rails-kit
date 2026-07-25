@@ -25,17 +25,24 @@ checksum:
 release:
   name_template: "v{{.Version}}"
 
-brews:
+homebrew_casks:
   - repository:
       owner: janstol
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: https://github.com/janstol/rails-kit
     description: CLI toolkit for exploring Rails codebases without loading Rails
-    install: bin.install "rails-kit"
-    test: |
-      system "#{bin}/rails-kit", "version"
+    binaries:
+      - rails-kit
+    url:
+      verified: github.com/janstol/rails-kit/
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rails-kit"]
+          end
 
 changelog:
   sort: asc
