@@ -30,6 +30,7 @@ brews:
       owner: janstol
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
     homepage: https://github.com/janstol/rails-kit
     description: CLI toolkit for exploring Rails codebases without loading Rails
     install: bin.install "rails-kit"
