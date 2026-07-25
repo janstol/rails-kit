@@ -40,7 +40,21 @@ type Gem struct {
 
 // Lockfile holds all parsed data from a Gemfile.lock.
 type Lockfile struct {
-	gems map[string]*Gem
+	gems           map[string]*Gem
+	rubyVersion    string
+	bundlerVersion string
+	platforms      []string
+}
+
+// RubyVersion returns the Ruby version recorded in Gemfile.lock.
+func (l *Lockfile) RubyVersion() string { return l.rubyVersion }
+
+// BundlerVersion returns the Bundler version recorded in Gemfile.lock.
+func (l *Lockfile) BundlerVersion() string { return l.bundlerVersion }
+
+// Platforms returns the platforms recorded in Gemfile.lock.
+func (l *Lockfile) Platforms() []string {
+	return append([]string(nil), l.platforms...)
 }
 
 // List returns all gems sorted alphabetically by name.
@@ -130,6 +144,7 @@ func Parse(path string) (*Lockfile, error) {
 	}
 
 	lf := &Lockfile{gems: make(map[string]*Gem)}
+	parseMetadata(data, lf)
 	ctx := &sectionContext{}
 	var currentGem *Gem
 
@@ -236,4 +251,28 @@ func Parse(path string) (*Lockfile, error) {
 	}
 
 	return lf, nil
+}
+
+func parseMetadata(data []byte, lf *Lockfile) {
+	var section string
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line != "" && line[0] != ' ' {
+			section = strings.TrimSpace(line)
+			continue
+		}
+		value := strings.TrimSpace(line)
+		if value == "" {
+			continue
+		}
+		switch section {
+		case "PLATFORMS":
+			lf.platforms = append(lf.platforms, value)
+		case "RUBY VERSION":
+			lf.rubyVersion = strings.TrimPrefix(value, "ruby ")
+		case "BUNDLED WITH":
+			lf.bundlerVersion = value
+		}
+	}
 }

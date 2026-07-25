@@ -141,6 +141,43 @@ func TestFindMissing(t *testing.T) {
 	}
 }
 
+func TestParseLockfileMetadata(t *testing.T) {
+	lf, err := Parse(testdataLockfile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lf.BundlerVersion() != "2.5.6" {
+		t.Errorf("bundler version = %q, want 2.5.6", lf.BundlerVersion())
+	}
+	wantPlatforms := []string{"arm64-darwin-23", "ruby", "x86_64-linux"}
+	if got := lf.Platforms(); len(got) != len(wantPlatforms) {
+		t.Fatalf("platforms = %v, want %v", got, wantPlatforms)
+	} else {
+		for i := range wantPlatforms {
+			if got[i] != wantPlatforms[i] {
+				t.Errorf("platforms = %v, want %v", got, wantPlatforms)
+				break
+			}
+		}
+	}
+}
+
+func TestParseRubyVersionMetadata(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "Gemfile.lock")
+	content := "RUBY VERSION\n   ruby 3.3.6p108\n\nBUNDLED WITH\n   2.6.2\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lf, err := Parse(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lf.RubyVersion() != "3.3.6p108" {
+		t.Errorf("ruby version = %q, want 3.3.6p108", lf.RubyVersion())
+	}
+}
+
 func TestParseEmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "Gemfile.lock")

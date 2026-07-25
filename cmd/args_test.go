@@ -36,3 +36,9 @@ func TestCompletionRejectsExtraArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestAboutRejectsExtraArgs(t *testing.T) {
+	if err := aboutCmd.Args(aboutCmd, []string{"extra"}); err == nil {
+		t.Fatal("expected argument validation error")
+	}
+}

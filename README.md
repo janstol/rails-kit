@@ -1,11 +1,12 @@
 # rails-kit
 
-A compiled CLI toolkit for inspecting Rails projects. Most commands parse project files directly without loading Rails. The default `routes` mode runs `bundle exec rails routes`, while `routes --static` provides a fast, pure-Go approximation without booting Rails. The `skeleton` command uses Ruby and Prism but does not load the Rails application.
+A compiled CLI toolkit for inspecting Rails projects. Most commands parse project files directly without loading Rails. `about` summarizes project metadata statically by default, with optional runtime inspection. The default `routes` mode runs `bundle exec rails routes`, while `routes --static` provides a fast, pure-Go approximation without booting Rails. The `skeleton` command uses Ruby and Prism but does not load the Rails application.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `rails-kit about` | Summarize application, dependency, runtime, and database metadata |
 | `rails-kit schema [table...]` | Extract table definitions from `db/schema.rb` or `db/structure.sql` |
 | `rails-kit routes [pattern...]` | Cached Rails routes or fast offline static parsing |
 | `rails-kit related <name>` | List all files related to a model |
@@ -15,8 +16,8 @@ A compiled CLI toolkit for inspecting Rails projects. Most commands parse projec
 | `rails-kit skeleton <path-or-model> [...]` | Compact Ruby AST skeletons via Prism |
 | `rails-kit gem [name]` | Inspect gems from `Gemfile.lock` |
 | `rails-kit concerns [name]` | List or inspect Rails concerns |
-| `rails-kit skill install|uninstall` | Install or remove the bundled Claude Code or Codex skill |
-| `rails-kit completion bash|zsh|fish` | Generate shell completion scripts |
+| `rails-kit skill install\|uninstall` | Install or remove the bundled Claude Code or Codex skill |
+| `rails-kit completion bash\|zsh\|fish` | Generate shell completion scripts |
 | `rails-kit version` | Print version information |
 
 ## Installation
@@ -59,6 +60,7 @@ Most inspection commands support `--json` for machine-readable output suitable f
 
 JSON shapes:
 
+- `about` returns `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` with no table args returns `[]string`; with table args returns an object keyed by table name
 - `routes` returns `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` returns `{ model, plural, categories }`
@@ -69,6 +71,18 @@ JSON shapes:
 - `skeleton` returns `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }` for one resolved file, or an array of those objects for multiple files
 - `concerns` with no name returns `{ model_concerns, controller_concerns }`; with a name returns `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
 - `version` returns `{ version, commit, build_date }`
+
+### about
+
+```sh
+rails-kit about              # fast static report; does not boot Rails
+rails-kit about --json       # structured project metadata
+rails-kit about --runtime    # boot Rails for active runtime values
+```
+
+Static inspection reads `config/application.rb`, `Gemfile.lock`, Ruby version-manager files, literal `adapter:` declarations in `config/database.yml`, and the resolved schema path. It does not evaluate ERB, credentials, initializers, or application code. Missing optional metadata produces warnings alongside a successful partial report.
+
+`--runtime` runs `bundle exec rails runner` with a 60-second default timeout and reports the active Rails, Ruby, RubyGems, Rack, Bundler, environment, and database adapter values. Boot noise is ignored. If the application cannot boot, `about` retains the static report, adds one runtime warning, and exits successfully.
 
 ### schema
 

@@ -1,13 +1,14 @@
 ---
 name: rails-kit
-description: Use rails-kit CLI to explore Rails codebase -- schema, routes, models, skeletons, fixtures, locales, and related files. Use before reading large files.
+description: Use rails-kit CLI to explore Rails codebase -- project metadata, schema, routes, models, skeletons, fixtures, locales, and related files. Use before reading large files.
 allowed-tools: Bash(rails-kit *)
 model: haiku
 ---
 
-`rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
+`rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+- `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` (no args) → `[]string`; with table args → object keyed by table name
 - `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
 - `related` → `{ model, plural, categories }`
@@ -22,6 +23,7 @@ model: haiku
 
 | Need | Tool |
 |------|------|
+| Summarize Rails, Ruby, dependency, environment, and database metadata | `rails-kit about` |
 | Check what tables exist or inspect a table's columns | `rails-kit schema` |
 | Find a route URL or identify its routed controller action | `rails-kit routes` |
 | Find all files related to a model before starting work | `rails-kit related` |
@@ -31,6 +33,20 @@ model: haiku
 | Inspect a large Ruby service/job/mailer/PORO without reading method bodies | `rails-kit skeleton` |
 | Check gem versions or find where a gem comes from | `rails-kit gem` |
 | List or inspect model/controller concerns | `rails-kit concerns` |
+
+---
+
+## rails-kit about
+
+Summarize project metadata without booting Rails:
+
+```bash
+rails-kit about
+rails-kit about --json
+rails-kit about --runtime
+```
+
+The default static mode does not evaluate ERB or application code and returns a partial report with warnings when optional metadata is unavailable. Use `--runtime` only when active values are required; it boots Rails through a bounded `bundle exec rails runner` call and gracefully retains the static report if booting fails.
 
 ---
 

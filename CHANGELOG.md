@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `about` summarizes application, environment, dependency, and database metadata without booting Rails. `--runtime` uses a bounded Rails runner for active values and gracefully retains the static report when the application cannot boot.
 - `routes --static` parses `config/routes.rb` directly in pure Go, without booting Rails or shelling out to bundler. It understands `resources`/`resource`, `namespace`, `root`, and verb routes, including nesting and `only:`/`except:`. It's an approximation — no internal engine route expansion, callable route concerns, full constraint evaluation, or gem-drawn routes (Devise, etc.) — intended as a fast, offline fallback for when `bundle exec rails routes` can't boot or isn't worth the wait. When the normal `routes` command fails, the error now hints at `--static`.
 - `skeleton` accepts multiple model names, Ruby paths, and glob patterns, validates and deduplicates them, and parses the resulting files in one Prism process. Single-file JSON remains an object; multi-file JSON is an ordered array.
 - `skeleton` accepts recursive directory inputs with repeatable root-relative `--exclude` patterns, including `**` matching. Directory batches are capped at 500 unique Ruby files.
