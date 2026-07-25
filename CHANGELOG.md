@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-25
+
 ### Added
 
 - `about` summarizes application, environment, dependency, and database metadata without booting Rails. `--runtime` uses a bounded Rails runner for active values and gracefully retains the static report when the application cannot boot.
@@ -61,5 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GitHub release packaging for macOS and Linux on `amd64` and `arm64`.
 - Completion subcommands for `bash`, `zsh`, and `fish`.
 
+[Unreleased]: https://github.com/janstol/rails-kit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/janstol/rails-kit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/janstol/rails-kit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/janstol/rails-kit/releases/tag/v0.1.0
