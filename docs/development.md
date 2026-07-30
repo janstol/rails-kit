@@ -10,8 +10,20 @@ mise exec -- just build
 mise exec -- just install
 mise exec -- just test
 mise exec -- just test-coverage
+mise exec -- just bench
 mise exec -- just lint
 ```
+
+## Golden files
+
+`cmd/golden_test.go` pins the whole stdout (and, when non-empty, stderr) of `schema`,
+`model`, `routes --static`, `concerns`, `locales`, and `skeleton` against files under
+`cmd/testdata/golden/`. They exist to catch output-shape regressions — reordering, dropped
+fields, reworded text — that fragment-based `strings.Contains` assertions would miss.
+
+Run `go test ./cmd/ -run TestGolden -update` to regenerate them. A diff means the output
+shape changed; review it like any other behavioral change before committing, rather than
+reflexively re-running `-update` to make the test pass.
 
 ## Releases
 

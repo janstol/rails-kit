@@ -1,0 +1,4 @@
+{
+  "posts": "  create_table \"posts\", force: :cascade do |t|\n    t.bigint \"user_id\", null: false\n    t.string \"title\", null: false\n    t.text \"body\"\n    t.string \"status\", default: \"draft\", null: false\n    t.datetime \"published_at\"\n    t.datetime \"created_at\", null: false\n    t.datetime \"updated_at\", null: false\n    t.index [\"user_id\"], name: \"index_posts_on_user_id\"\n    t.index [\"status\"], name: \"index_posts_on_status\"\n  end\n\n  add_foreign_key \"posts\", \"users\"\n",
+  "users": "  create_table \"users\", force: :cascade do |t|\n    t.string \"email\", null: false\n    t.string \"name\", null: false\n    t.string \"role\", default: \"member\", null: false\n    t.boolean \"active\", default: true, null: false\n    t.datetime \"created_at\", null: false\n    t.datetime \"updated_at\", null: false\n    t.index [\"email\"], name: \"index_users_on_email\", unique: true\n  end\n"
+}

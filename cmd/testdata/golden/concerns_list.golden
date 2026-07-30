@@ -1,0 +1,6 @@
+Model concerns:
+  auditable
+  searchable
+
+Controller concerns:
+  authenticatable

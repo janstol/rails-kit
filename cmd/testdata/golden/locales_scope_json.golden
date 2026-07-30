@@ -1,0 +1,12 @@
+{
+  "scope": "en.views.users",
+  "value": {
+    "index": {
+      "new": "New User",
+      "title": "Users"
+    },
+    "show": {
+      "title": "User Details"
+    }
+  }
+}

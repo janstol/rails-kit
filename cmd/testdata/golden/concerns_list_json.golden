@@ -1,0 +1,9 @@
+{
+  "model_concerns": [
+    "auditable",
+    "searchable"
+  ],
+  "controller_concerns": [
+    "authenticatable"
+  ]
+}

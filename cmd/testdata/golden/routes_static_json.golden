@@ -1,0 +1,104 @@
+[
+  {
+    "prefix": "root",
+    "verb": "GET",
+    "uri_pattern": "/",
+    "controller_action": "home#index"
+  },
+  {
+    "prefix": "users",
+    "verb": "GET",
+    "uri_pattern": "/users",
+    "controller_action": "users#index"
+  },
+  {
+    "prefix": "user",
+    "verb": "GET",
+    "uri_pattern": "/users/:id",
+    "controller_action": "users#show"
+  },
+  {
+    "prefix": "posts",
+    "verb": "GET",
+    "uri_pattern": "/posts",
+    "controller_action": "posts#index"
+  },
+  {
+    "prefix": "",
+    "verb": "POST",
+    "uri_pattern": "/posts",
+    "controller_action": "posts#create"
+  },
+  {
+    "prefix": "new_post",
+    "verb": "GET",
+    "uri_pattern": "/posts/new",
+    "controller_action": "posts#new"
+  },
+  {
+    "prefix": "edit_post",
+    "verb": "GET",
+    "uri_pattern": "/posts/:id/edit",
+    "controller_action": "posts#edit"
+  },
+  {
+    "prefix": "post",
+    "verb": "GET",
+    "uri_pattern": "/posts/:id",
+    "controller_action": "posts#show"
+  },
+  {
+    "prefix": "",
+    "verb": "PATCH",
+    "uri_pattern": "/posts/:id",
+    "controller_action": "posts#update"
+  },
+  {
+    "prefix": "",
+    "verb": "PUT",
+    "uri_pattern": "/posts/:id",
+    "controller_action": "posts#update"
+  },
+  {
+    "prefix": "",
+    "verb": "DELETE",
+    "uri_pattern": "/posts/:id",
+    "controller_action": "posts#destroy"
+  },
+  {
+    "prefix": "post_comments",
+    "verb": "POST",
+    "uri_pattern": "/posts/:post_id/comments",
+    "controller_action": "comments#create"
+  },
+  {
+    "prefix": "post_comment",
+    "verb": "DELETE",
+    "uri_pattern": "/posts/:post_id/comments/:id",
+    "controller_action": "comments#destroy"
+  },
+  {
+    "prefix": "admin_dashboard",
+    "verb": "GET",
+    "uri_pattern": "/admin/dashboards/:id",
+    "controller_action": "admin/dashboards#show"
+  },
+  {
+    "prefix": "show",
+    "verb": "GET",
+    "uri_pattern": "/pages/:slug",
+    "controller_action": "pages#show"
+  },
+  {
+    "prefix": "create",
+    "verb": "POST",
+    "uri_pattern": "/login",
+    "controller_action": "sessions#create"
+  },
+  {
+    "prefix": "destroy",
+    "verb": "DELETE",
+    "uri_pattern": "/logout",
+    "controller_action": "sessions#destroy"
+  }
+]

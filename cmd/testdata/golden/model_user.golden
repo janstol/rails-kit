@@ -1,0 +1,35 @@
+User < ApplicationRecord (app/models/user.rb)
+========================================
+
+Concerns:
+  Searchable
+  Auditable
+
+Associations:
+  has_many :posts, dependent: destroy
+  has_many :comments, dependent: destroy
+  has_many :published_posts, through: posts, class_name: Post
+
+Validations:
+  validates :email, presence, uniqueness, format
+  validates :name, presence, length
+  validate :email_not_banned (custom)
+
+Scopes:
+  active
+  admins
+  by_name(name)
+
+Callbacks:
+  before_validation :normalize_email
+  after_create_commit :notify_admin
+  after_save :invalidate_cache
+  after_commit :sync_to_search_index
+  after_touch :update_counter_cache
+
+Enums:
+  role
+
+Delegates:
+  delegate :title, :body, to: :latest_post, prefix: true, allow_nil: true
+

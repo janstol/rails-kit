@@ -1,0 +1,28 @@
+app/models/user.rb
+========================================
+
+Class User < ApplicationRecord (lines 1-27):
+
+  Includes:
+    include Searchable (line 2)
+    include Auditable (line 3)
+
+  Macros:
+    has_many :posts, dependent: :destroy (line 5)
+    has_many :comments, dependent: :destroy (line 6)
+    has_many :published_posts, class_name: "Post",
+    through: :posts (lines 7-8)
+    validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP } (line 10)
+    validates :name, presence: true, length: { minimum: 2 } (line 11)
+    validate :email_not_banned (line 12)
+    scope :active, -> { where(active: true) } (line 14)
+    scope :admins, -> { where(role: "admin") } (line 15)
+    scope :by_name, ->(name) { where("name ILIKE ?", "%#{name}%") } (line 16)
+    before_validation :normalize_email (line 18)
+    after_create_commit :notify_admin (line 19)
+    after_save :invalidate_cache (line 20)
+    after_commit :sync_to_search_index (line 21)
+    after_touch :update_counter_cache (line 22)
+    enum :role, { member: "member", admin: "admin", moderator: "moderator" } (line 24)
+    delegate :title, :body, to: :latest_post, prefix: true, allow_nil: true (line 26)
+

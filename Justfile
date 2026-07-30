@@ -37,6 +37,16 @@ test-coverage:
     go test -coverprofile=coverage.out ./...
     go tool cover -func=coverage.out
 
+# Run benchmarks, including the opt-in startup budget check
+bench:
+    #!/usr/bin/env sh
+    set -eu
+    bin=$(mktemp -d)/rails-kit-bench
+    go build -o "$bin" .
+    export RAILS_KIT_BENCH_BIN="$bin"
+    go test -bench=. -benchmem -run=^$ ./...
+    go test ./cmd/ -run TestStartupBudget -v
+
 # Format code
 fmt:
     go fmt ./...

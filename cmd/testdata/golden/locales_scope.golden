@@ -1,0 +1,6 @@
+# en.views.users
+index:
+  new: New User
+  title: Users
+show:
+  title: User Details

@@ -1,0 +1,12 @@
+Searchable (app/models/concerns/searchable.rb)
+========================================
+Type: model
+Included block: yes
+
+Methods:
+  search_highlight
+  search_excerpt
+  build_search_query
+
+Class methods:
+  search_all
