@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,11 +14,6 @@ import (
 )
 
 func TestSkeletonCommandShowsServiceSkeleton(t *testing.T) {
-	requireCmdPrism(t)
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{}
-	t.Cleanup(func() { prismRunner = prevRunner })
-
 	root := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), `class UserExportService
@@ -44,11 +38,6 @@ end
 }
 
 func TestSkeletonCommandResolvesModelNameAsJSON(t *testing.T) {
-	requireCmdPrism(t)
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{}
-	t.Cleanup(func() { prismRunner = prevRunner })
-
 	root := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User < ApplicationRecord\n  has_many :posts\nend\n")
@@ -97,24 +86,6 @@ func TestSkeletonCommandRejectsOutsideRoot(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "outside Rails root") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestSkeletonCommandReportsMissingPrism(t *testing.T) {
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{Ruby: "rails-kit-ruby-that-does-not-exist"}
-	t.Cleanup(func() { prismRunner = prevRunner })
-
-	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), "class UserExportService\nend\n")
-
-	_, _, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services/user_export_service.rb"})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "prism is not available") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -354,28 +325,11 @@ func TestResolveSkeletonDirectoryFileLimit(t *testing.T) {
 	}
 }
 
-func TestSkeletonCommandBatchesFilesInOneRubyProcess(t *testing.T) {
+func TestSkeletonCommandParsesMultipleFilesInADirectory(t *testing.T) {
 	root := t.TempDir()
-	bin := t.TempDir()
-	marker := filepath.Join(root, "ruby-invocations")
-	requestPath := filepath.Join(root, "prism-request.json")
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
-	ruby := filepath.Join(bin, "ruby")
-	mustWriteCmdFile(t, ruby, `#!/bin/sh
-cat > "$RAILS_KIT_REQUEST"
-printf x >> "$RAILS_KIT_MARKER"
-printf '{"files":[{"path":"alpha.rb"},{"path":"zeta.rb"}]}'
-`)
-	if err := os.Chmod(ruby, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("RAILS_KIT_MARKER", marker)
-	t.Setenv("RAILS_KIT_REQUEST", requestPath)
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{Ruby: ruby}
-	t.Cleanup(func() { prismRunner = prevRunner })
 
 	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
@@ -386,57 +340,17 @@ printf '{"files":[{"path":"alpha.rb"},{"path":"zeta.rb"}]}'
 		t.Fatalf("unmarshal JSON array: %v\noutput:%s", err, out)
 	}
 	if len(files) != 2 ||
-		files[0].RelPath != "app/services/alpha.rb" ||
-		files[1].RelPath != "app/services/zeta.rb" {
+		files[0].RelPath != "app/services/alpha.rb" || files[0].Classes[0].Name != "Alpha" ||
+		files[1].RelPath != "app/services/zeta.rb" || files[1].Classes[0].Name != "Zeta" {
 		t.Fatalf("unexpected files: %#v", files)
-	}
-	invocations, err := os.ReadFile(marker)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(invocations) != "x" {
-		t.Fatalf("Ruby invocations = %q, want one", invocations)
-	}
-	requestData, err := os.ReadFile(requestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var request struct {
-		Paths []string `json:"paths"`
-	}
-	if err := json.Unmarshal(requestData, &request); err != nil {
-		t.Fatalf("unmarshal Prism request: %v", err)
-	}
-	actualRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantPaths := []string{
-		filepath.Join(actualRoot, "app", "services", "alpha.rb"),
-		filepath.Join(actualRoot, "app", "services", "zeta.rb"),
-	}
-	if strings.Join(request.Paths, "\n") != strings.Join(wantPaths, "\n") {
-		t.Fatalf("Prism request paths = %#v, want %#v", request.Paths, wantPaths)
 	}
 }
 
 func TestSkeletonCommandFormatsMultipleTextSections(t *testing.T) {
 	root := t.TempDir()
-	bin := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
-	ruby := filepath.Join(bin, "ruby")
-	mustWriteCmdFile(t, ruby, `#!/bin/sh
-cat >/dev/null
-printf '{"files":[{"classes":[{"name":"Alpha"}]},{"classes":[{"name":"Zeta"}]}]}'
-`)
-	if err := os.Chmod(ruby, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{Ruby: ruby}
-	t.Cleanup(func() { prismRunner = prevRunner })
 
 	out, errOut, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
@@ -456,26 +370,12 @@ printf '{"files":[{"classes":[{"name":"Alpha"}]},{"classes":[{"name":"Zeta"}]}]}
 
 func TestSkeletonCommandSingleMatchGlobKeepsObjectJSON(t *testing.T) {
 	root := t.TempDir()
-	bin := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "sync_job.rb"), "class SyncJob\nend\n")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "ignored_job.rb"), "class IgnoredJob\nend\n")
-	ruby := filepath.Join(bin, "ruby")
-	mustWriteCmdFile(t, ruby, `#!/bin/sh
-cat >/dev/null
-printf '{"files":[{"classes":[{"name":"SyncJob"}]}]}'
-`)
-	if err := os.Chmod(ruby, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	prevRunner := prismRunner
 	prevExcludes := skeletonExcludes
-	prismRunner = prism.Runner{Ruby: ruby}
 	skeletonExcludes = []string{"app/jobs/ignored*"}
-	t.Cleanup(func() {
-		prismRunner = prevRunner
-		skeletonExcludes = prevExcludes
-	})
+	t.Cleanup(func() { skeletonExcludes = prevExcludes })
 
 	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/jobs"})
 	if err != nil {
@@ -490,21 +390,10 @@ printf '{"files":[{"classes":[{"name":"SyncJob"}]}]}'
 	}
 }
 
-func TestSkeletonCommandInvalidBatchDoesNotInvokeRuby(t *testing.T) {
+func TestSkeletonCommandInvalidBatchFailsBeforeParsing(t *testing.T) {
 	root := t.TempDir()
-	bin := t.TempDir()
-	marker := filepath.Join(root, "ruby-invoked")
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "valid.rb"), "class Valid\nend\n")
-	ruby := filepath.Join(bin, "ruby")
-	mustWriteCmdFile(t, ruby, "#!/bin/sh\ntouch \"$RAILS_KIT_MARKER\"\n")
-	if err := os.Chmod(ruby, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("RAILS_KIT_MARKER", marker)
-	prevRunner := prismRunner
-	prismRunner = prism.Runner{Ruby: ruby}
-	t.Cleanup(func() { prismRunner = prevRunner })
 
 	out, _, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services/valid.rb", "app/jobs/*.rb"})
 	if err == nil || !strings.Contains(err.Error(), "matched no files") {
@@ -512,9 +401,6 @@ func TestSkeletonCommandInvalidBatchDoesNotInvokeRuby(t *testing.T) {
 	}
 	if out != "" {
 		t.Fatalf("invalid batch produced stdout: %q", out)
-	}
-	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
-		t.Fatalf("Ruby was invoked, stat error = %v", statErr)
 	}
 }
 
@@ -525,9 +411,9 @@ func TestSkeletonTimeout(t *testing.T) {
 	}{
 		{count: 0, want: 10 * time.Second},
 		{count: 1, want: 10 * time.Second},
-		{count: 11, want: 11 * time.Second},
-		{count: 501, want: 60 * time.Second},
-		{count: 1000, want: 60 * time.Second},
+		{count: 11, want: 12 * time.Second},
+		{count: 501, want: 110 * time.Second},
+		{count: 1000, want: 120 * time.Second},
 	}
 	for _, tt := range tests {
 		if got := skeletonTimeout(tt.count); got != tt.want {
@@ -539,12 +425,5 @@ func TestSkeletonTimeout(t *testing.T) {
 func TestSkeletonCommandRequiresAtLeastOneInput(t *testing.T) {
 	if err := skeletonCmd.Args(skeletonCmd, nil); err == nil {
 		t.Fatal("expected zero arguments to be rejected")
-	}
-}
-
-func requireCmdPrism(t *testing.T) {
-	t.Helper()
-	if err := exec.Command("ruby", "-rprism", "-e", "exit").Run(); err != nil {
-		t.Skipf("ruby with prism is not available: %v", err)
 	}
 }

@@ -20,7 +20,6 @@ type goldenCase struct {
 	args  []string
 	flags map[string]string // cobra flag name -> value; set before the run, restored after
 	json  bool
-	skip  func(*testing.T)
 }
 
 func TestGolden(t *testing.T) {
@@ -55,18 +54,12 @@ func TestGolden(t *testing.T) {
 		{name: "locales_scope", cmd: localesCmd, args: []string{"en.views.users"}},
 		{name: "locales_scope_json", cmd: localesCmd, args: []string{"en.views.users"}, json: true},
 
-		// skeleton is Prism-backed: skip when Ruby/Prism is unavailable. A Prism
-		// version bump can legitimately change this output; regenerate with
-		// -update and review the diff rather than reflexively re-running it.
-		{name: "skeleton_user", cmd: skeletonCmd, args: []string{"app/models/user.rb"}, skip: requireCmdPrism},
-		{name: "skeleton_user_json", cmd: skeletonCmd, args: []string{"app/models/user.rb"}, json: true, skip: requireCmdPrism},
+		{name: "skeleton_user", cmd: skeletonCmd, args: []string{"app/models/user.rb"}},
+		{name: "skeleton_user_json", cmd: skeletonCmd, args: []string{"app/models/user.rb"}, json: true},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.skip != nil {
-				tc.skip(t)
-			}
 			applyGoldenFlags(t, tc.cmd, tc.flags)
 
 			var out, errOut string

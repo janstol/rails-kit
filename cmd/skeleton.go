@@ -35,10 +35,7 @@ Inputs can be Rails-root-relative .rb paths, absolute .rb paths under the
 Rails root, model names, directories, or glob patterns. Directories are
 searched recursively. Quote globs to have rails-kit expand them from the
 Rails root. Use repeatable --exclude patterns to prune directory discovery;
-at most 500 unique files may be inspected at once.
-
-The command shells out to Ruby and requires Prism to be available. Existing
-rails-kit commands do not require Prism.`,
+at most 500 unique files may be inspected at once.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
@@ -62,15 +59,8 @@ rails-kit commands do not require Prism.`,
 		for i, input := range inputs {
 			paths[i] = input.path
 		}
-		runner := prismRunner
-		if runner.Dir == "" {
-			runner.Dir = root
-		}
-		files, err := runner.ParseFiles(ctx, paths)
+		files, err := prismRunner.ParseFiles(ctx, paths)
 		if err != nil {
-			if prism.IsUnavailable(err) {
-				return fmt.Errorf("prism is not available: install/use Ruby with the prism library available, then retry: %w", err)
-			}
 			return err
 		}
 		for i := range files {
@@ -96,10 +86,14 @@ func init() {
 }
 
 func skeletonTimeout(fileCount int) time.Duration {
+	// Each file pays a full parser.NewParser cold-start (~150-160ms observed;
+	// go-ruby-prism's Parser.Parse is unsafe to reuse across files, see
+	// internal/prism.Runner.ParseFiles), so perExtra carries headroom over
+	// that measured cost rather than assuming a cheap warm reuse.
 	const (
 		base       = 10 * time.Second
-		perExtra   = 100 * time.Millisecond
-		maxTimeout = 60 * time.Second
+		perExtra   = 200 * time.Millisecond
+		maxTimeout = 120 * time.Second
 	)
 	if fileCount <= 1 {
 		return base

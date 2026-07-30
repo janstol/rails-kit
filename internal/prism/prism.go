@@ -1,25 +1,16 @@
 package prism
 
 import (
-	"bytes"
 	"context"
-	_ "embed"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
+
+	"github.com/danielgatis/go-ruby-prism/parser"
 )
 
-//go:embed skeleton.rb
-var helperScript string
-
-// Runner invokes Ruby + Prism and returns structural summaries for Ruby files.
-type Runner struct {
-	Ruby string
-	Dir  string
-}
+// Runner parses Ruby files with an in-process Prism (via WASM) parser and
+// returns structural summaries for them.
+type Runner struct{}
 
 // File is a compact Prism-derived structural summary of a Ruby source file.
 type File struct {
@@ -92,94 +83,43 @@ type Method struct {
 	EndLine    int    `json:"end_line"`
 }
 
-type request struct {
-	Paths []string `json:"paths"`
-}
-
-type response struct {
-	Files []File `json:"files"`
-}
-
-// ParseFiles runs Prism over paths in a single Ruby process.
+// ParseFiles parses paths, using a fresh Prism parser instance per file.
+//
+// go-ruby-prism v1.1.0's Parser.Parse is not safe to reuse across multiple
+// calls: reusing one instance across a batch of real files intermittently
+// trips WASM "out of bounds memory access" traps on otherwise-valid Ruby
+// input (~50% of files in one repeated test, deterministic per input order
+// but not a permanent wedge — a failing call could be followed by a
+// succeeding one on the same instance). The exact mechanism inside the WASM
+// runtime is not confirmed. A fresh parser per file, used once and
+// discarded, was 100% reliable across the same input; there is no cheaper
+// reset/recycle primitive on Parser to avoid paying a full cold start.
 func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) {
 	if len(paths) == 0 {
 		return nil, nil
 	}
 
-	payload, err := json.Marshal(request{Paths: paths})
-	if err != nil {
-		return nil, fmt.Errorf("encoding prism request: %w", err)
-	}
-
-	stdout, err := r.runDirect(ctx, payload)
-	if err != nil && r.Ruby == "" && IsUnavailable(err) {
-		stdout, err = r.runViaShell(ctx, payload)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var resp response
-	if err := json.Unmarshal(stdout, &resp); err != nil {
-		return nil, fmt.Errorf("decoding prism output: %w", err)
-	}
-	if len(resp.Files) != len(paths) {
-		return nil, fmt.Errorf("prism returned %d file(s), expected %d", len(resp.Files), len(paths))
-	}
-	return resp.Files, nil
-}
-
-func (r Runner) runDirect(ctx context.Context, payload []byte) ([]byte, error) {
-	ruby := r.Ruby
-	if ruby == "" {
-		ruby = "ruby"
-	}
-	return r.run(ctx, payload, ruby, []string{"-rjson", "-e", helperScript}, nil)
-}
-
-func (r Runner) runViaShell(ctx context.Context, payload []byte) ([]byte, error) {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/sh"
-	}
-	env := []string{"RAILS_KIT_PRISM_HELPER=" + helperScript}
-	return r.run(ctx, payload, shell, []string{"-ic", `exec ruby -rjson -e "$RAILS_KIT_PRISM_HELPER"`}, env)
-}
-
-func (r Runner) run(ctx context.Context, payload []byte, name string, args []string, extraEnv []string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	if r.Dir != "" {
-		cmd.Dir = r.Dir
-	}
-	if len(extraEnv) > 0 {
-		cmd.Env = append(os.Environ(), extraEnv...)
-	}
-	cmd.Stdin = bytes.NewReader(payload)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
+	files := make([]File, len(paths))
+	for i, path := range paths {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", path, err)
 		}
-		return nil, fmt.Errorf("running ruby prism helper: %s: %w", msg, err)
-	}
-	return stdout.Bytes(), nil
-}
 
-// IsUnavailable reports whether err is likely caused by Ruby or Prism being unavailable.
-func IsUnavailable(err error) bool {
-	if err == nil {
-		return false
+		p, err := parser.NewParser(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating prism parser: %w", err)
+		}
+		result, err := p.Parse(ctx, src)
+		closeErr := p.Close(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %s: %w", path, err)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("closing prism parser after %s: %w", path, closeErr)
+		}
+
+		files[i] = buildFile(path, src, result)
 	}
-	var execErr *exec.Error
-	if errors.As(err, &execErr) {
-		return true
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "cannot load such file -- prism") ||
-		strings.Contains(msg, "LoadError") ||
-		strings.Contains(msg, "executable file not found")
+	return files, nil
 }

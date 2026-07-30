@@ -2,9 +2,7 @@ package prism_test
 
 import (
 	"context"
-	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,8 +12,6 @@ import (
 )
 
 func TestParseFilesExtractsRubySkeleton(t *testing.T) {
-	requirePrism(t)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -46,7 +42,6 @@ func TestParseFilesExtractsRubySkeleton(t *testing.T) {
 }
 
 func TestParseFilesSurfacesParseErrors(t *testing.T) {
-	requirePrism(t)
 	path := filepath.Join(t.TempDir(), "broken.rb")
 	if err := os.WriteFile(path, []byte("class Broken\n  def call(\nend\n"), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
@@ -64,25 +59,8 @@ func TestParseFilesSurfacesParseErrors(t *testing.T) {
 	}
 }
 
-func TestIsUnavailableForMissingRuby(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	_, err := prism.Runner{Ruby: "rails-kit-ruby-that-does-not-exist"}.ParseFiles(ctx, []string{"x.rb"})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !prism.IsUnavailable(err) {
-		t.Fatalf("expected unavailable error, got: %v", err)
-	}
-	var execErr *exec.Error
-	if !errors.As(err, &execErr) && !strings.Contains(err.Error(), "executable file not found") {
-		t.Fatalf("unexpected error type: %T %v", err, err)
-	}
-}
-
-func TestParseFilesEmptyInputDoesNotStartRuby(t *testing.T) {
-	files, err := prism.Runner{Ruby: "rails-kit-ruby-that-does-not-exist"}.ParseFiles(context.Background(), nil)
+func TestParseFilesEmptyInputReturnsNil(t *testing.T) {
+	files, err := prism.Runner{}.ParseFiles(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("ParseFiles error: %v", err)
 	}
@@ -91,201 +69,51 @@ func TestParseFilesEmptyInputDoesNotStartRuby(t *testing.T) {
 	}
 }
 
-func TestParseFilesDirectSuccessDoesNotUseShell(t *testing.T) {
-	root, bin := fakeBin(t)
-	shellMarker := filepath.Join(root, "shell-used")
-	writeExecutable(t, filepath.Join(bin, "ruby"), `#!/bin/sh
-cat >/dev/null
-printf '{"files":[{"path":"fake.rb"}]}'
-`)
-	writeExecutable(t, filepath.Join(bin, "shell"), `#!/bin/sh
-echo yes > "$RAILS_KIT_SHELL_MARKER"
-exit 1
-`)
-	t.Setenv("PATH", bin+":/bin:/usr/bin")
-	t.Setenv("SHELL", filepath.Join(bin, "shell"))
-	t.Setenv("RAILS_KIT_SHELL_MARKER", shellMarker)
+// TestParseFilesBatchOfRealFilesAllSucceed guards against reintroducing a
+// shared Prism parser instance across a batch: reusing one go-ruby-prism
+// v1.1.0 Parser across several real files intermittently trips "out of
+// bounds memory access" WASM traps on otherwise-valid input. Parsing every
+// fixture under testdata/app in one batch reproduced that ~50% of the time
+// when the Runner reused one parser; it must be 100% reliable now that each
+// file gets its own parser instance.
+func TestParseFilesBatchOfRealFilesAllSucceed(t *testing.T) {
+	root := filepath.Join("..", "..", "testdata", "app")
+	var paths []string
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".rb") {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walking %s: %v", root, err)
+	}
+	if len(paths) < 2 {
+		t.Fatalf("expected multiple fixture files under %s, found %d", root, len(paths))
+	}
 
-	files, err := prism.Runner{Dir: root}.ParseFiles(context.Background(), []string{"fake.rb"})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	files, err := prism.Runner{}.ParseFiles(ctx, paths)
 	if err != nil {
 		t.Fatalf("ParseFiles error: %v", err)
 	}
-	if len(files) != 1 || files[0].Path != "fake.rb" {
-		t.Fatalf("unexpected files: %#v", files)
+	if len(files) != len(paths) {
+		t.Fatalf("files len = %d, want %d", len(files), len(paths))
 	}
-	if _, err := os.Stat(shellMarker); !os.IsNotExist(err) {
-		t.Fatalf("shell should not have been used, stat error = %v", err)
+	for i, f := range files {
+		if len(f.ParseErrors) != 0 {
+			t.Errorf("file %s: unexpected parse errors: %v", paths[i], f.ParseErrors)
+		}
 	}
 }
 
-func TestParseFilesExplicitRubyDoesNotFallBack(t *testing.T) {
-	root, bin := fakeBin(t)
-	shellMarker := filepath.Join(root, "shell-used")
-	rubyPath := filepath.Join(bin, "custom-ruby")
-	writeExecutable(t, rubyPath, `#!/bin/sh
-printf 'cannot load such file -- prism\n' >&2
-exit 1
-`)
-	writeExecutable(t, filepath.Join(bin, "shell"), `#!/bin/sh
-echo yes > "$RAILS_KIT_SHELL_MARKER"
-exit 1
-`)
-	t.Setenv("SHELL", filepath.Join(bin, "shell"))
-	t.Setenv("RAILS_KIT_SHELL_MARKER", shellMarker)
-
-	_, err := prism.Runner{Ruby: rubyPath, Dir: root}.ParseFiles(context.Background(), []string{"fake.rb"})
+func TestParseFilesReadErrorForMissingFile(t *testing.T) {
+	_, err := prism.Runner{}.ParseFiles(context.Background(), []string{filepath.Join(t.TempDir(), "missing.rb")})
 	if err == nil {
 		t.Fatal("expected error")
-	}
-	if _, statErr := os.Stat(shellMarker); !os.IsNotExist(statErr) {
-		t.Fatalf("explicit Ruby unexpectedly fell back to shell, stat error = %v", statErr)
-	}
-}
-
-func TestParseFilesFallsBackToInteractiveShell(t *testing.T) {
-	root, bin := fakeBin(t)
-	marker := filepath.Join(root, "shell-used")
-	writeExecutable(t, filepath.Join(bin, "shell"), `#!/bin/sh
-if [ "$1" = "-ic" ]; then
-  shift
-  RAILS_KIT_SHELL_FALLBACK=1 /bin/sh -c "$1"
-  exit $?
-fi
-exit 1
-`)
-	writeExecutable(t, filepath.Join(bin, "ruby"), `#!/bin/sh
-if [ "$RAILS_KIT_SHELL_FALLBACK" = "1" ]; then
-  cat >/dev/null
-  echo yes > "$RAILS_KIT_MARKER"
-  printf '{"files":[{"path":"fake.rb","classes":[{"name":"Fake","start_line":1,"end_line":1}]}]}'
-  exit 0
-fi
-printf 'cannot load such file -- prism\n' >&2
-exit 1
-`)
-	t.Setenv("PATH", bin+":/bin:/usr/bin")
-	t.Setenv("SHELL", filepath.Join(bin, "shell"))
-	t.Setenv("RAILS_KIT_MARKER", marker)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	files, err := prism.Runner{Dir: root}.ParseFiles(ctx, []string{"fake.rb"})
-	if err != nil {
-		t.Fatalf("ParseFiles error: %v", err)
-	}
-	if len(files) != 1 || len(files[0].Classes) != 1 || files[0].Classes[0].Name != "Fake" {
-		t.Fatalf("unexpected files: %#v", files)
-	}
-	if _, err := os.Stat(marker); err != nil {
-		t.Fatalf("shell fallback was not used: %v", err)
-	}
-}
-
-func TestParseFilesUsesDefaultShellWhenShellIsUnset(t *testing.T) {
-	root, bin := fakeBin(t)
-	writeExecutable(t, filepath.Join(bin, "ruby"), `#!/bin/sh
-if [ -n "$RAILS_KIT_PRISM_HELPER" ]; then
-  cat >/dev/null
-  printf '{"files":[{"path":"fake.rb"}]}'
-  exit 0
-fi
-printf 'cannot load such file -- prism\n' >&2
-exit 1
-`)
-	t.Setenv("PATH", bin+":/bin:/usr/bin")
-	t.Setenv("SHELL", "")
-
-	files, err := prism.Runner{Dir: root}.ParseFiles(context.Background(), []string{"fake.rb"})
-	if err != nil {
-		t.Fatalf("ParseFiles error: %v", err)
-	}
-	if len(files) != 1 || files[0].Path != "fake.rb" {
-		t.Fatalf("unexpected files: %#v", files)
-	}
-}
-
-func TestParseFilesReturnsShellFallbackFailure(t *testing.T) {
-	root, bin := fakeBin(t)
-	writeExecutable(t, filepath.Join(bin, "ruby"), `#!/bin/sh
-printf 'cannot load such file -- prism\n' >&2
-exit 1
-`)
-	writeExecutable(t, filepath.Join(bin, "shell"), `#!/bin/sh
-printf 'fallback shell failed\n' >&2
-exit 23
-`)
-	t.Setenv("PATH", bin+":/bin:/usr/bin")
-	t.Setenv("SHELL", filepath.Join(bin, "shell"))
-
-	_, err := prism.Runner{Dir: root}.ParseFiles(context.Background(), []string{"fake.rb"})
-	if err == nil || !strings.Contains(err.Error(), "fallback shell failed") {
-		t.Fatalf("unexpected fallback error: %v", err)
-	}
-}
-
-func TestParseFilesRejectsInvalidOutput(t *testing.T) {
-	tests := []struct {
-		name   string
-		output string
-		want   string
-	}{
-		{name: "invalid JSON", output: "not-json", want: "decoding prism output"},
-		{name: "wrong file count", output: `{"files":[]}`, want: "prism returned 0 file(s), expected 1"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			root, bin := fakeBin(t)
-			rubyPath := filepath.Join(bin, "ruby")
-			writeExecutable(t, rubyPath, "#!/bin/sh\ncat >/dev/null\nprintf '%s' '"+tt.output+"'\n")
-
-			_, err := prism.Runner{Ruby: rubyPath, Dir: root}.ParseFiles(context.Background(), []string{"fake.rb"})
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("error = %v, want containing %q", err, tt.want)
-			}
-		})
-	}
-}
-
-func TestParseFilesHonorsContextTimeout(t *testing.T) {
-	root, bin := fakeBin(t)
-	rubyPath := filepath.Join(bin, "ruby")
-	writeExecutable(t, rubyPath, `#!/bin/sh
-exec sleep 5
-`)
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
-	start := time.Now()
-	_, err := prism.Runner{Ruby: rubyPath, Dir: root}.ParseFiles(ctx, []string{"fake.rb"})
-	if err == nil {
-		t.Fatal("expected timeout error")
-	}
-	if elapsed := time.Since(start); elapsed > time.Second {
-		t.Fatalf("child process was not terminated promptly; elapsed = %v", elapsed)
-	}
-}
-
-func fakeBin(t *testing.T) (string, string) {
-	t.Helper()
-	root := t.TempDir()
-	bin := filepath.Join(root, "bin")
-	if err := os.MkdirAll(bin, 0o755); err != nil {
-		t.Fatalf("mkdir fake bin: %v", err)
-	}
-	return root, bin
-}
-
-func writeExecutable(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
-		t.Fatalf("write executable %s: %v", path, err)
-	}
-}
-
-func requirePrism(t *testing.T) {
-	t.Helper()
-	if err := exec.Command("ruby", "-rprism", "-e", "exit").Run(); err != nil {
-		t.Skipf("ruby with prism is not available: %v", err)
 	}
 }
