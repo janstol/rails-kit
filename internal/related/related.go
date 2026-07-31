@@ -137,7 +137,7 @@ func Find(railsRoot string, cfg config.Config, name, plural string) ([]Category,
 			if err != nil || r2 == ".." || strings.HasPrefix(r2, ".."+string(filepath.Separator)) {
 				r2 = f
 			}
-			rel = append(rel, r2)
+			rel = append(rel, filepath.ToSlash(r2))
 		}
 		categories = append(categories, Category{Label: d.label, Files: rel})
 	}
@@ -216,7 +216,7 @@ func walkMatchDirNS(root, namespace, dirName string) ([]string, error) {
 }
 
 func matchesExactNamespace(rel, namespace string) bool {
-	dir := filepath.Dir(rel)
+	dir := filepath.ToSlash(filepath.Dir(rel))
 	if namespace == "" {
 		return dir == "."
 	}
@@ -232,14 +232,14 @@ func filterByNamespaceOrModelDir(root, namespace, baseName string, paths []strin
 	if namespace == "" {
 		modelDir = baseName
 	} else {
-		modelDir = namespace + string(filepath.Separator) + baseName
+		modelDir = namespace + "/" + baseName
 	}
 	for _, p := range paths {
 		rel, err := filepath.Rel(root, p)
 		if err != nil {
 			continue
 		}
-		dir := filepath.Dir(rel)
+		dir := filepath.ToSlash(filepath.Dir(rel))
 		if matchesExactNamespace(rel, namespace) || dir == modelDir {
 			filtered = append(filtered, p)
 		}
@@ -270,7 +270,7 @@ func WalkMatchSegment(root, name string) ([]string, error) {
 			// Also match when any directory segment of the relative path exactly equals name.
 			rel, relErr := filepath.Rel(root, path)
 			if relErr == nil {
-				for _, seg := range strings.Split(filepath.Dir(rel), string(filepath.Separator)) {
+				for _, seg := range strings.Split(filepath.ToSlash(filepath.Dir(rel)), "/") {
 					if seg == name {
 						matches = append(matches, path)
 						break

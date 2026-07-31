@@ -41,7 +41,7 @@ func ListFiles(fixturesDir string) ([]string, error) {
 		if !d.IsDir() && isYAMLFile(path) {
 			rel, relErr := filepath.Rel(fixturesDir, path)
 			if relErr == nil {
-				names = append(names, trimYAMLExt(rel))
+				names = append(names, trimYAMLExt(filepath.ToSlash(rel)))
 			}
 		}
 		return nil
@@ -99,7 +99,7 @@ func Load(fixturesDir, name, plural string) (string, map[string]interface{}, err
 			var rels []string
 			for _, m := range matches {
 				if rel, err := filepath.Rel(fixturesDir, m); err == nil {
-					rels = append(rels, rel)
+					rels = append(rels, filepath.ToSlash(rel))
 				} else {
 					rels = append(rels, m)
 				}
@@ -120,7 +120,7 @@ func Load(fixturesDir, name, plural string) (string, map[string]interface{}, err
 		if relErr != nil {
 			rel = filepath.Base(path)
 		}
-		return "", nil, fmt.Errorf("fixture %s uses ERB that changes structure and cannot be summarized safely: %w", rel, err)
+		return "", nil, fmt.Errorf("fixture %s uses ERB that changes structure and cannot be summarized safely: %w", filepath.ToSlash(rel), err)
 	}
 
 	normalized := []byte(StripERB(string(content)))
@@ -152,7 +152,7 @@ func Load(fixturesDir, name, plural string) (string, map[string]interface{}, err
 	if err != nil {
 		rel = filepath.Base(path)
 	}
-	return rel, data, nil
+	return filepath.ToSlash(rel), data, nil
 }
 
 func validateFixturesDir(fixturesDir string) error {

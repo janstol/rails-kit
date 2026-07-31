@@ -10,9 +10,10 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         go: ["1.26.x"]
     steps:
       - uses: actions/checkout@v4
@@ -28,12 +29,15 @@ jobs:
         run: go test ./...
 
       - name: Race detector
+        if: matrix.os == 'ubuntu-latest'
         run: go test -race ./...
 
       - name: Benchmark smoke test
+        if: matrix.os == 'ubuntu-latest'
         run: go test -bench=. -benchtime=1x -run=^$ ./...
 
       - name: Lint
+        if: matrix.os == 'ubuntu-latest'
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.11.1

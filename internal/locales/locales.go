@@ -44,6 +44,7 @@ func Load(localesDir string) (map[string]interface{}, error) {
 		if relErr != nil {
 			rel = filepath.Base(path)
 		}
+		rel = filepath.ToSlash(rel)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", rel, err)

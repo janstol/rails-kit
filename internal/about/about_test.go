@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 func TestInspectStaticProject(t *testing.T) {
@@ -69,11 +70,9 @@ func TestEnvironmentFallsBackToRackThenDevelopment(t *testing.T) {
 
 func TestRunnerIgnoresBootNoise(t *testing.T) {
 	root := t.TempDir()
-	bundle := filepath.Join(root, "bundle")
-	script := "#!/bin/sh\nprintf '%s\\n' 'initializer noise' '" + sentinel + `{"rails":"8.0.1","ruby":"ruby 3.4.1","rubygems":"3.6.2","rack":"3.1.8","bundler":"2.6.2","environment":"test","database_adapter":"postgresql"}'` + "\n"
-	if err := os.WriteFile(bundle, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	stdout := "initializer noise\n" + sentinel +
+		`{"rails":"8.0.1","ruby":"ruby 3.4.1","rubygems":"3.6.2","rack":"3.1.8","bundler":"2.6.2","environment":"test","database_adapter":"postgresql"}` + "\n"
+	bundle := testutil.WriteFakeBundle(t, root, stdout)
 
 	info, err := (Runner{Bundle: bundle}).Inspect(context.Background(), root)
 	if err != nil {
@@ -86,10 +85,7 @@ func TestRunnerIgnoresBootNoise(t *testing.T) {
 
 func TestRunnerTimesOut(t *testing.T) {
 	root := t.TempDir()
-	bundle := filepath.Join(root, "bundle")
-	if err := os.WriteFile(bundle, []byte("#!/bin/sh\nsleep 2\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	bundle := testutil.WriteFakeBundleSleep(t, root, 2*time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	if _, err := (Runner{Bundle: bundle}).Inspect(ctx, root); err == nil || !strings.Contains(err.Error(), "timed out") {

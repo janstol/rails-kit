@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/janstol/rails-kit/internal/routes"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const sampleRoutes = `                                  Prefix Verb   URI Pattern                    Controller#Action
@@ -602,11 +603,7 @@ func mustWriteRoutesTestFile(t *testing.T, path, content string) {
 func stubBundle(t *testing.T, output string) func() {
 	t.Helper()
 	binDir := t.TempDir()
-	bundlePath := filepath.Join(binDir, "bundle")
-	script := "#!/bin/sh\nprintf '%s' " + shellQuote(output) + "\n"
-	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFakeBundle(t, binDir, output)
 
 	prevPath := os.Getenv("PATH")
 	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
@@ -639,11 +636,4 @@ func captureStderr(t *testing.T) func() string {
 		}
 		return string(data)
 	}
-}
-
-func shellQuote(s string) string {
-	if s == "" {
-		return "''"
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
