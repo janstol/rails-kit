@@ -3,6 +3,7 @@ package locales_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -306,6 +307,9 @@ func TestLoadMalformedYAML(t *testing.T) {
 }
 
 func TestLoadUnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod has no read-blocking semantics on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("running as root; chmod 0000 has no effect")
 	}

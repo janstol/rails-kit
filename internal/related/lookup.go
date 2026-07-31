@@ -32,7 +32,7 @@ func ResolveLookup(root string, cfg config.Config, input string, p *pluralize.Pl
 	}
 	rel, relErr := filepath.Rel(config.ResolvePath(root, cfg.ModelsPath), resolved)
 	if relErr == nil {
-		name = strings.TrimSuffix(rel, ".rb")
+		name = strings.TrimSuffix(filepath.ToSlash(rel), ".rb")
 	}
 
 	return name, p.Pluralize(filepath.Base(name)), nil
@@ -69,7 +69,7 @@ func ResolvePath(root string, cfg config.Config, input string, p *pluralize.Plur
 	if relErr != nil {
 		return "", "", fmt.Errorf("model not under models path: %s", input)
 	}
-	name = strings.TrimSuffix(rel, ".rb")
+	name = strings.TrimSuffix(filepath.ToSlash(rel), ".rb")
 	return name, p.Pluralize(filepath.Base(name)), nil
 }
 
@@ -346,6 +346,6 @@ func resolveModel(root, modelsPath, input string, p *pluralize.Pluralizer) (stri
 	if err != nil {
 		return "", "", fmt.Errorf("model not under models path: %s", input)
 	}
-	name := strings.TrimSuffix(rel, ".rb")
+	name := strings.TrimSuffix(filepath.ToSlash(rel), ".rb")
 	return name, p.Pluralize(filepath.Base(name)), nil
 }

@@ -169,7 +169,7 @@ func Resolve(railsRoot, modelsPath, input string) (string, error) {
 		var relNames []string
 		for _, m := range matches {
 			if r, e := filepath.Rel(modelsDir, m); e == nil {
-				relNames = append(relNames, r)
+				relNames = append(relNames, filepath.ToSlash(r))
 			} else {
 				relNames = append(relNames, m)
 			}
@@ -221,7 +221,7 @@ func Parse(modelPath, railsRoot, modelsPath string) (*Summary, error) {
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		rel = modelPath
 	}
-	s.RelPath = rel
+	s.RelPath = filepath.ToSlash(rel)
 
 	// Derive class name from path relative to modelsPath, preserving namespace
 	modelsDir := config.ResolvePath(railsRoot, modelsPath)

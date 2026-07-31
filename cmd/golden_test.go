@@ -82,6 +82,7 @@ func TestGolden(t *testing.T) {
 			// portable across machines and CI, where the fixture's absolute
 			// path differs.
 			got = strings.ReplaceAll(got, fixtureRoot, "<fixture-root>")
+			got = strings.ReplaceAll(got, filepath.ToSlash(fixtureRoot), "<fixture-root>")
 
 			compareGolden(t, filepath.Join(goldenDir, tc.name+".golden"), got)
 		})

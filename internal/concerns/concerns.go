@@ -53,7 +53,7 @@ func ListFiles(dir string) ([]string, error) {
 		if !d.IsDir() && strings.HasSuffix(path, ".rb") {
 			rel, relErr := filepath.Rel(dir, path)
 			if relErr == nil {
-				names = append(names, strings.TrimSuffix(rel, ".rb"))
+				names = append(names, strings.TrimSuffix(filepath.ToSlash(rel), ".rb"))
 			}
 		}
 		return nil
@@ -202,7 +202,7 @@ func FindConcern(modelDir, controllerDir, railsRoot, name string) (string, strin
 		if relErr != nil {
 			rel = modelRel
 		}
-		return modelFull, rel, "model", nil
+		return modelFull, filepath.ToSlash(rel), "model", nil
 	}
 
 	if ctrlErr == nil {
@@ -210,7 +210,7 @@ func FindConcern(modelDir, controllerDir, railsRoot, name string) (string, strin
 		if relErr != nil {
 			rel = ctrlRel
 		}
-		return ctrlFull, rel, "controller", nil
+		return ctrlFull, filepath.ToSlash(rel), "controller", nil
 	}
 
 	return "", "", "", fmt.Errorf("concern %q not found", name)
@@ -225,7 +225,7 @@ func findInDir(dir, railsRoot, name, concernType string) (string, string, string
 	if relErr != nil {
 		rel = relPath
 	}
-	return fullPath, rel, concernType, nil
+	return fullPath, filepath.ToSlash(rel), concernType, nil
 }
 
 // findFile looks for name.rb in dir, supporting namespaced names like "admin/searchable".

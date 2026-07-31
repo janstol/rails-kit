@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 func TestRoutesCommandIgnoresInvalidRailsKitConfig(t *testing.T) {
@@ -17,11 +19,7 @@ func TestRoutesCommandIgnoresInvalidRailsKitConfig(t *testing.T) {
 	mustWriteRoutesFile(t, filepath.Join(root, ".rails-kit.yml"), ":\n")
 
 	binDir := t.TempDir()
-	bundlePath := filepath.Join(binDir, "bundle")
-	script := "#!/bin/sh\nprintf 'Prefix Verb URI Pattern Controller#Action\\nusers GET /users users#index\\n'\n"
-	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFakeBundle(t, binDir, "Prefix Verb URI Pattern Controller#Action\nusers GET /users users#index\n")
 
 	prevPath := os.Getenv("PATH")
 	prevWD, err := os.Getwd()
@@ -101,11 +99,7 @@ func TestRoutesCommandJSONOutputParsesBlankPrefixRows(t *testing.T) {
 	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
 
 	binDir := t.TempDir()
-	bundlePath := filepath.Join(binDir, "bundle")
-	script := "#!/bin/sh\nprintf 'Prefix  Verb  URI Pattern  Controller#Action\\nroot  GET  /  home#index\\nPATCH/PUT  /users/:id  users#update\\nnew_user  GET  /users/new  users#new\\nGET  /users/:id  users#show\\n'\n"
-	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFakeBundle(t, binDir, "Prefix  Verb  URI Pattern  Controller#Action\nroot  GET  /  home#index\nPATCH/PUT  /users/:id  users#update\nnew_user  GET  /users/new  users#new\nGET  /users/:id  users#show\n")
 	prevPath := os.Getenv("PATH")
 	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
 		t.Fatal(err)
@@ -141,11 +135,7 @@ func TestRoutesCommandJSONOutputFailsForNonTabularOutput(t *testing.T) {
 	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
 
 	binDir := t.TempDir()
-	bundlePath := filepath.Join(binDir, "bundle")
-	script := "#!/bin/sh\nprintf 'Booting app...\\nroutes unavailable\\n'\n"
-	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFakeBundle(t, binDir, "Booting app...\nroutes unavailable\n")
 	prevPath := os.Getenv("PATH")
 	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
 		t.Fatal(err)

@@ -5,11 +5,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/janstol/rails-kit/internal/routes"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const sampleRoutes = `                                  Prefix Verb   URI Pattern                    Controller#Action
@@ -166,6 +168,9 @@ func TestCacheValidAfterDeletion(t *testing.T) {
 }
 
 func TestCacheValidAfterNestedDeletion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("NTFS defers a directory's last-write-time update on child add/remove, so it doesn't reliably bump within this test's seconds-scale window")
+	}
 	dir := t.TempDir()
 
 	routesDir := filepath.Join(dir, "config", "routes")
@@ -602,11 +607,7 @@ func mustWriteRoutesTestFile(t *testing.T, path, content string) {
 func stubBundle(t *testing.T, output string) func() {
 	t.Helper()
 	binDir := t.TempDir()
-	bundlePath := filepath.Join(binDir, "bundle")
-	script := "#!/bin/sh\nprintf '%s' " + shellQuote(output) + "\n"
-	if err := os.WriteFile(bundlePath, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFakeBundle(t, binDir, output)
 
 	prevPath := os.Getenv("PATH")
 	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
@@ -639,11 +640,4 @@ func captureStderr(t *testing.T) func() string {
 		}
 		return string(data)
 	}
-}
-
-func shellQuote(s string) string {
-	if s == "" {
-		return "''"
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }

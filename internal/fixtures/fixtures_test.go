@@ -3,6 +3,7 @@ package fixtures_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -70,6 +71,9 @@ func TestLoad_EmptyFile(t *testing.T) {
 }
 
 func TestListFiles_UnreadableSubdir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod has no read-blocking semantics on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}

@@ -2,6 +2,7 @@ package prism
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
@@ -47,7 +48,7 @@ type astWalker struct {
 }
 
 func buildFile(path string, src []byte, result *parser.ParseResult) File {
-	file := File{Path: path}
+	file := File{Path: filepath.ToSlash(path)}
 	for _, e := range result.Errors {
 		file.ParseErrors = append(file.ParseErrors, e.Message)
 	}

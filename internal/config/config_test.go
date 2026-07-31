@@ -216,7 +216,7 @@ func TestResolveSchemaPath(t *testing.T) {
 }
 
 func TestResolvePath(t *testing.T) {
-	root := filepath.Join(string(filepath.Separator), "tmp", "rails-app")
+	root := t.TempDir()
 
 	t.Run("relative path", func(t *testing.T) {
 		got := config.ResolvePath(root, "db/schema.rb")
@@ -227,7 +227,11 @@ func TestResolvePath(t *testing.T) {
 	})
 
 	t.Run("absolute path", func(t *testing.T) {
-		abs := filepath.Join(string(filepath.Separator), "tmp", "shared", "schema.rb")
+		// filepath.Join(t.TempDir(), ...) is a genuine absolute path on
+		// every platform, unlike a hand-rolled filepath.Separator-prefixed
+		// string, which is rooted but not absolute on Windows (no drive
+		// letter), so filepath.IsAbs would reject it there.
+		abs := filepath.Join(t.TempDir(), "shared", "schema.rb")
 		got := config.ResolvePath(root, abs)
 		if got != abs {
 			t.Fatalf("got %q, want %q", got, abs)

@@ -156,7 +156,7 @@ func TestResolve(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !strings.HasSuffix(path, "admin/dashboard.rb") {
+		if !strings.HasSuffix(filepath.ToSlash(path), "admin/dashboard.rb") {
 			t.Errorf("unexpected path: %s", path)
 		}
 	})
@@ -344,7 +344,7 @@ func TestResolve_MissingModelsPath(t *testing.T) {
 	if !strings.Contains(err.Error(), "models path") {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "lib/missing_models") {
+	if !strings.Contains(filepath.ToSlash(err.Error()), "lib/missing_models") {
 		t.Fatalf("missing configured path in error: %v", err)
 	}
 }
@@ -375,8 +375,8 @@ func TestResolve_AbsoluteModelsPath(t *testing.T) {
 	if summary.ClassName != "User" {
 		t.Fatalf("ClassName = %q, want User", summary.ClassName)
 	}
-	if summary.RelPath != filepath.Join("shared_models", "user.rb") {
-		t.Fatalf("RelPath = %q, want %q", summary.RelPath, filepath.Join("shared_models", "user.rb"))
+	if summary.RelPath != "shared_models/user.rb" {
+		t.Fatalf("RelPath = %q, want %q", summary.RelPath, "shared_models/user.rb")
 	}
 }
 

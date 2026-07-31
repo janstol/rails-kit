@@ -3,6 +3,7 @@ package related_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -504,10 +505,10 @@ func TestFindAbsoluteConfiguredPaths(t *testing.T) {
 	for _, cat := range cats {
 		found[cat.Label] = cat.Files
 	}
-	if !containsStr(found["Model"], modelFile) {
+	if !containsStr(found["Model"], filepath.ToSlash(modelFile)) {
 		t.Fatalf("expected model path in %v", found["Model"])
 	}
-	if !containsStr(found["Fixtures"], fixtureFile) {
+	if !containsStr(found["Fixtures"], filepath.ToSlash(fixtureFile)) {
 		t.Fatalf("expected fixture path in %v", found["Fixtures"])
 	}
 }
@@ -670,6 +671,9 @@ func TestWalkMatchSegmentExcludesNonRuby(t *testing.T) {
 }
 
 func TestWalkMatchNS_UnreadableSubdir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod has no read-blocking semantics on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}

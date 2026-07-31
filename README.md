@@ -8,6 +8,10 @@ A fast, compiled CLI for inspecting Rails projects. Most commands read project f
 brew install --cask janstol/tap/rails-kit
 ```
 
+Homebrew is macOS/Linux only. On Windows, download the `windows_amd64.zip` asset from the
+[releases page](https://github.com/janstol/rails-kit/releases) (works well with Rails-on-WSL2
+setups too).
+
 Or install with Go:
 
 ```sh
