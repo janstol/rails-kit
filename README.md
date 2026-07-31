@@ -38,6 +38,8 @@ rails-kit model user --json
 rails-kit --root /path/to/app schema users --json
 ```
 
+`schema` and `model` accept `--color=auto|always|never` (default `auto`) for terminal accents. `auto` disables color when stdout isn't a terminal; `NO_COLOR` (any non-empty value) disables color even under `--color=always`; `--json` output is never colored.
+
 ## Commands
 
 | Command | Description |

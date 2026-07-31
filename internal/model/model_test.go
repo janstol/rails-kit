@@ -3,10 +3,12 @@ package model_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/janstol/rails-kit/internal/model"
+	"github.com/janstol/rails-kit/internal/term"
 )
 
 const testdataRoot = "../../testdata"
@@ -226,7 +228,7 @@ func TestFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := model.Format(s)
+	out := model.Format(s, term.Styler{})
 	if !strings.Contains(out, "User < ApplicationRecord (") {
 		t.Error("missing class name in output")
 	}
@@ -235,6 +237,30 @@ func TestFormat(t *testing.T) {
 	}
 	if !strings.Contains(out, "Validations:") {
 		t.Error("missing Validations section")
+	}
+}
+
+var reANSI = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+func TestFormat_Colored(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	path := testdataRoot + "/app/models/user.rb"
+	s, err := model.Parse(path, testdataRoot, "app/models")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	uncolored := model.Format(s, term.Styler{})
+	colored := model.Format(s, term.NewStyler(term.ModeAlways, nil))
+
+	if !strings.Contains(colored, "\x1b[1mUser\x1b[0m") {
+		t.Errorf("expected bold class name in colored output:\n%s", colored)
+	}
+	if !strings.Contains(colored, "\x1b[1mAssociations:\x1b[0m") {
+		t.Errorf("expected bold Associations label in colored output:\n%s", colored)
+	}
+	if got := reANSI.ReplaceAllString(colored, ""); got != uncolored {
+		t.Errorf("stripping ANSI from colored output does not reproduce uncolored output:\n--- got ---\n%s\n--- want ---\n%s", got, uncolored)
 	}
 }
 

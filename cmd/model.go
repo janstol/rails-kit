@@ -78,7 +78,7 @@ The name can be a model name (user, order_item), a CamelCase class name
 			return printJSON(out)
 		}
 
-		fmt.Print(model.Format(summary))
+		fmt.Print(model.Format(summary, stdoutStyler()))
 		return nil
 	},
 }

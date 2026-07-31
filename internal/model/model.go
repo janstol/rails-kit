@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/term"
 )
 
 var (
@@ -407,18 +408,60 @@ func Parse(modelPath, railsRoot, modelsPath string) (*Summary, error) {
 	return s, nil
 }
 
-// Format renders the summary as a human-readable string.
-func Format(s *Summary) string {
-	var sb strings.Builder
-	sb.WriteString(s.ClassName)
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + s.ParentClass)
+// macroAllowlist holds the Rails macros whose entry line gets a color
+// accent in Format. Bare-name sections (Concerns, Scopes, Enums) are
+// intentionally excluded — their section label already carries the accent.
+var macroAllowlist = map[string]bool{
+	"has_many":                true,
+	"has_one":                 true,
+	"belongs_to":              true,
+	"has_and_belongs_to_many": true,
+	"validates":               true,
+	"validate":                true,
+	"delegate":                true,
+}
+
+func isMacroToken(tok string) bool {
+	if macroAllowlist[tok] {
+		return true
 	}
-	sb.WriteString(" (" + s.RelPath + ")\n")
-	sb.WriteString(strings.Repeat("=", 40) + "\n")
+	return strings.HasPrefix(tok, "before_") || strings.HasPrefix(tok, "after_") || strings.HasPrefix(tok, "around_")
+}
+
+// styleEntry colors the leading macro keyword of a "  macro ..." entry line
+// produced by Parse, leaving the rest of the line untouched. Lines whose
+// first token is not a known macro (bare names like concern or scope
+// entries) pass through unchanged.
+func styleEntry(entry string, st term.Styler) string {
+	const indent = "  "
+	if !strings.HasPrefix(entry, indent) {
+		return entry
+	}
+	rest := entry[len(indent):]
+	tok := rest
+	if idx := strings.IndexByte(rest, ' '); idx >= 0 {
+		tok = rest[:idx]
+	}
+	if !isMacroToken(tok) {
+		return entry
+	}
+	return indent + st.Cyan(tok) + rest[len(tok):]
+}
+
+// Format renders the summary as a human-readable string. st controls
+// terminal color accents; the zero value renders identically to the
+// uncolored output.
+func Format(s *Summary, st term.Styler) string {
+	var sb strings.Builder
+	sb.WriteString(st.Bold(s.ClassName))
+	if s.ParentClass != "" {
+		sb.WriteString(" < " + st.Cyan(s.ParentClass))
+	}
+	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
+	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
 	if s.TableName != "" {
 		sb.WriteString("\n")
-		sb.WriteString("Table:\n")
+		sb.WriteString(st.Bold("Table:") + "\n")
 		sb.WriteString("  " + s.TableName + "\n")
 	}
 
@@ -439,9 +482,9 @@ func Format(s *Summary) string {
 			continue
 		}
 		sb.WriteString("\n")
-		sb.WriteString(sec.label + ":\n")
+		sb.WriteString(st.Bold(sec.label+":") + "\n")
 		for _, e := range sec.entries {
-			sb.WriteString(e + "\n")
+			sb.WriteString(styleEntry(e, st) + "\n")
 		}
 	}
 	sb.WriteString("\n")

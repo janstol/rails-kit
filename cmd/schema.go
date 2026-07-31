@@ -54,7 +54,7 @@ indexes and foreign keys for each table.`,
 		if err != nil {
 			return fmt.Errorf("extracting schema: %w", err)
 		}
-		fmt.Print(out)
+		fmt.Print(schema.Highlight(schemaPath, out, stdoutStyler()))
 		return nil
 	},
 }

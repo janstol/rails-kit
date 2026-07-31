@@ -10,11 +10,13 @@ import (
 
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/railsroot"
+	"github.com/janstol/rails-kit/internal/term"
 	"github.com/janstol/rails-kit/internal/version"
 )
 
 var rootFlag string
 var jsonFlag bool
+var colorFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "rails-kit",
@@ -29,8 +31,28 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&rootFlag, "root", "r", "", "Rails root directory (default: auto-detect from CWD)")
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON")
+	rootCmd.PersistentFlags().StringVar(&colorFlag, "color", "auto",
+		"Color output: auto|always|never. Disabled when NO_COLOR is set, even with always.")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if _, err := term.ParseMode(colorFlag); err != nil {
+			return err
+		}
+		return nil
+	}
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
+}
+
+// stdoutStyler builds the Styler for the current invocation's stdout. It
+// must be called at RunE time, not cached, since --color is only known
+// after flag parsing and tests swap the os.Stdout package variable for a
+// pipe.
+func stdoutStyler() term.Styler {
+	if jsonFlag {
+		return term.Styler{}
+	}
+	mode, _ := term.ParseMode(colorFlag) // validated in PersistentPreRunE
+	return term.NewStyler(mode, os.Stdout)
 }
 
 func printJSON(v any) error {
