@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -114,10 +113,11 @@ func TestRoutesCommandJSONOutputParsesBlankPrefixRows(t *testing.T) {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
 
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 4 {
 		t.Fatalf("expected 4 routes, got %d: %#v", len(got), got)
 	}
@@ -173,10 +173,11 @@ end
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
 
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 3 {
 		t.Fatalf("expected 3 routes, got %d: %#v", len(got), got)
 	}
@@ -207,10 +208,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "legacy" ||
 		got[0]["uri_pattern"] != "/old" ||
@@ -240,10 +242,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 2 ||
 		got[0]["prefix"] != "events" ||
 		got[0]["verb"] != "POST|OPTIONS" ||
@@ -274,10 +277,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["uri_pattern"] != "/items/:id" ||
 		got[0]["controller_action"] != `items#show {id: /[0-9]+/}` {
@@ -305,10 +309,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "generic_engine" ||
 		got[0]["verb"] != "" ||
@@ -338,10 +343,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "" ||
 		got[0]["uri_pattern"] != "/socket" ||
@@ -372,10 +378,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "api_index" ||
 		got[0]["uri_pattern"] != "/api/items" ||
@@ -406,10 +413,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "show" ||
 		got[0]["uri_pattern"] != "/show" ||
@@ -440,10 +448,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "item_preview" ||
 		got[0]["uri_pattern"] != "/items/:id" ||
@@ -472,10 +481,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 ||
 		got[0]["prefix"] != "admin_show" ||
 		got[0]["uri_pattern"] != "/admin/status" ||
@@ -504,10 +514,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	prefixes := make(map[string]string)
 	for _, entry := range got {
 		key := entry["verb"] + " " + entry["controller_action"]
@@ -549,10 +560,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("unmarshal routes json: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 || got[0]["controller_action"] != "comments#index" {
 		t.Fatalf("unexpected filtered routes: %#v", got)
 	}
@@ -576,10 +588,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("warning corrupted JSON stdout: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 1 || got[0]["controller_action"] != "posts#index" {
 		t.Fatalf("unexpected routes: %#v", got)
 	}
@@ -609,10 +622,11 @@ mount app_for(:generic), at: "/engine"
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("warning corrupted JSON stdout: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 0 {
 		t.Fatalf("unexpected routes: %#v", got)
 	}
@@ -643,10 +657,11 @@ end
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var got []map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("warning corrupted JSON stdout: %v\noutput: %s", err, out)
+	var routesPayload struct {
+		Routes []map[string]string `json:"routes"`
 	}
+	unwrapJSONEnvelope(t, out, "routes", &routesPayload)
+	got := routesPayload.Routes
 	if len(got) != 0 {
 		t.Fatalf("unexpected routes: %#v", got)
 	}

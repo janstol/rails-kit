@@ -10,6 +10,10 @@ import (
 	"github.com/janstol/rails-kit/internal/locales"
 )
 
+type localesListJSON struct {
+	Scopes []string `json:"scopes"`
+}
+
 type localesJSON struct {
 	Scope string `json:"scope"`
 	Value any    `json:"value"`
@@ -39,7 +43,7 @@ With a scope like en.views.users, prints all keys under that scope.`,
 		if len(args) == 0 {
 			scopes := locales.ListScopes(merged)
 			if jsonFlag {
-				return printJSON(scopes)
+				return printJSON(cmd, localesListJSON{Scopes: scopes})
 			}
 			for _, scope := range scopes {
 				fmt.Println(scope)
@@ -50,10 +54,10 @@ With a scope like en.views.users, prints all keys under that scope.`,
 		scope := args[0]
 		node, err := locales.Navigate(merged, scope)
 		if err != nil {
-			return err
+			return coded(codeNotFound, err)
 		}
 		if jsonFlag {
-			return printJSON(localesJSON{
+			return printJSON(cmd, localesJSON{
 				Scope: scope,
 				Value: node,
 			})

@@ -14,6 +14,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **BREAKING:** `--json` output is now versioned and uniformly shaped. Every successful invocation wraps its payload in an envelope — `{ "schema_version": 1, "command": "...", "data": {...} }` — instead of writing the payload directly. Every failing `--json` invocation now writes a JSON error object to stderr (`{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }`) with exit code 1, instead of plain text. `data` is now always a JSON object; commands that previously returned a bare array or switched between an object and an array based on argument count now return a fixed object shape with the array under a named key. For example:
+
+  ```jsonc
+  // schema (list mode), before: ["users", "orders"]
+  // after:
+  { "schema_version": 1, "command": "schema", "data": { "tables": [ { "name": "users" }, { "name": "orders" } ] } }
+
+  // schema users (extract mode), before: { "users": "create_table ..." }
+  // after: same "tables" key and shape as list mode, just with "definition" populated
+  { "schema_version": 1, "command": "schema", "data": { "tables": [ { "name": "users", "definition": "create_table \"users\" ..." } ] } }
+
+  // skeleton app/models/user.rb, before: one bare object; skeleton 'app/**/*.rb', before: an array
+  // after: always an array under "files", regardless of count
+  { "schema_version": 1, "command": "skeleton", "data": { "files": [ { "path": "...", "rel_path": "app/models/user.rb", "...": "..." } ] } }
+  ```
+
+  `routes`, `fixtures` (list mode), `locales` (list mode), and `gem` (list mode) get the same array-under-a-named-key treatment (`routes`, `files`, `scopes`, `gems` respectively). See [`docs/json.md`](docs/json.md) for the full contract, the error-code vocabulary, and the versioning policy.
 - `skeleton` over a directory now parses files concurrently, bounded by CPU count, instead of serially. Each file still gets its own Prism parser instance (required since go-ruby-prism's parser isn't safe to reuse), but the per-file cold start now overlaps across files instead of stacking up. Measured ~4x faster on batches of 8–500 files; output is byte-identical. `locales` similarly parallelizes reading and parsing locale files, with a smaller win since that work isn't cold-start dominated.
 
 ## [0.3.0] - 2026-07-25

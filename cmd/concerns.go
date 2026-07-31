@@ -36,13 +36,13 @@ Concern names can be qualified to disambiguate:
 		ctrlDir := config.ResolvePath(root, cfg.ControllerConcernsPath)
 
 		if len(args) == 0 {
-			return runConcernsList(modelDir, ctrlDir)
+			return runConcernsList(cmd, modelDir, ctrlDir)
 		}
-		return runConcernsDetail(modelDir, ctrlDir, root, args[0])
+		return runConcernsDetail(cmd, modelDir, ctrlDir, root, args[0])
 	},
 }
 
-func runConcernsList(modelDir, ctrlDir string) error {
+func runConcernsList(cmd *cobra.Command, modelDir, ctrlDir string) error {
 	modelNames, err := concerns.ListFiles(modelDir)
 	if err != nil {
 		return fmt.Errorf("listing model concerns: %w", err)
@@ -60,7 +60,7 @@ func runConcernsList(modelDir, ctrlDir string) error {
 	}
 
 	if jsonFlag {
-		return printJSON(concernsListJSON{
+		return printJSON(cmd, concernsListJSON{
 			ModelConcerns:      modelNames,
 			ControllerConcerns: ctrlNames,
 		})
@@ -89,10 +89,10 @@ func runConcernsList(modelDir, ctrlDir string) error {
 	return nil
 }
 
-func runConcernsDetail(modelDir, ctrlDir, root, name string) error {
+func runConcernsDetail(cmd *cobra.Command, modelDir, ctrlDir, root, name string) error {
 	fullPath, relPath, cType, err := concerns.FindConcern(modelDir, ctrlDir, root, name)
 	if err != nil {
-		return err
+		return coded(codeNotFound, err)
 	}
 
 	d, err := concerns.Parse(fullPath, relPath, cType)
@@ -101,7 +101,7 @@ func runConcernsDetail(modelDir, ctrlDir, root, name string) error {
 	}
 
 	if jsonFlag {
-		return printJSON(d)
+		return printJSON(cmd, d)
 	}
 
 	fmt.Print(concerns.Format(d))

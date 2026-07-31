@@ -7,17 +7,19 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. JSON shapes:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
-- `schema` (no args) → `[]string`; with table args → object keyed by table name
-- `routes` → `[{ prefix, verb, uri_pattern, controller_action }]`
-- `related` → `{ model, plural, categories }`
+- `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
+- `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
+- `related` → `{ model, plural, categories: [{ label, files }] }`
 - `model` → `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
-- `skeleton` → one `{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }` object, or an array for multiple resolved files
-- `fixtures` (no args) → `[]string`; with name → `{ file, entries }`
-- `locales` (no args) → `[]string`; with scope → `{ scope, value }`
-- `gem` (no args) → `[{ name, version }]`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
+- `skeleton` → `{ files: [{ path, rel_path, classes, modules, constants, calls, methods, parse_errors? }] }` — always an array, even for one file
+- `fixtures` (no args) → `{ files: [...] }`; with name → `{ file, entries }`
+- `locales` (no args) → `{ scopes: [...] }`; with scope → `{ scope, value }`
+- `gem` (no args) → `{ gems: [{ name, version }] }`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
 - `concerns` (no args) → `{ model_concerns, controller_concerns }`; with name → `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
+
+Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
 ## When to use these tools
 

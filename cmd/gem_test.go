@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -63,13 +62,14 @@ func TestGemCommandListJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	var entries []struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
+	var payload struct {
+		Gems []struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"gems"`
 	}
-	if err := json.Unmarshal([]byte(out), &entries); err != nil {
-		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "gem", &payload)
+	entries := payload.Gems
 	if len(entries) == 0 {
 		t.Fatal("expected non-empty gem list")
 	}
@@ -120,9 +120,7 @@ func TestGemCommandDetailJSON(t *testing.T) {
 		Revision  string `json:"revision"`
 		Branch    string `json:"branch"`
 	}
-	if err := json.Unmarshal([]byte(out), &g); err != nil {
-		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "gem", &g)
 	if g.Name != "my_gem" {
 		t.Errorf("name = %q, want my_gem", g.Name)
 	}

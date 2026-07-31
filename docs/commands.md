@@ -2,19 +2,9 @@
 
 All commands auto-detect the Rails root by walking up from the current directory. Override it with `--root /path/to/app`. Data commands support `--json`.
 
-## JSON shapes
+## JSON output
 
-- `about`: `{ application?, root, environment, source, versions, database, warnings? }`
-- `schema`: `[]string` when listing tables; otherwise an object keyed by table name
-- `routes`: `[{ prefix, verb, uri_pattern, controller_action }]`
-- `related`: `{ model, plural, categories }`
-- `model`: `{ class_name, parent_class?, rel_path, table_name?, concerns, associations, validations, scopes, callbacks, enums, delegates }`
-- `fixtures`: `[]string` when listing files; otherwise `{ file, entries }`
-- `locales`: `[]string` when listing scopes; otherwise `{ scope, value }`
-- `gem`: `[{ name, version }]` when listing gems; otherwise a detailed gem object
-- `skeleton`: one skeleton object for a file or an array for multiple files
-- `concerns`: grouped concern names or a detailed concern object
-- `version`: `{ version, commit, build_date }`
+Every `--json` invocation writes one envelope object — `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or an `error` object on stderr with exit code 1 on failure. `data` is always a JSON object; a command's shape depends only on its mode (list vs. detail), never on result count. See [`docs/json.md`](json.md) for the full contract: per-command `data` shapes, the error-code vocabulary, and the stability policy.
 
 ## `about`
 

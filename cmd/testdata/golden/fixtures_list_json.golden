@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "command": "fixtures",
+  "data": {
+    "files": [
+      "admin/dashboards",
+      "posts",
+      "tags",
+      "users"
+    ]
+  }
+}

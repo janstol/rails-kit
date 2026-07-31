@@ -1,9 +1,13 @@
 {
-  "model_concerns": [
-    "auditable",
-    "searchable"
-  ],
-  "controller_concerns": [
-    "authenticatable"
-  ]
+  "schema_version": 1,
+  "command": "concerns",
+  "data": {
+    "model_concerns": [
+      "auditable",
+      "searchable"
+    ],
+    "controller_concerns": [
+      "authenticatable"
+    ]
+  }
 }

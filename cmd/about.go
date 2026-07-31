@@ -30,7 +30,7 @@ var aboutCmd = &cobra.Command{
 			}
 		}
 		if jsonFlag {
-			return printJSON(report)
+			return printJSON(cmd, report)
 		}
 		_, err = fmt.Fprint(cmd.OutOrStdout(), about.Format(report))
 		return err

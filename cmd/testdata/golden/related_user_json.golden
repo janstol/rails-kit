@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "command": "related",
+  "data": {
+    "model": "user",
+    "plural": "users",
+    "categories": [
+      {
+        "label": "Model",
+        "files": [
+          "app/models/user.rb"
+        ]
+      },
+      {
+        "label": "Service",
+        "files": [
+          "app/services/user_export_service.rb"
+        ]
+      },
+      {
+        "label": "Fixtures",
+        "files": [
+          "test/fixtures/users.yml"
+        ]
+      }
+    ]
+  }
+}

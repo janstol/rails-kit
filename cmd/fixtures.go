@@ -13,6 +13,10 @@ import (
 	"github.com/janstol/rails-kit/internal/pluralize"
 )
 
+type fixturesListJSON struct {
+	Files []string `json:"files"`
+}
+
 type fixturesJSON struct {
 	File    string         `json:"file"`
 	Entries map[string]any `json:"entries"`
@@ -45,7 +49,7 @@ Errors if the configured fixtures path does not exist or is not a directory.`,
 				return fmt.Errorf("listing fixtures: %w", err)
 			}
 			if jsonFlag {
-				return printJSON(names)
+				return printJSON(cmd, fixturesListJSON{Files: names})
 			}
 			for _, n := range names {
 				fmt.Println(n)
@@ -59,11 +63,11 @@ Errors if the configured fixtures path does not exist or is not a directory.`,
 
 		filename, data, err := fixtures.Load(fixturesDir, name, plural)
 		if err != nil {
-			return err
+			return coded(codeNotFound, err)
 		}
 		data = fixtures.VisibleEntries(data)
 		if jsonFlag {
-			return printJSON(fixturesJSON{
+			return printJSON(cmd, fixturesJSON{
 				File:    filename,
 				Entries: data,
 			})

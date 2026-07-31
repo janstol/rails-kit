@@ -179,12 +179,12 @@ func TestFixturesCommandListsFilesAsJSON(t *testing.T) {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
 
-	var names []string
-	if err := json.Unmarshal([]byte(out), &names); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
+	var payload struct {
+		Files []string `json:"files"`
 	}
-	if len(names) != 2 || names[0] != "admin/dashboards" || names[1] != "users" {
-		t.Fatalf("unexpected names: %#v", names)
+	unwrapJSONEnvelope(t, out, "fixtures", &payload)
+	if len(payload.Files) != 2 || payload.Files[0] != "admin/dashboards" || payload.Files[1] != "users" {
+		t.Fatalf("unexpected files: %#v", payload.Files)
 	}
 }
 
@@ -202,9 +202,7 @@ func TestFixturesCommandShowsEntriesAsJSON(t *testing.T) {
 		File    string                 `json:"file"`
 		Entries map[string]interface{} `json:"entries"`
 	}
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "fixtures", &payload)
 	if payload.File != "users.yml" {
 		t.Fatalf("file = %q, want users.yml", payload.File)
 	}
@@ -249,12 +247,12 @@ func TestLocalesCommandListsScopesAsJSON(t *testing.T) {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
 
-	var scopes []string
-	if err := json.Unmarshal([]byte(out), &scopes); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
+	var payload struct {
+		Scopes []string `json:"scopes"`
 	}
-	if len(scopes) != 4 || scopes[0] != "en.admin" || scopes[1] != "en.admin.dashboards" || scopes[2] != "en.views" || scopes[3] != "en.views.users" {
-		t.Fatalf("unexpected scopes: %#v", scopes)
+	unwrapJSONEnvelope(t, out, "locales", &payload)
+	if len(payload.Scopes) != 4 || payload.Scopes[0] != "en.admin" || payload.Scopes[1] != "en.admin.dashboards" || payload.Scopes[2] != "en.views" || payload.Scopes[3] != "en.views.users" {
+		t.Fatalf("unexpected scopes: %#v", payload.Scopes)
 	}
 }
 
@@ -272,9 +270,7 @@ func TestLocalesCommandShowsScopeAsJSON(t *testing.T) {
 		Scope string                 `json:"scope"`
 		Value map[string]interface{} `json:"value"`
 	}
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "locales", &payload)
 	if payload.Scope != "en.views.users" {
 		t.Fatalf("scope = %q, want en.views.users", payload.Scope)
 	}
@@ -358,9 +354,7 @@ func TestModelCommandJSONIncludesParentClassAndTableName(t *testing.T) {
 		ParentClass string `json:"parent_class"`
 		TableName   string `json:"table_name"`
 	}
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "model", &payload)
 	if payload.ClassName != "Report" || payload.ParentClass != "ApplicationRecord" || payload.TableName != "legacy_reports" {
 		t.Fatalf("unexpected payload: %#v", payload)
 	}
@@ -528,6 +522,29 @@ func TestRelatedCommandExcludesDeeperNamespaceServicesAndFormers(t *testing.T) {
 	}
 	if !strings.Contains(out, "app/formers/admin/user_former.rb") {
 		t.Fatalf("expected exact namespace former in output:\n%s", out)
+	}
+}
+
+// unwrapJSONEnvelope decodes out as a jsonEnvelope, asserts schema_version
+// and command, and unmarshals its data field into v.
+func unwrapJSONEnvelope(t *testing.T, out, command string, v any) {
+	t.Helper()
+	var envelope struct {
+		SchemaVersion int             `json:"schema_version"`
+		Command       string          `json:"command"`
+		Data          json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(out), &envelope); err != nil {
+		t.Fatalf("unmarshal envelope: %v\noutput:%s", err, out)
+	}
+	if envelope.SchemaVersion != jsonSchemaVersion {
+		t.Fatalf("schema_version = %d, want %d", envelope.SchemaVersion, jsonSchemaVersion)
+	}
+	if envelope.Command != command {
+		t.Fatalf("command = %q, want %q", envelope.Command, command)
+	}
+	if err := json.Unmarshal(envelope.Data, v); err != nil {
+		t.Fatalf("unmarshal data: %v\ndata:%s", err, envelope.Data)
 	}
 }
 

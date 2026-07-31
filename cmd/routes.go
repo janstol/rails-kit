@@ -23,6 +23,10 @@ var (
 	routesWatchInterval time.Duration
 )
 
+type routesJSON struct {
+	Routes []routes.RouteEntry `json:"routes"`
+}
+
 var routesCmd = &cobra.Command{
 	Use:   "routes [pattern...]",
 	Short: "Cached, filtered rails routes output",
@@ -62,13 +66,13 @@ timestamped header. A render error (e.g. a syntax error while editing) is
 reported but does not stop watching. Exit with Ctrl-C.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
-			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
+			return coded(codeInvalidArgument, fmt.Errorf("--refresh and --no-cache are mutually exclusive"))
 		}
 		if routesStatic && (routesRefresh || routesNoCache) {
-			return fmt.Errorf("--static cannot be combined with --refresh or --no-cache")
+			return coded(codeInvalidArgument, fmt.Errorf("--static cannot be combined with --refresh or --no-cache"))
 		}
 		if routesWatchInterval < 100*time.Millisecond {
-			return fmt.Errorf("--watch-interval must be at least 100ms")
+			return coded(codeInvalidArgument, fmt.Errorf("--watch-interval must be at least 100ms"))
 		}
 
 		root, err := resolveRailsRoot()
@@ -88,7 +92,7 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 		routesPath := filepath.Join(root, "config", "routes.rb")
 		result, err := routes.ParseStaticDetailed(routesPath, pluralize.Default())
 		if err != nil {
-			return fmt.Errorf("parsing %s: %w", routesPath, err)
+			return coded(codeParseError, fmt.Errorf("parsing %s: %w", routesPath, err))
 		}
 		for _, warning := range result.Warnings {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", warning.Path, warning.Line, warning.Message)
@@ -101,7 +105,7 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 			}
 		}
 		if jsonFlag {
-			return printJSON(entries)
+			return printJSON(cmd, routesJSON{Routes: entries})
 		}
 		fmt.Print(routes.FormatTable(entries))
 		return nil
@@ -125,9 +129,9 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 		if jsonFlag {
 			entries, err := routes.ParseTable(output)
 			if err != nil {
-				return err
+				return coded(codeParseError, err)
 			}
-			return printJSON(entries)
+			return printJSON(cmd, routesJSON{Routes: entries})
 		}
 		fmt.Print(output)
 		return nil
@@ -140,9 +144,9 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 	if jsonFlag {
 		entries, err := routes.ParseTable(filtered)
 		if err != nil {
-			return err
+			return coded(codeParseError, err)
 		}
-		return printJSON(entries)
+		return printJSON(cmd, routesJSON{Routes: entries})
 	}
 	fmt.Print(filtered)
 	return nil

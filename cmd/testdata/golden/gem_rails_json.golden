@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "command": "gem",
+  "data": {
+    "name": "rails",
+    "version": "7.1.3",
+    "source": "rubygems",
+    "source_url": "https://rubygems.org/",
+    "dependencies": [
+      {
+        "name": "actioncable",
+        "constraint": "= 7.1.3"
+      },
+      {
+        "name": "actionpack",
+        "constraint": "= 7.1.3"
+      },
+      {
+        "name": "activesupport",
+        "constraint": "= 7.1.3"
+      }
+    ]
+  }
+}

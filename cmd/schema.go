@@ -2,12 +2,26 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/schema"
 )
+
+// schemaTableJSON is one entry of the schema command's data.tables array.
+// Definition is the raw DDL block text (create_table + indexes + foreign
+// keys), not structured columns — internal/schema.ExtractTableMap returns
+// map[string]string, not a parsed column list. It is omitted in list mode.
+type schemaTableJSON struct {
+	Name       string `json:"name"`
+	Definition string `json:"definition,omitempty"`
+}
+
+type schemaJSON struct {
+	Tables []schemaTableJSON `json:"tables"`
+}
 
 var schemaCmd = &cobra.Command{
 	Use:   "schema [table...]",
@@ -31,10 +45,14 @@ indexes and foreign keys for each table.`,
 		if len(args) == 0 {
 			tables, err := schema.ListTables(schemaPath)
 			if err != nil {
-				return fmt.Errorf("listing tables: %w", err)
+				return coded(codeParseError, fmt.Errorf("listing tables: %w", err))
 			}
 			if jsonFlag {
-				return printJSON(tables)
+				out := schemaJSON{Tables: make([]schemaTableJSON, len(tables))}
+				for i, t := range tables {
+					out.Tables[i] = schemaTableJSON{Name: t}
+				}
+				return printJSON(cmd, out)
 			}
 			for _, t := range tables {
 				fmt.Println(t)
@@ -45,14 +63,23 @@ indexes and foreign keys for each table.`,
 		if jsonFlag {
 			result, err := schema.ExtractTableMap(schemaPath, args)
 			if err != nil {
-				return fmt.Errorf("extracting schema: %w", err)
+				return coded(codeParseError, fmt.Errorf("extracting schema: %w", err))
 			}
-			return printJSON(result)
+			names := make([]string, 0, len(result))
+			for name := range result {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			out := schemaJSON{Tables: make([]schemaTableJSON, len(names))}
+			for i, name := range names {
+				out.Tables[i] = schemaTableJSON{Name: name, Definition: result[name]}
+			}
+			return printJSON(cmd, out)
 		}
 
 		out, err := schema.ExtractTables(schemaPath, args)
 		if err != nil {
-			return fmt.Errorf("extracting schema: %w", err)
+			return coded(codeParseError, fmt.Errorf("extracting schema: %w", err))
 		}
 		fmt.Print(schema.Highlight(schemaPath, out, stdoutStyler()))
 		return nil

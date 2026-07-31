@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -98,9 +97,7 @@ func TestConcernsCommandListsAllJSON(t *testing.T) {
 		ModelConcerns      []string `json:"model_concerns"`
 		ControllerConcerns []string `json:"controller_concerns"`
 	}
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "concerns", &payload)
 	if len(payload.ModelConcerns) != 2 {
 		t.Fatalf("model_concerns = %v, want 2 items", payload.ModelConcerns)
 	}
@@ -145,9 +142,7 @@ func TestConcernsCommandShowsDetailJSON(t *testing.T) {
 		Methods          []string `json:"methods"`
 		HasIncludedBlock bool     `json:"has_included_block"`
 	}
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
-	}
+	unwrapJSONEnvelope(t, out, "concerns", &payload)
 	if payload.Name != "Auditable" {
 		t.Fatalf("name = %q, want Auditable", payload.Name)
 	}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "command": "fixtures",
+  "data": {
+    "file": "users.yml",
+    "entries": {
+      "alice": {
+        "active": true,
+        "email": "alice@example.com",
+        "name": "Alice Smith",
+        "role": "admin"
+      },
+      "bob": {
+        "active": true,
+        "email": "bob@example.com",
+        "name": "Bob Jones",
+        "role": "member"
+      },
+      "charlie": {
+        "active": false,
+        "email": "charlie@example.com",
+        "name": "Charlie Brown",
+        "role": "moderator"
+      }
+    }
+  }
+}

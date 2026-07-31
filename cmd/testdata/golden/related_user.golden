@@ -1,0 +1,6 @@
+Model:
+  app/models/user.rb
+Service:
+  app/services/user_export_service.rb
+Fixtures:
+  test/fixtures/users.yml

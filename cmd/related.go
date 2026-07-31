@@ -62,7 +62,7 @@ Matches stay within the exact namespace of the requested model.`,
 					Files: cat.Files,
 				})
 			}
-			return printJSON(out)
+			return printJSON(cmd, out)
 		}
 
 		for _, cat := range cats {

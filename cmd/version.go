@@ -15,7 +15,7 @@ var versionCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v, commit, buildDate := version.Info()
 		if jsonFlag {
-			return printJSON(struct {
+			return printJSON(cmd, struct {
 				Version   string `json:"version"`
 				Commit    string `json:"commit"`
 				BuildDate string `json:"build_date"`

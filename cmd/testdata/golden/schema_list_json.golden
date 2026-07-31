@@ -1,7 +1,23 @@
-[
-  "comments",
-  "posts",
-  "posts_tags",
-  "tags",
-  "users"
-]
+{
+  "schema_version": 1,
+  "command": "schema",
+  "data": {
+    "tables": [
+      {
+        "name": "comments"
+      },
+      {
+        "name": "posts"
+      },
+      {
+        "name": "posts_tags"
+      },
+      {
+        "name": "tags"
+      },
+      {
+        "name": "users"
+      }
+    ]
+  }
+}

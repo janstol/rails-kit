@@ -1,17 +1,23 @@
-[
-  "en.activerecord",
-  "en.activerecord.attributes",
-  "en.activerecord.attributes.post",
-  "en.activerecord.attributes.user",
-  "en.activerecord.models",
-  "en.nested_section",
-  "en.time",
-  "en.time.formats",
-  "en.views",
-  "en.views.posts",
-  "en.views.posts.index",
-  "en.views.users",
-  "en.views.users.index",
-  "en.views.users.show",
-  "en.yaml_section"
-]
+{
+  "schema_version": 1,
+  "command": "locales",
+  "data": {
+    "scopes": [
+      "en.activerecord",
+      "en.activerecord.attributes",
+      "en.activerecord.attributes.post",
+      "en.activerecord.attributes.user",
+      "en.activerecord.models",
+      "en.nested_section",
+      "en.time",
+      "en.time.formats",
+      "en.views",
+      "en.views.posts",
+      "en.views.posts.index",
+      "en.views.users",
+      "en.views.users.index",
+      "en.views.users.show",
+      "en.yaml_section"
+    ]
+  }
+}

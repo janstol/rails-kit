@@ -63,6 +63,7 @@ See the [command reference](docs/commands.md) for examples, JSON shapes, require
 ## Documentation
 
 - [Command reference](docs/commands.md)
+- [`--json` output contract](docs/json.md)
 - [Static routes parser](docs/static-routes.md)
 - [Configuration](docs/configuration.md)
 - [Agent skill installation](docs/agent-skill.md)

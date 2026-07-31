@@ -1,0 +1,5 @@
+users.yml
+----------------------------------------
+  alice: name: Alice Smith, email: alice@example.com, role: admin, active: true
+  bob: name: Bob Jones, email: bob@example.com, role: member, active: true
+  charlie: name: Charlie Brown, email: charlie@example.com, role: moderator, active: false

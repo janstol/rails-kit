@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "command": "gem",
+  "data": {
+    "gems": [
+      {
+        "name": "actioncable",
+        "version": "7.1.3"
+      },
+      {
+        "name": "actionpack",
+        "version": "7.1.3"
+      },
+      {
+        "name": "activesupport",
+        "version": "7.1.3"
+      },
+      {
+        "name": "local_gem",
+        "version": "1.0.0"
+      },
+      {
+        "name": "my_gem",
+        "version": "0.1.0"
+      },
+      {
+        "name": "nio4r",
+        "version": "2.7.0"
+      },
+      {
+        "name": "rack",
+        "version": "3.0.8"
+      },
+      {
+        "name": "rails",
+        "version": "7.1.3"
+      }
+    ]
+  }
+}

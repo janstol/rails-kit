@@ -9,6 +9,15 @@ import (
 	"github.com/janstol/rails-kit/internal/gem"
 )
 
+type gemListEntry struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+type gemListJSON struct {
+	Gems []gemListEntry `json:"gems"`
+}
+
 var gemCmd = &cobra.Command{
 	Use:   "gem [name]",
 	Short: "Inspect gems from Gemfile.lock",
@@ -28,21 +37,17 @@ source URL, git metadata, and dependencies.`,
 
 		lockfile, err := gem.Parse(lockPath)
 		if err != nil {
-			return fmt.Errorf("parsing Gemfile.lock: %w", err)
+			return coded(codeParseError, fmt.Errorf("parsing Gemfile.lock: %w", err))
 		}
 
 		if len(args) == 0 {
 			gems := lockfile.List()
 			if jsonFlag {
-				type listEntry struct {
-					Name    string `json:"name"`
-					Version string `json:"version"`
-				}
-				entries := make([]listEntry, len(gems))
+				entries := make([]gemListEntry, len(gems))
 				for i, g := range gems {
-					entries[i] = listEntry{Name: g.Name, Version: g.Version}
+					entries[i] = gemListEntry{Name: g.Name, Version: g.Version}
 				}
-				return printJSON(entries)
+				return printJSON(cmd, gemListJSON{Gems: entries})
 			}
 			for _, g := range gems {
 				fmt.Printf("%s (%s)\n", g.Name, g.Version)
@@ -53,10 +58,10 @@ source URL, git metadata, and dependencies.`,
 		name := args[0]
 		g := lockfile.Find(name)
 		if g == nil {
-			return fmt.Errorf("gem %q not found in Gemfile.lock", name)
+			return coded(codeNotFound, fmt.Errorf("gem %q not found in Gemfile.lock", name))
 		}
 		if jsonFlag {
-			return printJSON(g)
+			return printJSON(cmd, g)
 		}
 		fmt.Printf("%s (%s)\n", g.Name, g.Version)
 		fmt.Printf("  source: %s\n", g.Source)

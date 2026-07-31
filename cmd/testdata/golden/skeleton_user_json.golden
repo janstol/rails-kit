@@ -1,207 +1,215 @@
 {
-  "path": "<fixture-root>/app/models/user.rb",
-  "rel_path": "app/models/user.rb",
-  "classes": [
-    {
-      "name": "User",
-      "parent": "ApplicationRecord",
-      "start_line": 1,
-      "end_line": 27,
-      "includes": [
-        {
-          "name": "include",
-          "kind": "include",
-          "args": [
-            "Searchable"
-          ],
-          "source": "include Searchable",
-          "start_line": 2,
-          "end_line": 2
-        },
-        {
-          "name": "include",
-          "kind": "include",
-          "args": [
-            "Auditable"
-          ],
-          "source": "include Auditable",
-          "start_line": 3,
-          "end_line": 3
-        }
-      ],
-      "calls": [
-        {
-          "name": "has_many",
-          "kind": "rails_macro",
-          "args": [
-            ":posts",
-            "dependent: :destroy"
-          ],
-          "source": "has_many :posts, dependent: :destroy",
-          "start_line": 5,
-          "end_line": 5
-        },
-        {
-          "name": "has_many",
-          "kind": "rails_macro",
-          "args": [
-            ":comments",
-            "dependent: :destroy"
-          ],
-          "source": "has_many :comments, dependent: :destroy",
-          "start_line": 6,
-          "end_line": 6
-        },
-        {
-          "name": "has_many",
-          "kind": "rails_macro",
-          "args": [
-            ":published_posts",
-            "class_name: \"Post\",\n    through: :posts"
-          ],
-          "source": "has_many :published_posts, class_name: \"Post\",\n    through: :posts",
-          "start_line": 7,
-          "end_line": 8
-        },
-        {
-          "name": "validates",
-          "kind": "rails_macro",
-          "args": [
-            ":email",
-            "presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }"
-          ],
-          "source": "validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }",
-          "start_line": 10,
-          "end_line": 10
-        },
-        {
-          "name": "validates",
-          "kind": "rails_macro",
-          "args": [
-            ":name",
-            "presence: true, length: { minimum: 2 }"
-          ],
-          "source": "validates :name, presence: true, length: { minimum: 2 }",
-          "start_line": 11,
-          "end_line": 11
-        },
-        {
-          "name": "validate",
-          "kind": "rails_macro",
-          "args": [
-            ":email_not_banned"
-          ],
-          "source": "validate :email_not_banned",
-          "start_line": 12,
-          "end_line": 12
-        },
-        {
-          "name": "scope",
-          "kind": "rails_macro",
-          "args": [
-            ":active",
-            "-\u003e { where(active: true) }"
-          ],
-          "source": "scope :active, -\u003e { where(active: true) }",
-          "start_line": 14,
-          "end_line": 14
-        },
-        {
-          "name": "scope",
-          "kind": "rails_macro",
-          "args": [
-            ":admins",
-            "-\u003e { where(role: \"admin\") }"
-          ],
-          "source": "scope :admins, -\u003e { where(role: \"admin\") }",
-          "start_line": 15,
-          "end_line": 15
-        },
-        {
-          "name": "scope",
-          "kind": "rails_macro",
-          "args": [
-            ":by_name",
-            "-\u003e(name) { where(\"name ILIKE ?\", \"%#{name}%\") }"
-          ],
-          "source": "scope :by_name, -\u003e(name) { where(\"name ILIKE ?\", \"%#{name}%\") }",
-          "start_line": 16,
-          "end_line": 16
-        },
-        {
-          "name": "before_validation",
-          "kind": "rails_macro",
-          "args": [
-            ":normalize_email"
-          ],
-          "source": "before_validation :normalize_email",
-          "start_line": 18,
-          "end_line": 18
-        },
-        {
-          "name": "after_create_commit",
-          "kind": "rails_macro",
-          "args": [
-            ":notify_admin"
-          ],
-          "source": "after_create_commit :notify_admin",
-          "start_line": 19,
-          "end_line": 19
-        },
-        {
-          "name": "after_save",
-          "kind": "rails_macro",
-          "args": [
-            ":invalidate_cache"
-          ],
-          "source": "after_save :invalidate_cache",
-          "start_line": 20,
-          "end_line": 20
-        },
-        {
-          "name": "after_commit",
-          "kind": "rails_macro",
-          "args": [
-            ":sync_to_search_index"
-          ],
-          "source": "after_commit :sync_to_search_index",
-          "start_line": 21,
-          "end_line": 21
-        },
-        {
-          "name": "after_touch",
-          "kind": "rails_macro",
-          "args": [
-            ":update_counter_cache"
-          ],
-          "source": "after_touch :update_counter_cache",
-          "start_line": 22,
-          "end_line": 22
-        },
-        {
-          "name": "enum",
-          "kind": "rails_macro",
-          "args": [
-            ":role",
-            "{ member: \"member\", admin: \"admin\", moderator: \"moderator\" }"
-          ],
-          "source": "enum :role, { member: \"member\", admin: \"admin\", moderator: \"moderator\" }",
-          "start_line": 24,
-          "end_line": 24
-        },
-        {
-          "name": "delegate",
-          "kind": "rails_macro",
-          "args": [
-            ":title",
-            ":body",
-            "to: :latest_post, prefix: true, allow_nil: true"
-          ],
-          "source": "delegate :title, :body, to: :latest_post, prefix: true, allow_nil: true",
-          "start_line": 26,
-          "end_line": 26
-        }
-      ]
-    }
-  ]
+  "schema_version": 1,
+  "command": "skeleton",
+  "data": {
+    "files": [
+      {
+        "path": "<fixture-root>/app/models/user.rb",
+        "rel_path": "app/models/user.rb",
+        "classes": [
+          {
+            "name": "User",
+            "parent": "ApplicationRecord",
+            "start_line": 1,
+            "end_line": 27,
+            "includes": [
+              {
+                "name": "include",
+                "kind": "include",
+                "args": [
+                  "Searchable"
+                ],
+                "source": "include Searchable",
+                "start_line": 2,
+                "end_line": 2
+              },
+              {
+                "name": "include",
+                "kind": "include",
+                "args": [
+                  "Auditable"
+                ],
+                "source": "include Auditable",
+                "start_line": 3,
+                "end_line": 3
+              }
+            ],
+            "calls": [
+              {
+                "name": "has_many",
+                "kind": "rails_macro",
+                "args": [
+                  ":posts",
+                  "dependent: :destroy"
+                ],
+                "source": "has_many :posts, dependent: :destroy",
+                "start_line": 5,
+                "end_line": 5
+              },
+              {
+                "name": "has_many",
+                "kind": "rails_macro",
+                "args": [
+                  ":comments",
+                  "dependent: :destroy"
+                ],
+                "source": "has_many :comments, dependent: :destroy",
+                "start_line": 6,
+                "end_line": 6
+              },
+              {
+                "name": "has_many",
+                "kind": "rails_macro",
+                "args": [
+                  ":published_posts",
+                  "class_name: \"Post\",\n    through: :posts"
+                ],
+                "source": "has_many :published_posts, class_name: \"Post\",\n    through: :posts",
+                "start_line": 7,
+                "end_line": 8
+              },
+              {
+                "name": "validates",
+                "kind": "rails_macro",
+                "args": [
+                  ":email",
+                  "presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }"
+                ],
+                "source": "validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }",
+                "start_line": 10,
+                "end_line": 10
+              },
+              {
+                "name": "validates",
+                "kind": "rails_macro",
+                "args": [
+                  ":name",
+                  "presence: true, length: { minimum: 2 }"
+                ],
+                "source": "validates :name, presence: true, length: { minimum: 2 }",
+                "start_line": 11,
+                "end_line": 11
+              },
+              {
+                "name": "validate",
+                "kind": "rails_macro",
+                "args": [
+                  ":email_not_banned"
+                ],
+                "source": "validate :email_not_banned",
+                "start_line": 12,
+                "end_line": 12
+              },
+              {
+                "name": "scope",
+                "kind": "rails_macro",
+                "args": [
+                  ":active",
+                  "-\u003e { where(active: true) }"
+                ],
+                "source": "scope :active, -\u003e { where(active: true) }",
+                "start_line": 14,
+                "end_line": 14
+              },
+              {
+                "name": "scope",
+                "kind": "rails_macro",
+                "args": [
+                  ":admins",
+                  "-\u003e { where(role: \"admin\") }"
+                ],
+                "source": "scope :admins, -\u003e { where(role: \"admin\") }",
+                "start_line": 15,
+                "end_line": 15
+              },
+              {
+                "name": "scope",
+                "kind": "rails_macro",
+                "args": [
+                  ":by_name",
+                  "-\u003e(name) { where(\"name ILIKE ?\", \"%#{name}%\") }"
+                ],
+                "source": "scope :by_name, -\u003e(name) { where(\"name ILIKE ?\", \"%#{name}%\") }",
+                "start_line": 16,
+                "end_line": 16
+              },
+              {
+                "name": "before_validation",
+                "kind": "rails_macro",
+                "args": [
+                  ":normalize_email"
+                ],
+                "source": "before_validation :normalize_email",
+                "start_line": 18,
+                "end_line": 18
+              },
+              {
+                "name": "after_create_commit",
+                "kind": "rails_macro",
+                "args": [
+                  ":notify_admin"
+                ],
+                "source": "after_create_commit :notify_admin",
+                "start_line": 19,
+                "end_line": 19
+              },
+              {
+                "name": "after_save",
+                "kind": "rails_macro",
+                "args": [
+                  ":invalidate_cache"
+                ],
+                "source": "after_save :invalidate_cache",
+                "start_line": 20,
+                "end_line": 20
+              },
+              {
+                "name": "after_commit",
+                "kind": "rails_macro",
+                "args": [
+                  ":sync_to_search_index"
+                ],
+                "source": "after_commit :sync_to_search_index",
+                "start_line": 21,
+                "end_line": 21
+              },
+              {
+                "name": "after_touch",
+                "kind": "rails_macro",
+                "args": [
+                  ":update_counter_cache"
+                ],
+                "source": "after_touch :update_counter_cache",
+                "start_line": 22,
+                "end_line": 22
+              },
+              {
+                "name": "enum",
+                "kind": "rails_macro",
+                "args": [
+                  ":role",
+                  "{ member: \"member\", admin: \"admin\", moderator: \"moderator\" }"
+                ],
+                "source": "enum :role, { member: \"member\", admin: \"admin\", moderator: \"moderator\" }",
+                "start_line": 24,
+                "end_line": 24
+              },
+              {
+                "name": "delegate",
+                "kind": "rails_macro",
+                "args": [
+                  ":title",
+                  ":body",
+                  "to: :latest_post, prefix: true, allow_nil: true"
+                ],
+                "source": "delegate :title, :body, to: :latest_post, prefix: true, allow_nil: true",
+                "start_line": 26,
+                "end_line": 26
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -1,12 +1,16 @@
 {
-  "scope": "en.views.users",
-  "value": {
-    "index": {
-      "new": "New User",
-      "title": "Users"
-    },
-    "show": {
-      "title": "User Details"
+  "schema_version": 1,
+  "command": "locales",
+  "data": {
+    "scope": "en.views.users",
+    "value": {
+      "index": {
+        "new": "New User",
+        "title": "Users"
+      },
+      "show": {
+        "title": "User Details"
+      }
     }
   }
 }

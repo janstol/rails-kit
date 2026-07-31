@@ -53,7 +53,7 @@ The name can be a model name (user, order_item), a CamelCase class name
 
 		modelPath, err := model.Resolve(root, cfg.ModelsPath, args[0])
 		if err != nil {
-			return fmt.Errorf("resolving model: %w", err)
+			return coded(codeNotFound, fmt.Errorf("resolving model: %w", err))
 		}
 
 		summary, err := model.Parse(modelPath, root, cfg.ModelsPath)
@@ -75,7 +75,7 @@ The name can be a model name (user, order_item), a CamelCase class name
 				Enums:        trimEntries(summary.Enums),
 				Delegates:    trimEntries(summary.Delegates),
 			}
-			return printJSON(out)
+			return printJSON(cmd, out)
 		}
 
 		fmt.Print(model.Format(summary, stdoutStyler()))

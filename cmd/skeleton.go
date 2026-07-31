@@ -26,6 +26,13 @@ type skeletonInput struct {
 	relPath string
 }
 
+// skeletonJSON is always an array under "files", regardless of how many
+// files were resolved — the specific single-vs-many shape switch this item
+// exists to remove.
+type skeletonJSON struct {
+	Files []prism.File `json:"files"`
+}
+
 var skeletonCmd = &cobra.Command{
 	Use:   "skeleton <path-or-model> [path-or-model...]",
 	Short: "Compact Ruby AST skeleton via Prism",
@@ -62,17 +69,14 @@ at most 500 unique files may be inspected at once.`,
 		}
 		files, err := prismRunner.ParseFiles(ctx, paths)
 		if err != nil {
-			return err
+			return coded(codeParseError, err)
 		}
 		for i := range files {
 			files[i].RelPath = inputs[i].relPath
 		}
 
 		if jsonFlag {
-			if len(files) == 1 {
-				return printJSON(files[0])
-			}
-			return printJSON(files)
+			return printJSON(cmd, skeletonJSON{Files: files})
 		}
 		for _, file := range files {
 			fmt.Print(prism.Format(file))

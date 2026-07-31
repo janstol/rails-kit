@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -46,10 +45,14 @@ func TestSkeletonCommandResolvesModelNameAsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
-	var payload prism.File
-	if err := json.Unmarshal([]byte(out), &payload); err != nil {
-		t.Fatalf("unmarshal json: %v\noutput:%s", err, out)
+	var data struct {
+		Files []prism.File `json:"files"`
 	}
+	unwrapJSONEnvelope(t, out, "skeleton", &data)
+	if len(data.Files) != 1 {
+		t.Fatalf("unexpected files: %#v", data.Files)
+	}
+	payload := data.Files[0]
 	if payload.RelPath != "app/models/user.rb" {
 		t.Fatalf("rel_path = %q", payload.RelPath)
 	}
@@ -335,10 +338,11 @@ func TestSkeletonCommandParsesMultipleFilesInADirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
-	var files []prism.File
-	if err := json.Unmarshal([]byte(out), &files); err != nil {
-		t.Fatalf("unmarshal JSON array: %v\noutput:%s", err, out)
+	var data struct {
+		Files []prism.File `json:"files"`
 	}
+	unwrapJSONEnvelope(t, out, "skeleton", &data)
+	files := data.Files
 	if len(files) != 2 ||
 		files[0].RelPath != "app/services/alpha.rb" || files[0].Classes[0].Name != "Alpha" ||
 		files[1].RelPath != "app/services/zeta.rb" || files[1].Classes[0].Name != "Zeta" {
@@ -368,7 +372,7 @@ func TestSkeletonCommandFormatsMultipleTextSections(t *testing.T) {
 	}
 }
 
-func TestSkeletonCommandSingleMatchGlobKeepsObjectJSON(t *testing.T) {
+func TestSkeletonCommandSingleMatchGlobStaysAnArrayJSON(t *testing.T) {
 	root := t.TempDir()
 	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
 	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "sync_job.rb"), "class SyncJob\nend\n")
@@ -381,10 +385,14 @@ func TestSkeletonCommandSingleMatchGlobKeepsObjectJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
 	}
-	var file prism.File
-	if err := json.Unmarshal([]byte(out), &file); err != nil {
-		t.Fatalf("single-match glob changed JSON shape: %v\noutput:%s", err, out)
+	var data struct {
+		Files []prism.File `json:"files"`
 	}
+	unwrapJSONEnvelope(t, out, "skeleton", &data)
+	if len(data.Files) != 1 {
+		t.Fatalf("single-match result must still be a 1-element array, got: %#v", data.Files)
+	}
+	file := data.Files[0]
 	if file.RelPath != "app/jobs/sync_job.rb" || len(file.Classes) != 1 || file.Classes[0].Name != "SyncJob" {
 		t.Fatalf("unexpected file: %#v", file)
 	}

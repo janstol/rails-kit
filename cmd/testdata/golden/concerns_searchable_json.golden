@@ -1,15 +1,19 @@
 {
-  "name": "Searchable",
-  "path": "app/models/concerns/searchable.rb",
-  "type": "model",
-  "methods": [
-    "search_highlight",
-    "search_excerpt",
-    "build_search_query"
-  ],
-  "class_methods": [
-    "search_all"
-  ],
-  "has_included_block": true,
-  "has_class_methods_block": true
+  "schema_version": 1,
+  "command": "concerns",
+  "data": {
+    "name": "Searchable",
+    "path": "app/models/concerns/searchable.rb",
+    "type": "model",
+    "methods": [
+      "search_highlight",
+      "search_excerpt",
+      "build_search_query"
+    ],
+    "class_methods": [
+      "search_all"
+    ],
+    "has_included_block": true,
+    "has_class_methods_block": true
+  }
 }

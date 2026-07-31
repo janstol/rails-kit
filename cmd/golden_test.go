@@ -56,6 +56,19 @@ func TestGolden(t *testing.T) {
 
 		{name: "skeleton_user", cmd: skeletonCmd, args: []string{"app/models/user.rb"}},
 		{name: "skeleton_user_json", cmd: skeletonCmd, args: []string{"app/models/user.rb"}, json: true},
+
+		{name: "fixtures_list", cmd: fixturesCmd},
+		{name: "fixtures_list_json", cmd: fixturesCmd, json: true},
+		{name: "fixtures_users", cmd: fixturesCmd, args: []string{"users"}},
+		{name: "fixtures_users_json", cmd: fixturesCmd, args: []string{"users"}, json: true},
+
+		{name: "gem_list", cmd: gemCmd},
+		{name: "gem_list_json", cmd: gemCmd, json: true},
+		{name: "gem_rails", cmd: gemCmd, args: []string{"rails"}},
+		{name: "gem_rails_json", cmd: gemCmd, args: []string{"rails"}, json: true},
+
+		{name: "related_user", cmd: relatedCmd, args: []string{"user"}},
+		{name: "related_user_json", cmd: relatedCmd, args: []string{"user"}, json: true},
 	}
 
 	for _, tc := range cases {
