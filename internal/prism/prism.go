@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
+	"sync"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
 )
@@ -94,32 +96,82 @@ type Method struct {
 // runtime is not confirmed. A fresh parser per file, used once and
 // discarded, was 100% reliable across the same input; there is no cheaper
 // reset/recycle primitive on Parser to avoid paying a full cold start.
+//
+// Because that cold start (~150-160ms, a wazero runtime boot plus WASM module
+// compilation) dominates and is paid per file regardless of batch size,
+// ParseFiles fans out across a bounded number of goroutines. Each goroutine
+// constructs and owns its own parser.NewParser instance with an isolated
+// wazero runtime, so distinct parsers running concurrently do not share any
+// state — only the serial per-instance reuse above is unsafe. Results are
+// written to a preallocated slice by input index, so output order matches
+// input order regardless of which file finishes parsing first.
 func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) {
 	if len(paths) == 0 {
 		return nil, nil
 	}
 
+	workers := min(runtime.NumCPU(), len(paths))
+	sem := make(chan struct{}, workers)
+
 	files := make([]File, len(paths))
+	errs := make([]error, len(paths))
+
+	var wg sync.WaitGroup
 	for i, path := range paths {
-		src, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", path, err)
+		if ctx.Err() != nil {
+			errs[i] = ctx.Err()
+			continue
 		}
 
-		p, err := parser.NewParser(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("creating prism parser: %w", err)
-		}
-		result, err := p.Parse(ctx, src)
-		closeErr := p.Close(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", path, err)
-		}
-		if closeErr != nil {
-			return nil, fmt.Errorf("closing prism parser after %s: %w", path, closeErr)
-		}
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(i int, path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		files[i] = buildFile(path, src, result)
+			if ctx.Err() != nil {
+				errs[i] = ctx.Err()
+				return
+			}
+
+			file, err := parseOne(ctx, path)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			files[i] = file
+		}(i, path)
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
 	}
 	return files, nil
+}
+
+// parseOne reads and parses a single Ruby file with a fresh Prism parser
+// instance, see the ParseFiles doc comment for why the parser is not reused.
+func parseOne(ctx context.Context, path string) (File, error) {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return File{}, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	p, err := parser.NewParser(ctx)
+	if err != nil {
+		return File{}, fmt.Errorf("creating prism parser: %w", err)
+	}
+	result, err := p.Parse(ctx, src)
+	closeErr := p.Close(ctx)
+	if err != nil {
+		return File{}, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if closeErr != nil {
+		return File{}, fmt.Errorf("closing prism parser after %s: %w", path, closeErr)
+	}
+
+	return buildFile(path, src, result), nil
 }

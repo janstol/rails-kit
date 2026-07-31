@@ -5,8 +5,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -38,24 +40,65 @@ func Load(localesDir string) (map[string]interface{}, error) {
 	}
 	sort.Strings(allFiles)
 
+	parsed, err := loadAll(localesDir, allFiles)
+	if err != nil {
+		return nil, err
+	}
+
 	merged := make(map[string]interface{})
-	for _, path := range allFiles {
+	for _, p := range parsed {
+		merged = deepMerge(merged, p)
+	}
+	return merged, nil
+}
+
+// loadAll reads and unmarshals every file in allFiles concurrently, bounded
+// by a worker semaphore, and returns results in the same order as allFiles.
+// Merge order is semantically significant (later files override earlier
+// ones), so callers must combine results serially in that order; only the
+// read+parse phase, which is independent per file, is parallelized here.
+func loadAll(localesDir string, allFiles []string) ([]map[string]interface{}, error) {
+	workers := min(runtime.NumCPU(), len(allFiles))
+	sem := make(chan struct{}, workers)
+
+	parsed := make([]map[string]interface{}, len(allFiles))
+	errs := make([]error, len(allFiles))
+
+	var wg sync.WaitGroup
+	for i, path := range allFiles {
 		rel, relErr := filepath.Rel(localesDir, path)
 		if relErr != nil {
 			rel = filepath.Base(path)
 		}
 		rel = filepath.ToSlash(rel)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", rel, err)
-		}
-		var parsed map[string]interface{}
-		if err := yaml.Unmarshal(data, &parsed); err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", rel, err)
-		}
-		merged = deepMerge(merged, parsed)
+
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(i int, path, rel string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			data, err := os.ReadFile(path)
+			if err != nil {
+				errs[i] = fmt.Errorf("reading %s: %w", rel, err)
+				return
+			}
+			var p map[string]interface{}
+			if err := yaml.Unmarshal(data, &p); err != nil {
+				errs[i] = fmt.Errorf("parsing %s: %w", rel, err)
+				return
+			}
+			parsed[i] = p
+		}(i, path, rel)
 	}
-	return merged, nil
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+	return parsed, nil
 }
 
 // ListScopes prints nested scopes from the merged locale map (e.g., en.views.users, en.time.formats).

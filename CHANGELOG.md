@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `windows/amd64` release artifact, backed by a `go test ./...` run on `windows-latest` in CI. Path-bearing output fields (`RelPath`, `Path`, etc.) are now forward-slash normalized on all platforms for consistent `--json` shape across Unix and Windows.
 - `rails-kit routes --watch` polls `config/routes.rb` and `config/routes/` mtimes and reprints on change; composes with `--static`, patterns, and `--json`. `--watch-interval` controls the poll interval (default `1s`, minimum `100ms`). Clears the screen on a TTY; appends timestamped output otherwise. A render error is reported but does not stop watching.
 
+### Changed
+
+- `skeleton` over a directory now parses files concurrently, bounded by CPU count, instead of serially. Each file still gets its own Prism parser instance (required since go-ruby-prism's parser isn't safe to reuse), but the per-file cold start now overlaps across files instead of stacking up. Measured ~4x faster on batches of 8–500 files; output is byte-identical. `locales` similarly parallelizes reading and parsing locale files, with a smaller win since that work isn't cold-start dominated.
+
 ## [0.3.0] - 2026-07-25
 
 ### Added
