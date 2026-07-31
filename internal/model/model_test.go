@@ -502,6 +502,33 @@ func TestResolve_CamelCaseOrderItem(t *testing.T) {
 	}
 }
 
+func TestListNames(t *testing.T) {
+	names, err := model.ListNames(testdataRoot, "app/models")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"admin/dashboard", "comment", "concerns/auditable", "concerns/searchable", "post", "user"}
+	if len(names) != len(want) {
+		t.Fatalf("got %v, want %v", names, want)
+	}
+	for i, n := range want {
+		if names[i] != n {
+			t.Fatalf("got %v, want %v", names, want)
+		}
+	}
+}
+
+func TestListNames_MissingModelsDir(t *testing.T) {
+	dir := t.TempDir()
+	names, err := model.ListNames(dir, "app/models")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if names != nil {
+		t.Fatalf("expected nil names, got %v", names)
+	}
+}
+
 func containsSubstr(slice []string, substr string) bool {
 	for _, s := range slice {
 		if strings.Contains(s, substr) {

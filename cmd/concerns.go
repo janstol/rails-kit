@@ -25,7 +25,8 @@ With a concern name, shows parsed details: module name, methods, included block,
 Concern names can be qualified to disambiguate:
   rails-kit concerns model/searchable
   rails-kit concerns controller/authenticatable`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeConcernNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

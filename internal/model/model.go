@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/janstol/rails-kit/internal/config"
@@ -180,6 +181,43 @@ func Resolve(railsRoot, modelsPath, input string) (string, error) {
 		return matches[0], nil
 	}
 	return "", fmt.Errorf("model file not found for '%s'", input)
+}
+
+// ListNames returns sorted snake_case model names (relative to the models
+// directory, without .rb) for every model file under railsRoot's models path.
+// Returns nil, nil if the models directory does not exist.
+func ListNames(railsRoot, modelsPath string) ([]string, error) {
+	modelsDir := config.ResolvePath(railsRoot, modelsPath)
+
+	info, err := os.Stat(modelsDir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("models path %s: %w", modelsDir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("models path %s: not a directory", modelsDir)
+	}
+
+	var names []string
+	err = filepath.WalkDir(modelsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".rb") {
+			rel, relErr := filepath.Rel(modelsDir, path)
+			if relErr == nil {
+				names = append(names, strings.TrimSuffix(filepath.ToSlash(rel), ".rb"))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // underscore converts a CamelCase or namespaced class name into its Rails

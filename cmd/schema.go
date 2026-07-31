@@ -20,6 +20,7 @@ tried automatically. The path can also be set via schema_path in .rails-kit.yml.
 With no arguments, lists all table names.
 With table names, prints the full table definition plus associated
 indexes and foreign keys for each table.`,
+	ValidArgsFunction: completeSchemaArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

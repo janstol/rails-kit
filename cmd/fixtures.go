@@ -30,7 +30,8 @@ Scalar ERB values are normalized to __ERB__.
 Structural ERB such as loops, conditionals, or ERB-generated fixture keys is rejected.
 
 Errors if the configured fixtures path does not exist or is not a directory.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeFixtureNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

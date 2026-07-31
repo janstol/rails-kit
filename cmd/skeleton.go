@@ -36,7 +36,8 @@ Rails root, model names, directories, or glob patterns. Directories are
 searched recursively. Quote globs to have rails-kit expand them from the
 Rails root. Use repeatable --exclude patterns to prune directory discovery;
 at most 500 unique files may be inspected at once.`,
-	Args: cobra.MinimumNArgs(1),
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeSkeletonArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

@@ -43,7 +43,8 @@ Extracts: concerns, associations, validations, scopes, callbacks, enums, delegat
 
 The name can be a model name (user, order_item), a CamelCase class name
 (OrderItem, S3BucketArchivePolicy), or a file path ending in .rb.`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeModelNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

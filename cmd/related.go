@@ -29,7 +29,8 @@ job, mailer, former, service, datagrid, tests, and fixtures.
 The name can be a model name (user, order_item) or a related file path
 (model, controller, view, decorator, job, mailer, former, service, datagrid, test/spec, fixture).
 Matches stay within the exact namespace of the requested model.`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeModelNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

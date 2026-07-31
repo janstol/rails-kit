@@ -17,7 +17,8 @@ var gemCmd = &cobra.Command{
 With no arguments, lists all gem names with their versions.
 With a gem name, shows detailed information including source,
 source URL, git metadata, and dependencies.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeGemNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {

@@ -20,7 +20,13 @@ Source the output to enable tab completion in your shell:
   rails-kit completion zsh > "${fpath[1]}/_rails-kit"
 
   # Fish
-  rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish`,
+  rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
+
+Completions are dynamic: commands that take a model, table, locale scope,
+concern, fixture, or gem name read the current Rails project (honoring
+--root and .rails-kit.yml) to offer real values, not just flag names.
+Run from outside a Rails root, or if the project can't be read, completion
+falls back to no suggestions rather than an error.`,
 }
 
 var completionBashCmd = &cobra.Command{

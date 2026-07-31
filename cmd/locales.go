@@ -22,7 +22,8 @@ var localesCmd = &cobra.Command{
 
 With no arguments, lists nested scopes (e.g., en.views.users, en.time.formats).
 With a scope like en.views.users, prints all keys under that scope.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeLocalesScope,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, cfg, err := loadConfig()
 		if err != nil {
