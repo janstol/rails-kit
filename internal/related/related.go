@@ -348,7 +348,7 @@ func NormalizeNameWithPrefixes(input string, extra []string) string {
 			break
 		}
 	}
-	dir := filepath.Dir(name)
+	dir := filepath.ToSlash(filepath.Dir(name))
 	if dir != "." {
 		return strings.ToLower(dir) + "/" + strings.ToLower(base)
 	}

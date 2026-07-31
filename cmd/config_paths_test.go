@@ -565,17 +565,33 @@ func runCmdForTest(t *testing.T, c *cobra.Command, root string, args []string) (
 		os.Stderr = oldStderr
 	})
 
+	// Drain both pipes concurrently with RunE: their OS buffer is small
+	// enough (especially on Windows) that a command writing more than
+	// that before returning would otherwise deadlock the writer.
+	var stdoutBytes, stderrBytes []byte
+	var stdoutErr, stderrErr error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		stdoutBytes, stdoutErr = io.ReadAll(stdoutR)
+	}()
+	stderrDone := make(chan struct{})
+	go func() {
+		defer close(stderrDone)
+		stderrBytes, stderrErr = io.ReadAll(stderrR)
+	}()
+
 	err = c.RunE(c, args)
 
 	_ = stdoutW.Close()
 	_ = stderrW.Close()
-	stdoutBytes, readErr := io.ReadAll(stdoutR)
-	if readErr != nil {
-		t.Fatal(readErr)
+	<-done
+	<-stderrDone
+	if stdoutErr != nil {
+		t.Fatal(stdoutErr)
 	}
-	stderrBytes, readErr := io.ReadAll(stderrR)
-	if readErr != nil {
-		t.Fatal(readErr)
+	if stderrErr != nil {
+		t.Fatal(stderrErr)
 	}
 	return string(stdoutBytes), string(stderrBytes), err
 }

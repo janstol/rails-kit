@@ -43,34 +43,23 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// writeWindowsBundle writes stdout verbatim to a sibling data file and has
+// bundle.bat stream it with `type`, which copies bytes through unmodified.
+// Building the output via `echo` per line was tried first, but cmd.exe's
+// echo always terminates lines with CRLF regardless of the source content,
+// which broke exact-equality comparisons against LF-only expected output.
 func writeWindowsBundle(t *testing.T, dir, stdout string) string {
 	t.Helper()
-	path := filepath.Join(dir, "bundle.bat")
-	var b strings.Builder
-	b.WriteString("@echo off\r\n")
-	for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
-		b.WriteString("@echo " + escapeBatchEcho(line) + "\r\n")
+	dataPath := filepath.Join(dir, "bundle_stdout.dat")
+	if err := os.WriteFile(dataPath, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(b.String()), 0o755); err != nil {
+	path := filepath.Join(dir, "bundle.bat")
+	script := "@echo off\r\ntype \"%~dp0bundle_stdout.dat\"\r\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return path
-}
-
-// escapeBatchEcho escapes characters that are significant to cmd.exe when
-// they appear as arguments to an unquoted `echo`. None of rails-kit's current
-// fake-bundle payloads contain these characters, but the helper escapes them
-// defensively so future payloads don't silently break `echo`.
-func escapeBatchEcho(s string) string {
-	replacer := strings.NewReplacer(
-		"^", "^^",
-		"&", "^&",
-		"<", "^<",
-		">", "^>",
-		"|", "^|",
-		"%", "%%",
-	)
-	return replacer.Replace(s)
 }
 
 // WriteFakeBundleSleep writes an executable stub that blocks for

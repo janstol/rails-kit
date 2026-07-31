@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -167,6 +168,9 @@ func TestCacheValidAfterDeletion(t *testing.T) {
 }
 
 func TestCacheValidAfterNestedDeletion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("NTFS defers a directory's last-write-time update on child add/remove, so it doesn't reliably bump within this test's seconds-scale window")
+	}
 	dir := t.TempDir()
 
 	routesDir := filepath.Join(dir, "config", "routes")
