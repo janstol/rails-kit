@@ -48,11 +48,16 @@ rails-kit routes --refresh
 rails-kit routes --no-cache
 rails-kit routes --static
 rails-kit routes --json
+rails-kit routes --watch
+rails-kit routes --static --watch
+rails-kit routes --watch --watch-interval 2s
 ```
 
 The default command runs `bundle exec rails routes` and caches output in `tmp/routes_cache.txt`. Changes under `config/routes.rb` or `config/routes/` invalidate the cache. `--refresh` forces regeneration; `--no-cache` bypasses it.
 
 `--static` reads route files without Ruby, Bundler, or a Rails boot. It is fast but approximate and cannot be combined with `--refresh` or `--no-cache`. See [Static Routes](static-routes.md) for supported DSL forms and limitations.
+
+`--watch` keeps rails-kit running and reprints whenever `config/routes.rb` or any file under `config/routes/` changes, polling mtimes at `--watch-interval` (default `1s`, minimum `100ms`). It composes with `--static`, patterns, and `--json`. On a TTY the screen clears before each reprint; otherwise output is appended with a timestamped header, so it stays pipe-safe. A render error (e.g. a syntax error while editing routes) is reported on stderr but does not stop watching. Exit with Ctrl-C.
 
 ## `related`
 

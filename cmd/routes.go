@@ -3,18 +3,24 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/janstol/rails-kit/internal/pluralize"
 	"github.com/janstol/rails-kit/internal/routes"
+	"github.com/janstol/rails-kit/internal/term"
 )
 
 var (
-	routesRefresh bool
-	routesNoCache bool
-	routesStatic  bool
+	routesRefresh       bool
+	routesNoCache       bool
+	routesStatic        bool
+	routesWatch         bool
+	routesWatchInterval time.Duration
 )
 
 var routesCmd = &cobra.Command{
@@ -46,7 +52,14 @@ parameterized concerns, executable inline blocks, dynamic redirects, and routes
 drawn by gems are not modeled. Inline regex constraints for named path
 parameters are included in endpoint text; other constraints remain approximate
 and produce warnings. Use it for a quick answer, not as a replacement for
-"rails routes".`,
+"rails routes".
+
+--watch keeps rails-kit running and reprints whenever config/routes.rb or any
+file under config/routes/ changes, polling mtimes at --watch-interval
+(default 1s). It composes with --static, patterns, and --json. On a TTY the
+screen clears before each reprint; otherwise output is appended with a
+timestamped header. A render error (e.g. a syntax error while editing) is
+reported but does not stop watching. Exit with Ctrl-C.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if routesRefresh && routesNoCache {
 			return fmt.Errorf("--refresh and --no-cache are mutually exclusive")
@@ -54,74 +67,122 @@ and produce warnings. Use it for a quick answer, not as a replacement for
 		if routesStatic && (routesRefresh || routesNoCache) {
 			return fmt.Errorf("--static cannot be combined with --refresh or --no-cache")
 		}
+		if routesWatchInterval < 100*time.Millisecond {
+			return fmt.Errorf("--watch-interval must be at least 100ms")
+		}
 
 		root, err := resolveRailsRoot()
 		if err != nil {
 			return err
 		}
 
-		if routesStatic {
-			routesPath := filepath.Join(root, "config", "routes.rb")
-			result, err := routes.ParseStaticDetailed(routesPath, pluralize.Default())
+		if !routesWatch {
+			return runRoutes(cmd, root, args)
+		}
+		return runRoutesWatch(cmd, root, args)
+	},
+}
+
+func runRoutes(cmd *cobra.Command, root string, args []string) error {
+	if routesStatic {
+		routesPath := filepath.Join(root, "config", "routes.rb")
+		result, err := routes.ParseStaticDetailed(routesPath, pluralize.Default())
+		if err != nil {
+			return fmt.Errorf("parsing %s: %w", routesPath, err)
+		}
+		for _, warning := range result.Warnings {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", warning.Path, warning.Line, warning.Message)
+		}
+		entries := result.Entries
+		if len(args) > 0 {
+			entries, err = routes.FilterEntries(entries, args)
 			if err != nil {
-				return fmt.Errorf("parsing %s: %w", routesPath, err)
+				return fmt.Errorf("filtering routes: %w", err)
 			}
-			for _, warning := range result.Warnings {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", warning.Path, warning.Line, warning.Message)
-			}
-			entries := result.Entries
-			if len(args) > 0 {
-				entries, err = routes.FilterEntries(entries, args)
-				if err != nil {
-					return fmt.Errorf("filtering routes: %w", err)
-				}
-			}
-			if jsonFlag {
-				return printJSON(entries)
-			}
-			fmt.Print(routes.FormatTable(entries))
-			return nil
-		}
-
-		var output string
-		switch {
-		case routesNoCache:
-			output, err = routes.Run(cmd.Context(), root, os.Stderr)
-		case routesRefresh:
-			output, err = routes.Refresh(cmd.Context(), root, os.Stderr)
-		default:
-			output, err = routes.Cache(cmd.Context(), root, os.Stderr)
-		}
-		if err != nil {
-			return fmt.Errorf("fetching routes: %w (hint: try --static for an offline, pure-Go approximation)", err)
-		}
-
-		if len(args) == 0 {
-			if jsonFlag {
-				entries, err := routes.ParseTable(output)
-				if err != nil {
-					return err
-				}
-				return printJSON(entries)
-			}
-			fmt.Print(output)
-			return nil
-		}
-
-		filtered, err := routes.Filter(output, args)
-		if err != nil {
-			return fmt.Errorf("filtering routes: %w", err)
 		}
 		if jsonFlag {
-			entries, err := routes.ParseTable(filtered)
+			return printJSON(entries)
+		}
+		fmt.Print(routes.FormatTable(entries))
+		return nil
+	}
+
+	var output string
+	var err error
+	switch {
+	case routesNoCache:
+		output, err = routes.Run(cmd.Context(), root, os.Stderr)
+	case routesRefresh:
+		output, err = routes.Refresh(cmd.Context(), root, os.Stderr)
+	default:
+		output, err = routes.Cache(cmd.Context(), root, os.Stderr)
+	}
+	if err != nil {
+		return fmt.Errorf("fetching routes: %w (hint: try --static for an offline, pure-Go approximation)", err)
+	}
+
+	if len(args) == 0 {
+		if jsonFlag {
+			entries, err := routes.ParseTable(output)
 			if err != nil {
 				return err
 			}
 			return printJSON(entries)
 		}
-		fmt.Print(filtered)
+		fmt.Print(output)
 		return nil
-	},
+	}
+
+	filtered, err := routes.Filter(output, args)
+	if err != nil {
+		return fmt.Errorf("filtering routes: %w", err)
+	}
+	if jsonFlag {
+		entries, err := routes.ParseTable(filtered)
+		if err != nil {
+			return err
+		}
+		return printJSON(entries)
+	}
+	fmt.Print(filtered)
+	return nil
+}
+
+// runRoutesWatch renders routes once, then keeps polling config/routes.rb and
+// config/routes/ for changes until ctx is cancelled or the process receives
+// an interrupt/terminate signal.
+func runRoutesWatch(cmd *cobra.Command, root string, args []string) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	routesRb := filepath.Join(root, "config", "routes.rb")
+	routesDir := filepath.Join(root, "config", "routes")
+
+	first := true
+	render := func() error {
+		tty := term.IsTTY(os.Stdout)
+		if tty {
+			term.Clear(os.Stdout)
+		} else if !first {
+			_, _ = fmt.Fprintf(os.Stderr, "-- %s routes changed --\n", time.Now().Format(time.RFC3339))
+		}
+		err := runRoutes(cmd, root, args)
+		if tty {
+			_, _ = fmt.Fprintln(os.Stderr, "-- watching config/routes.rb, config/routes/ · Ctrl-C to stop --")
+		}
+		first = false
+		return err
+	}
+
+	onErr := func(err error) {
+		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
+
+	if err := render(); err != nil {
+		onErr(err)
+	}
+
+	return routes.Watch(ctx, routesRb, routesDir, routesWatchInterval, render, onErr)
 }
 
 func init() {
@@ -129,4 +190,6 @@ func init() {
 	routesCmd.Flags().BoolVar(&routesRefresh, "refresh", false, "Force cache regeneration")
 	routesCmd.Flags().BoolVar(&routesNoCache, "no-cache", false, "Skip cache entirely (don't read or write)")
 	routesCmd.Flags().BoolVar(&routesStatic, "static", false, "Parse config/routes.rb directly (offline, pure Go, approximate)")
+	routesCmd.Flags().BoolVar(&routesWatch, "watch", false, "Watch config/routes.rb and config/routes/, reprinting on change")
+	routesCmd.Flags().DurationVar(&routesWatchInterval, "watch-interval", time.Second, "Poll interval for --watch (minimum 100ms)")
 }

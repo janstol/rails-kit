@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/janstol/rails-kit/internal/testutil"
 )
@@ -671,6 +672,67 @@ func TestRoutesStaticCannotCombineWithCacheFlags(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--static cannot be combined") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRoutesWatchIntervalFloor(t *testing.T) {
+	prevWatch := routesWatch
+	prevInterval := routesWatchInterval
+	t.Cleanup(func() {
+		routesWatch = prevWatch
+		routesWatchInterval = prevInterval
+	})
+	routesWatch = true
+	routesWatchInterval = 50 * time.Millisecond
+
+	err := routesCmd.RunE(routesCmd, nil)
+	if err == nil {
+		t.Fatal("expected error for --watch-interval below 100ms")
+	}
+	if !strings.Contains(err.Error(), "--watch-interval") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRoutesWatchNonTTYRendersOnceThenExits(t *testing.T) {
+	root := t.TempDir()
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+Rails.application.routes.draw do
+  resources :posts, only: [:index]
+end
+`)
+
+	prevStatic := routesStatic
+	prevWatch := routesWatch
+	prevInterval := routesWatchInterval
+	t.Cleanup(func() {
+		routesStatic = prevStatic
+		routesWatch = prevWatch
+		routesWatchInterval = prevInterval
+	})
+	routesStatic = true
+	routesWatch = true
+	routesWatchInterval = 100 * time.Millisecond
+
+	prevCtx := routesCmd.Context()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	routesCmd.SetContext(ctx)
+	t.Cleanup(func() { routesCmd.SetContext(prevCtx) })
+
+	out, errOut, err := runCmdForTest(t, routesCmd, root, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	if !strings.Contains(out, "posts#index") {
+		t.Fatalf("expected routes output, got: %q", out)
+	}
+	if strings.Contains(out, "\x1b[") {
+		t.Fatalf("expected no ANSI escapes in non-TTY stdout, got: %q", out)
+	}
+	if strings.Contains(errOut, "\x1b[") {
+		t.Fatalf("expected no ANSI escapes in non-TTY stderr, got: %q", errOut)
 	}
 }
 
