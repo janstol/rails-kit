@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-02
+
 ### Added
 
 - `windows/amd64` release artifact, backed by a `go test ./...` run on `windows-latest` in CI. Path-bearing output fields (`RelPath`, `Path`, etc.) are now forward-slash normalized on all platforms for consistent `--json` shape across Unix and Windows.
 - `rails-kit routes --watch` polls `config/routes.rb` and `config/routes/` mtimes and reprints on change; composes with `--static`, patterns, and `--json`. `--watch-interval` controls the poll interval (default `1s`, minimum `100ms`). Clears the screen on a TTY; appends timestamped output otherwise. A render error is reported but does not stop watching.
 - `--color=auto|always|never` persistent flag. `schema` and `model` accent DDL keywords/table names and class names/section labels/macro names respectively; `structure.sql` output is never colored. `auto` (the default) disables color when stdout isn't a terminal; `NO_COLOR` (any non-empty value) disables color even under `--color=always`; `--json` output is never colored regardless of `--color`.
+- Dynamic shell completion is now offered for the positional arguments of `model`, `related`, `skeleton`, `schema`, `locales`, `concerns`, `fixtures`, and `gem` — model names, table names, gem and concern names, and locale keys (drilling down one dotted segment at a time for `locales`). Completion honors `--root` and `.rails-kit.yml` and degrades to no candidates outside a Rails root. No caching layer; every source is sub-millisecond.
 
 ### Changed
 
@@ -31,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   ```
 
   `routes`, `fixtures` (list mode), `locales` (list mode), and `gem` (list mode) get the same array-under-a-named-key treatment (`routes`, `files`, `scopes`, `gems` respectively). See [`docs/json.md`](docs/json.md) for the full contract, the error-code vocabulary, and the versioning policy.
+- `skeleton` now parses via the embedded Ruby Prism parser running in-process on the pure-Go `wazero` WASM runtime, instead of shelling out to a `ruby` subprocess. This removes rails-kit's hard Ruby dependency for that command. `routes` (non-static) and `about --runtime` still shell out where a booted Rails is genuinely needed. Trade-off: the binary grows ~6 MB (to ~10 MB) from the embedded Prism WASM module.
 - `skeleton` over a directory now parses files concurrently, bounded by CPU count, instead of serially. Each file still gets its own Prism parser instance (required since go-ruby-prism's parser isn't safe to reuse), but the per-file cold start now overlaps across files instead of stacking up. Measured ~4x faster on batches of 8–500 files; output is byte-identical. `locales` similarly parallelizes reading and parsing locale files, with a smaller win since that work isn't cold-start dominated.
 
 ## [0.3.0] - 2026-07-25
@@ -90,7 +94,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GitHub release packaging for macOS and Linux on `amd64` and `arm64`.
 - Completion subcommands for `bash`, `zsh`, and `fish`.
 
-[Unreleased]: https://github.com/janstol/rails-kit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/janstol/rails-kit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/janstol/rails-kit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/janstol/rails-kit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/janstol/rails-kit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/janstol/rails-kit/releases/tag/v0.1.0
