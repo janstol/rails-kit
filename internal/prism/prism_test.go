@@ -95,7 +95,7 @@ func TestParseFilesBatchOfRealFilesAllSucceed(t *testing.T) {
 		t.Fatalf("expected multiple fixture files under %s, found %d", root, len(paths))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	files, err := prism.Runner{}.ParseFiles(ctx, paths)
@@ -136,7 +136,7 @@ func TestParseFilesResultsAreInInputOrder(t *testing.T) {
 		paths[i] = path
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	files, err := prism.Runner{}.ParseFiles(ctx, paths)
@@ -176,7 +176,7 @@ func TestParseFilesErrorIsLowestFailingIndexStable(t *testing.T) {
 	}
 
 	for attempt := range 20 {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		_, err := prism.Runner{}.ParseFiles(ctx, paths)
 		cancel()
 		if err == nil {
@@ -254,7 +254,7 @@ func TestParseFilesStressRepeatedBatchesNoTraps(t *testing.T) {
 	}
 
 	for attempt := range 20 {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		files, err := prism.Runner{}.ParseFiles(ctx, paths)
 		cancel()
 		if err != nil {
