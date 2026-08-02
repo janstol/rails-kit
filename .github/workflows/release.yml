@@ -29,3 +29,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+  # goreleaser's homebrew_casks template emits style-dirty Ruby (on_intel
+  # before on_arm, stray blank lines) that `brew test-bot` rejects. Re-normalize
+  # the generated cask with Homebrew's own linter and push the fix to the tap.
+  # No-op (and skipped) when goreleaser's output is already clean.
+  normalize-cask:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout tap
+        uses: actions/checkout@v7
+        with:
+          repository: janstol/homebrew-tap
+          path: tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Normalize cask style
+        working-directory: tap
+        run: brew style --fix Casks/rails-kit.rb
+
+      - name: Commit and push if changed
+        working-directory: tap
+        run: |
+          if git diff --quiet -- Casks/rails-kit.rb; then
+            echo "No style changes needed; cask is already clean."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/rails-kit.rb
+          git commit -m "Normalize cask style for ${{ github.ref_name }} (brew style --fix)"
+          git push origin HEAD:main
