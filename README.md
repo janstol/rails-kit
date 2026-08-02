@@ -46,7 +46,7 @@ rails-kit --root /path/to/app schema users --json
 |---------|-------------|
 | `rails-kit about` | Summarize application, dependency, runtime, and database metadata |
 | `rails-kit schema [table...]` | Inspect `db/schema.rb` or `db/structure.sql` |
-| `rails-kit routes [pattern...]` | Show cached Rails routes or use offline static parsing |
+| `rails-kit routes [pattern...]` | Cached Rails routes, offline `--static` parsing, or `--watch` re-render |
 | `rails-kit related <name>` | Find files related to a model |
 | `rails-kit fixtures [name]` | Inspect test fixtures |
 | `rails-kit locales [scope]` | Browse locale keys and values |
@@ -59,6 +59,8 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit version` | Print version information |
 
 See the [command reference](docs/commands.md) for examples, JSON shapes, requirements, and limitations.
+
+`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem and concern names, and locale keys (drilling down one dotted segment at a time for `locales`).
 
 ## Documentation
 
@@ -74,8 +76,9 @@ See the [command reference](docs/commands.md) for examples, JSON shapes, require
 
 Most commands are pure Go and do not boot Rails. The main exceptions are:
 
-- `routes` runs `bundle exec rails routes`; use `routes --static` for a fast offline approximation.
+- `routes` runs `bundle exec rails routes`; use `routes --static` for a fast offline approximation, or `routes --watch` to re-render on file change.
 - `about --runtime` boots Rails to obtain active runtime values; plain `about` is static.
-- `skeleton` invokes Ruby with Prism but does not load the Rails application.
+
+`skeleton` parses Ruby through an embedded in-process Prism parser (pure-Go WASM) — no Ruby install required, and it does not load the Rails application.
 
 Static parsing is intentionally conservative. Consult the relevant reference page before using its output as a source of truth in CI or production audits.
