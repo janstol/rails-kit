@@ -14,6 +14,46 @@ import (
 // returns structural summaries for them.
 type Runner struct{}
 
+// Parser parses Ruby source on demand using one pooled go-ruby-prism parser.
+// It is the single-file, on-demand counterpart to Runner.ParseFiles: routes
+// walks files lazily and interleaved (walk routes.rb, on `draw :admin` parse
+// config/routes/admin.rb, on `concern :foo` re-walk the stored block), so a
+// pre-collected batch fan-out does not fit. Pool size 1 is correct because
+// that walk is single-threaded. The one-time ~150 ms cold start is paid lazily
+// on the first Parse, matching the accepted routes --static budget.
+type Parser struct {
+	p *parser.Parser
+}
+
+// NewParser creates an on-demand parser owning a single pooled WASM instance.
+func NewParser(ctx context.Context) (*Parser, error) {
+	p, err := parser.NewParser(ctx, parser.WithPoolSize(1))
+	if err != nil {
+		return nil, fmt.Errorf("creating prism parser: %w", err)
+	}
+	return &Parser{p: p}, nil
+}
+
+// Parse reads and parses a single Ruby file, returning the parse result and
+// the source bytes (the latter so callers can resolve node locations to source
+// text and line numbers).
+func (p *Parser) Parse(ctx context.Context, path string) (*parser.ParseResult, []byte, error) {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	result, err := p.p.Parse(ctx, src)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return result, src, nil
+}
+
+// Close releases the pooled WASM instance.
+func (p *Parser) Close(ctx context.Context) error {
+	return p.p.Close(ctx)
+}
+
 // File is a compact Prism-derived structural summary of a Ruby source file.
 type File struct {
 	Path        string     `json:"path"`

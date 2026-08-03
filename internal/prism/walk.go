@@ -1,7 +1,6 @@
 package prism
 
 import (
-	"bytes"
 	"path/filepath"
 	"strings"
 
@@ -46,6 +45,9 @@ type container struct {
 type astWalker struct {
 	src []byte
 }
+
+func (w *astWalker) slice(loc parser.Location) string        { return Slice(w.src, loc) }
+func (w *astWalker) lineRange(loc parser.Location) (int, int) { return LineRange(w.src, loc) }
 
 func buildFile(path string, src []byte, result *parser.ParseResult) File {
 	file := File{Path: filepath.ToSlash(path)}
@@ -227,29 +229,4 @@ func (w *astWalker) nameFor(n parser.Node) string {
 		return ""
 	}
 	return w.slice(n.GetLocation())
-}
-
-func (w *astWalker) slice(loc parser.Location) string {
-	start, end := loc.StartOffset, loc.StartOffset+loc.Length
-	if end > len(w.src) {
-		end = len(w.src)
-	}
-	if start < 0 || start > end {
-		return ""
-	}
-	return string(w.src[start:end])
-}
-
-func (w *astWalker) lineRange(loc parser.Location) (int, int) {
-	return w.lineAt(loc.StartOffset), w.lineAt(loc.StartOffset + loc.Length)
-}
-
-func (w *astWalker) lineAt(offset int) int {
-	if offset > len(w.src) {
-		offset = len(w.src)
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	return bytes.Count(w.src[:offset], []byte("\n")) + 1
 }

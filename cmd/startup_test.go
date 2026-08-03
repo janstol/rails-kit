@@ -27,6 +27,20 @@ const (
 	startupCeiling = 25 * time.Millisecond
 )
 
+// `routes --static` parses via the Prism AST (go-ruby-prism, WASM via wazero).
+// Each process pays a one-time ~100-150 ms WASM-compile cold start on first
+// parse, accepted as the item B trade-off for an 8-17x per-parse throughput
+// win. That cold start dominates the per-process wall time this test measures
+// (every `cmd.Run` is a fresh process), so the tight schema/about budget does
+// not fit. The routes budget is sized to accommodate the cold start with
+// headroom for slower runners and jitter; it is a coarse "did startup blow up
+// to multiple seconds" guard, not a fine-grained regression detector — that
+// lives in BenchmarkParseStaticDetailed's ns/op.
+const (
+	routesStartupDelta   = 400 * time.Millisecond
+	routesStartupCeiling = 500 * time.Millisecond
+)
+
 func TestStartupBudget(t *testing.T) {
 	bin := os.Getenv("RAILS_KIT_BENCH_BIN")
 	if bin == "" {
@@ -42,12 +56,14 @@ func TestStartupBudget(t *testing.T) {
 	t.Logf("version (startup floor): median=%s over %d runs", versionFloor, startupRuns)
 
 	cases := []struct {
-		name string
-		args []string
+		name    string
+		args    []string
+		ceiling time.Duration
+		delta   time.Duration
 	}{
-		{name: "schema", args: []string{"--root", fixtureRoot, "schema"}},
-		{name: "about", args: []string{"--root", fixtureRoot, "about"}},
-		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}},
+		{name: "schema", args: []string{"--root", fixtureRoot, "schema"}, ceiling: startupCeiling, delta: startupDelta},
+		{name: "about", args: []string{"--root", fixtureRoot, "about"}, ceiling: startupCeiling, delta: startupDelta},
+		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: routesStartupCeiling, delta: routesStartupDelta},
 	}
 
 	for _, tc := range cases {
@@ -56,11 +72,11 @@ func TestStartupBudget(t *testing.T) {
 			delta := median - versionFloor
 			t.Logf("%s: median=%s delta-over-floor=%s", tc.name, median, delta)
 
-			if median > startupCeiling {
-				t.Errorf("%s: median wall time %s exceeds absolute ceiling %s", tc.name, median, startupCeiling)
+			if median > tc.ceiling {
+				t.Errorf("%s: median wall time %s exceeds absolute ceiling %s", tc.name, median, tc.ceiling)
 			}
-			if delta > startupDelta {
-				t.Errorf("%s: delta over version floor %s exceeds budget %s", tc.name, delta, startupDelta)
+			if delta > tc.delta {
+				t.Errorf("%s: delta over version floor %s exceeds budget %s", tc.name, delta, tc.delta)
 			}
 		})
 	}
