@@ -360,6 +360,34 @@ func TestModelCommandJSONIncludesParentClassAndTableName(t *testing.T) {
 	}
 }
 
+func TestModelCommandReturnsPartialJSONAndWarnsOnParseErrors(t *testing.T) {
+	root := t.TempDir()
+	modelPath := filepath.Join(root, "app", "models", "broken.rb")
+	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	mustWriteCmdFile(t, modelPath, "class Broken < ApplicationRecord\n  validates :name, presence: true\n  def call(\nend\n")
+
+	out, errOut, err := runCmdForTestJSON(t, modelCmd, root, []string{"broken"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
+	}
+	var payload struct {
+		ClassName   string   `json:"class_name"`
+		ParentClass string   `json:"parent_class"`
+		Validations []string `json:"validations"`
+		ParseErrors []string `json:"parse_errors"`
+	}
+	unwrapJSONEnvelope(t, out, "model", &payload)
+	if payload.ClassName != "Broken" || payload.ParentClass != "ApplicationRecord" || len(payload.Validations) != 1 {
+		t.Fatalf("unexpected partial payload: %#v", payload)
+	}
+	if payload.ParseErrors != nil {
+		t.Fatalf("parse_errors leaked into JSON contract: %#v", payload.ParseErrors)
+	}
+	if !strings.Contains(filepath.ToSlash(errOut), "Warning: ") || !strings.Contains(filepath.ToSlash(errOut), "/app/models/broken.rb:") {
+		t.Fatalf("expected path- and line-specific warning, got %q", errOut)
+	}
+}
+
 func TestRelatedCommandSupportsAbsoluteConfiguredPaths(t *testing.T) {
 	root := t.TempDir()
 	modelsDir := filepath.Join(t.TempDir(), "models")

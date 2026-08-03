@@ -27,18 +27,19 @@ const (
 	startupCeiling = 25 * time.Millisecond
 )
 
-// `routes --static` parses via the Prism AST (go-ruby-prism, WASM via wazero).
+// `routes --static` and `model` parse via the Prism AST (go-ruby-prism, WASM via wazero).
 // Each process pays a one-time ~100-150 ms WASM-compile cold start on first
-// parse, accepted as the item B trade-off for an 8-17x per-parse throughput
-// win. That cold start dominates the per-process wall time this test measures
+// parse. For routes this buys an 8-17x per-parse throughput win; for model it
+// buys structurally reliable Ruby parsing in place of the regex line scanner.
+// That cold start dominates the per-process wall time this test measures
 // (every `cmd.Run` is a fresh process), so the tight schema/about budget does
-// not fit. The routes budget is sized to accommodate the cold start with
+// not fit. The Prism budget is sized to accommodate the cold start with
 // headroom for slower runners and jitter; it is a coarse "did startup blow up
 // to multiple seconds" guard, not a fine-grained regression detector — that
-// lives in BenchmarkParseStaticDetailed's ns/op.
+// lives in the parser benchmarks' ns/op.
 const (
-	routesStartupDelta   = 400 * time.Millisecond
-	routesStartupCeiling = 500 * time.Millisecond
+	prismStartupDelta   = 400 * time.Millisecond
+	prismStartupCeiling = 500 * time.Millisecond
 )
 
 func TestStartupBudget(t *testing.T) {
@@ -63,7 +64,8 @@ func TestStartupBudget(t *testing.T) {
 	}{
 		{name: "schema", args: []string{"--root", fixtureRoot, "schema"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "about", args: []string{"--root", fixtureRoot, "about"}, ceiling: startupCeiling, delta: startupDelta},
-		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: routesStartupCeiling, delta: routesStartupDelta},
+		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		{name: "model", args: []string{"--root", fixtureRoot, "model", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 	}
 
 	for _, tc := range cases {

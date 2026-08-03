@@ -90,7 +90,7 @@ rails-kit model app/models/user.rb
 rails-kit model user --json
 ```
 
-Summarizes the class, parent, custom table name, concerns, associations, validations, scopes, callbacks, enums, and delegates. Parsing is static and intentionally compact.
+Summarizes the class, parent, custom table name, concerns, associations, validations, scopes, callbacks, enums, and delegates. Parsing is static, AST-backed by Prism, and intentionally compact. Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully recovered fields remain on stdout, including in JSON mode.
 
 ## `skeleton`
 

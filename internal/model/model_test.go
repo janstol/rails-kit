@@ -3,6 +3,7 @@ package model_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -306,6 +307,153 @@ func TestParse_CustomTableNameAndValidationOptions(t *testing.T) {
 	}
 }
 
+func TestParse_PrismDSLCompatibility(t *testing.T) {
+	content := strings.Join([]string{
+		"class Admin::Report < ApplicationRecord",
+		"  include Searchable",
+		"  include ActiveSupport::Configurable",
+		`  self.table_name = "legacy_reports"`,
+		"  has_many :entries, source: :items, inverse_of: :report, optional: true, dependent: :destroy, polymorphic: true, class_name: \"Entry\", through: :account",
+		"  validates :name, :slug, presence: true, uniqueness: false, length: { minimum: 2 }, format: /x/, numericality: false, inclusion: { in: [] }, exclusion: { in: [] }, confirmation: true, email_format: false, allow_nil: true, allow_blank: true, on: :create",
+		"  validates_presence_of :code",
+		"  validate :internally_consistent",
+		"  scope :active, -> { all }",
+		"  scope :by_name, ->(name) { where(name: name) }",
+		"  scope :by_pair, ->(left, right) { where(left: left, right: right) }",
+		"  scope :by_block, lambda { |value| where(value: value) }",
+		"  before_save :normalize",
+		"  around_custom :measure",
+		"  enum state: { active: 1 }",
+		"  delegate :title, :body,",
+		"    to: :entry, allow_nil: true",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempModel(t, "admin/report.rb", content)
+
+	if s.ParentClass != "ApplicationRecord" || s.TableName != "legacy_reports" {
+		t.Fatalf("class metadata = parent %q, table %q", s.ParentClass, s.TableName)
+	}
+	if want := []string{"  Searchable"}; !reflect.DeepEqual(s.Concerns, want) {
+		t.Fatalf("Concerns = %#v, want %#v", s.Concerns, want)
+	}
+	if want := []string{"  has_many :entries, through: account, class_name: Entry, polymorphic: true, dependent: destroy, optional: true, inverse_of: report, source: items"}; !reflect.DeepEqual(s.Assocs, want) {
+		t.Fatalf("Assocs = %#v, want %#v", s.Assocs, want)
+	}
+	if want := []string{
+		"  validates :name, :slug, presence, uniqueness, length, format, numericality, inclusion, exclusion, confirmation, email_format, allow_nil, allow_blank, on: create",
+		"  validates :code, presence_of",
+		"  validate :internally_consistent (custom)",
+	}; !reflect.DeepEqual(s.Valids, want) {
+		t.Fatalf("Valids = %#v, want %#v", s.Valids, want)
+	}
+	if want := []string{"  active", "  by_name(name)", "  by_pair(left, right)", "  by_block(...)"}; !reflect.DeepEqual(s.Scopes, want) {
+		t.Fatalf("Scopes = %#v, want %#v", s.Scopes, want)
+	}
+	if want := []string{"  before_save :normalize", "  around_custom :measure"}; !reflect.DeepEqual(s.Callbacks, want) {
+		t.Fatalf("Callbacks = %#v, want %#v", s.Callbacks, want)
+	}
+	if want := []string{"  state"}; !reflect.DeepEqual(s.Enums, want) {
+		t.Fatalf("Enums = %#v, want %#v", s.Enums, want)
+	}
+	if want := []string{"  delegate :title, :body, to: :entry, allow_nil: true"}; !reflect.DeepEqual(s.Delegates, want) {
+		t.Fatalf("Delegates = %#v, want %#v", s.Delegates, want)
+	}
+}
+
+func TestParse_IgnoresDSLTextThatIsNotRubyCalls(t *testing.T) {
+	content := strings.Join([]string{
+		"class Report < ApplicationRecord",
+		"  # has_many :commented",
+		"  EXAMPLE = <<~RUBY",
+		"    validates :inside_heredoc, presence: true",
+		"  RUBY",
+		`  TEXT = "before_save :inside_string"`,
+		"  has_many :entries",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempModel(t, "report.rb", content)
+
+	if want := []string{"  has_many :entries"}; !reflect.DeepEqual(s.Assocs, want) {
+		t.Fatalf("Assocs = %#v, want %#v", s.Assocs, want)
+	}
+	if len(s.Valids) != 0 || len(s.Callbacks) != 0 {
+		t.Fatalf("unexpected false positives: validations=%#v callbacks=%#v", s.Valids, s.Callbacks)
+	}
+}
+
+func TestParse_ReturnsPartialSummaryWithParseDiagnostics(t *testing.T) {
+	content := "class Broken < ApplicationRecord\n  validates :name, presence: true\n  def call(\nend\n"
+	s := parseTempModel(t, "broken.rb", content)
+
+	if s.ParentClass != "ApplicationRecord" || !containsSubstr(s.Valids, "validates :name, presence") {
+		t.Fatalf("partial summary = %#v", s)
+	}
+	if len(s.ParseErrors) == 0 {
+		t.Fatal("expected a Prism parse diagnostic")
+	}
+	if s.ParseErrors[0].Line < 1 || s.ParseErrors[0].Message == "" {
+		t.Fatalf("invalid parse diagnostic: %#v", s.ParseErrors[0])
+	}
+}
+
+func TestParse_DelegateTruncatesByRunes(t *testing.T) {
+	rest := strings.Repeat("é", 81)
+	s := parseTempModel(t, "report.rb", "class Report\n  delegate :"+rest+"\nend\n")
+	if len(s.Delegates) != 1 {
+		t.Fatalf("Delegates = %#v", s.Delegates)
+	}
+	want := "  delegate :" + strings.Repeat("é", 79) + "..."
+	if s.Delegates[0] != want {
+		t.Fatalf("delegate = %q, want %q", s.Delegates[0], want)
+	}
+}
+
+func TestParse_PreservesLegacySourceShapeQuirks(t *testing.T) {
+	content := strings.Join([]string{
+		"class Report < ApplicationRecord",
+		"  include Registry.lookup(:searchable)",
+		"  has_many(",
+		"    :ignored_parenthesized,",
+		"    dependent: :destroy",
+		"  )",
+		"  has_many :entries,",
+		"    dependent: :destroy",
+		"  validates_numericality_of :minimum, :maximum, allow_nil: true",
+		"  validate :ready?",
+		"  scope :spaced, -> (value) { where(value: value) }",
+		"  after_commit :sync?",
+		"  class ::External < OtherRecord",
+		"  end",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempModel(t, "report.rb", content)
+
+	if s.ParentClass != "ApplicationRecord" {
+		t.Fatalf("ParentClass = %q, want ApplicationRecord", s.ParentClass)
+	}
+	if want := []string{"  Registry.lookup(:searchable)"}; !reflect.DeepEqual(s.Concerns, want) {
+		t.Fatalf("Concerns = %#v, want %#v", s.Concerns, want)
+	}
+	if want := []string{"  has_many :entries, dependent: destroy"}; !reflect.DeepEqual(s.Assocs, want) {
+		t.Fatalf("Assocs = %#v, want %#v", s.Assocs, want)
+	}
+	if want := []string{
+		"  validates :minimum, :maximum, numericality, allow_nil, numericality_of",
+		"  validate :ready (custom)",
+	}; !reflect.DeepEqual(s.Valids, want) {
+		t.Fatalf("Valids = %#v, want %#v", s.Valids, want)
+	}
+	if want := []string{"  spaced(value)"}; !reflect.DeepEqual(s.Scopes, want) {
+		t.Fatalf("Scopes = %#v, want %#v", s.Scopes, want)
+	}
+	if want := []string{"  after_commit"}; !reflect.DeepEqual(s.Callbacks, want) {
+		t.Fatalf("Callbacks = %#v, want %#v", s.Callbacks, want)
+	}
+}
+
 func TestParse_CustomModelsPath(t *testing.T) {
 	dir := t.TempDir()
 	modelFile := filepath.Join(dir, "lib", "models", "admin", "widget.rb")
@@ -562,4 +710,21 @@ func containsSubstr(slice []string, substr string) bool {
 		}
 	}
 	return false
+}
+
+func parseTempModel(t *testing.T, relPath, content string) *model.Summary {
+	t.Helper()
+	root := t.TempDir()
+	path := filepath.Join(root, "app", "models", filepath.FromSlash(relPath))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := model.Parse(path, root, "app/models")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	return s
 }

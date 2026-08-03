@@ -60,6 +60,9 @@ The name can be a model name (user, order_item), a CamelCase class name
 		if err != nil {
 			return fmt.Errorf("parsing model: %w", err)
 		}
+		for _, diagnostic := range summary.ParseErrors {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", modelPath, diagnostic.Line, diagnostic.Message)
+		}
 
 		if jsonFlag {
 			out := modelJSON{

@@ -114,7 +114,8 @@ or mount points).
 ```
 
 `class_name` and `rel_path` are always present; every other field is `omitempty` (absent when
-the model has none of that kind).
+the model has none of that kind). Recoverable Ruby parse errors are reported as warnings on
+stderr; partial model data retains this schema and remains valid JSON on stdout.
 
 ### `fixtures`
 
