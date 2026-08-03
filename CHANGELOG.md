@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `go-ruby-prism` from v1.1.0 to v1.2.0, which fixes the parser-reuse memory bug (reusing one parser across distinct files intermittently trapped with a WASM "out of bounds memory access" in `pm_options_free`) and introduces a pool of WASM instances per parser, with Prism upgraded to 1.9.0. `skeleton` now shares one pooled parser across a batch instead of creating a fresh parser per file, so the cold start is paid once per pool instance rather than once per file. Output is unchanged; large batches are dramatically faster (a 444-file `skeleton app/models` run measured 16.3s before and 0.35s after, ~46x, byte-identical output).
+
 ## [0.4.0] - 2026-08-02
 
 ### Added

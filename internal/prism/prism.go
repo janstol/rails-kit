@@ -85,34 +85,41 @@ type Method struct {
 	EndLine    int    `json:"end_line"`
 }
 
-// ParseFiles parses paths, using a fresh Prism parser instance per file.
+// ParseFiles parses paths using one shared Prism parser, which owns a pool of
+// WASM instances (sized to the worker count).
 //
-// go-ruby-prism v1.1.0's Parser.Parse is not safe to reuse across multiple
-// calls: reusing one instance across a batch of real files intermittently
-// trips WASM "out of bounds memory access" traps on otherwise-valid Ruby
-// input (~50% of files in one repeated test, deterministic per input order
-// but not a permanent wedge — a failing call could be followed by a
-// succeeding one on the same instance). The exact mechanism inside the WASM
-// runtime is not confirmed. A fresh parser per file, used once and
-// discarded, was 100% reliable across the same input; there is no cheaper
-// reset/recycle primitive on Parser to avoid paying a full cold start.
+// go-ruby-prism v1.2.0 fixed the parser-reuse memory bug present in v1.1.0
+// (reusing one *parser.Parser across distinct files intermittently trapped
+// with a WASM "out of bounds memory access" in pm_options_free; a fresh
+// parser per file was the workaround). A v1.2.0 Parser owns a lazily-filled
+// pool of WASM instances, each with its own linear memory, and Parse checks
+// one out and returns it, so one Parser is safe to reuse across many calls,
+// concurrently. That changes the cold-start cost from per-file (a wazero
+// runtime boot plus module compile, ~150-160ms each, paid once per file) to
+// per-pool-instance: the pool grows to `workers` instances and no further, so
+// a batch pays at most `workers` cold starts total, then warm parses for the
+// rest.
 //
-// Because that cold start (~150-160ms, a wazero runtime boot plus WASM module
-// compilation) dominates and is paid per file regardless of batch size,
-// ParseFiles fans out across a bounded number of goroutines. Each goroutine
-// constructs and owns its own parser.NewParser instance with an isolated
-// wazero runtime, so distinct parsers running concurrently do not share any
-// state — only the serial per-instance reuse above is unsafe. Results are
+// ParseFiles fans out across a bounded number of goroutines. The concurrency
+// bound matches the pool size, so an instance is always available when a
+// goroutine calls Parse and the pool never blocks on acquire. Results are
 // written to a preallocated slice by input index, so output order matches
 // input order regardless of which file finishes parsing first.
 func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) {
 	if len(paths) == 0 {
 		return nil, nil
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	workers := min(runtime.NumCPU(), len(paths))
-	sem := make(chan struct{}, workers)
+	p, err := parser.NewParser(ctx, parser.WithPoolSize(workers))
+	if err != nil {
+		return nil, fmt.Errorf("creating prism parser: %w", err)
+	}
 
+	sem := make(chan struct{}, workers)
 	files := make([]File, len(paths))
 	errs := make([]error, len(paths))
 
@@ -134,7 +141,7 @@ func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) 
 				return
 			}
 
-			file, err := parseOne(ctx, path)
+			file, err := parseOne(ctx, p, path)
 			if err != nil {
 				errs[i] = err
 				return
@@ -144,33 +151,32 @@ func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) 
 	}
 	wg.Wait()
 
+	// All goroutines have returned their instances to the pool, so Close can
+	// drain it. A parse error takes precedence over a close error, since the
+	// close error is most likely a consequence of a cancelled context anyway.
+	closeErr := p.Close(ctx)
+
 	for _, err := range errs {
 		if err != nil {
 			return nil, err
 		}
 	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("closing prism parser: %w", closeErr)
+	}
 	return files, nil
 }
 
-// parseOne reads and parses a single Ruby file with a fresh Prism parser
-// instance, see the ParseFiles doc comment for why the parser is not reused.
-func parseOne(ctx context.Context, path string) (File, error) {
+// parseOne reads and parses a single Ruby file using the shared pooled parser.
+func parseOne(ctx context.Context, p *parser.Parser, path string) (File, error) {
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return File{}, fmt.Errorf("reading %s: %w", path, err)
 	}
 
-	p, err := parser.NewParser(ctx)
-	if err != nil {
-		return File{}, fmt.Errorf("creating prism parser: %w", err)
-	}
 	result, err := p.Parse(ctx, src)
-	closeErr := p.Close(ctx)
 	if err != nil {
 		return File{}, fmt.Errorf("parsing %s: %w", path, err)
-	}
-	if closeErr != nil {
-		return File{}, fmt.Errorf("closing prism parser after %s: %w", path, closeErr)
 	}
 
 	return buildFile(path, src, result), nil
