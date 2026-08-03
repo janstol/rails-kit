@@ -1,33 +1,30 @@
 package concerns
 
 import (
-	"bufio"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 )
 
-var (
-	reModule       = regexp.MustCompile(`^\s*module\s+([A-Z]\w*(?:::[A-Z]\w*)*)`)
-	reIncludedDo   = regexp.MustCompile(`^\s*included\s+do\b`)
-	reClassMethods = regexp.MustCompile(`^\s*class_methods\s+do\b`)
-	reDef          = regexp.MustCompile(`^\s*def\s+(\w+[?!=]?)`)
-	reEnd          = regexp.MustCompile(`^\s*end\b`)
-)
-
 // ConcernDetail holds parsed information about a single concern file.
 type ConcernDetail struct {
-	Name                 string   `json:"name"`
-	Path                 string   `json:"path"`
-	Type                 string   `json:"type"`
-	Methods              []string `json:"methods,omitempty"`
-	ClassMethods         []string `json:"class_methods,omitempty"`
-	HasIncludedBlock     bool     `json:"has_included_block"`
-	HasClassMethodsBlock bool     `json:"has_class_methods_block"`
+	Name                 string            `json:"name"`
+	Path                 string            `json:"path"`
+	Type                 string            `json:"type"`
+	Methods              []string          `json:"methods,omitempty"`
+	ClassMethods         []string          `json:"class_methods,omitempty"`
+	HasIncludedBlock     bool              `json:"has_included_block"`
+	HasClassMethodsBlock bool              `json:"has_class_methods_block"`
+	ParseErrors          []ParseDiagnostic `json:"-"`
+}
+
+// ParseDiagnostic describes a recoverable Ruby syntax error reported by Prism.
+type ParseDiagnostic struct {
+	Line    int
+	Message string
 }
 
 // ListFiles returns sorted snake_case names (without .rb extension) of all concern
@@ -63,115 +60,6 @@ func ListFiles(dir string) ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
-}
-
-// Parse reads a concern .rb file and extracts structural information.
-func Parse(filePath, relPath, concernType string) (*ConcernDetail, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("opening concern file: %w", err)
-	}
-	defer f.Close() //nolint:errcheck
-
-	d := &ConcernDetail{
-		Path: relPath,
-		Type: concernType,
-	}
-
-	// Track nesting depth to detect when we exit class_methods block.
-	// depth 0 = top level, we increment on "do"/"begin" blocks, decrement on "end".
-	// When inside class_methods block, depth > classMethodsDepth means we're nested further.
-	var (
-		depth             int
-		inClassMethods    bool
-		classMethodsDepth int
-	)
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmed := strings.TrimSpace(line)
-
-		// Skip comments and blank lines
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		if m := reModule.FindStringSubmatch(line); m != nil {
-			if d.Name == "" {
-				d.Name = m[1]
-			}
-		}
-
-		if reIncludedDo.MatchString(line) {
-			d.HasIncludedBlock = true
-		}
-
-		if reClassMethods.MatchString(line) {
-			d.HasClassMethodsBlock = true
-			inClassMethods = true
-			classMethodsDepth = depth
-		}
-
-		if m := reDef.FindStringSubmatch(line); m != nil {
-			if inClassMethods {
-				d.ClassMethods = append(d.ClassMethods, m[1])
-			} else {
-				d.Methods = append(d.Methods, m[1])
-			}
-		}
-
-		// Track nesting: count "do" / "begin" on non-def lines (def itself opens a block
-		// that ends with end, so we count it), and count "end".
-		// Simpler approach: count all block-openers and end keywords.
-		if reEnd.MatchString(trimmed) && trimmed == "end" {
-			if inClassMethods && depth == classMethodsDepth+1 {
-				inClassMethods = false
-			}
-			if depth > 0 {
-				depth--
-			}
-		} else {
-			// Count block openers: do, begin, def, class, module, if/unless/until/while/for/case
-			opens := countBlockOpeners(trimmed)
-			depth += opens
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading concern file: %w", err)
-	}
-
-	return d, nil
-}
-
-// countBlockOpeners counts how many block-opening keywords are on a line.
-// This is an approximation sufficient for typical Rails concern files.
-func countBlockOpeners(line string) int {
-	// Lines ending with "do" open a block
-	count := 0
-	if strings.HasSuffix(line, " do") || strings.HasSuffix(line, "\tdo") ||
-		line == "do" || strings.Contains(line, " do |") || strings.Contains(line, " do\t") {
-		count++
-	}
-	// def, class, module each open a block
-	if strings.HasPrefix(line, "def ") || strings.HasPrefix(line, "def\t") {
-		count++
-	}
-	if strings.HasPrefix(line, "class ") || strings.HasPrefix(line, "module ") {
-		count++
-	}
-	// begin
-	if line == "begin" || strings.HasPrefix(line, "begin ") {
-		count++
-	}
-	// if/unless/until/while/for/case (single-line ternary if doesn't open a block)
-	for _, kw := range []string{"if ", "unless ", "until ", "while ", "for ", "case "} {
-		if strings.HasPrefix(line, kw) {
-			count++
-			break
-		}
-	}
-	return count
 }
 
 // FindConcern locates a concern file by snake_case name.

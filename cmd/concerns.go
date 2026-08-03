@@ -99,6 +99,9 @@ func runConcernsDetail(cmd *cobra.Command, modelDir, ctrlDir, root, name string)
 	if err != nil {
 		return err
 	}
+	for _, diagnostic := range d.ParseErrors {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s:%d: %s\n", fullPath, diagnostic.Line, diagnostic.Message)
+	}
 
 	if jsonFlag {
 		return printJSON(cmd, d)

@@ -64,8 +64,12 @@ func TestStartupBudget(t *testing.T) {
 	}{
 		{name: "schema", args: []string{"--root", fixtureRoot, "schema"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "about", args: []string{"--root", fixtureRoot, "about"}, ceiling: startupCeiling, delta: startupDelta},
+		// concerns (no arg) only lists filenames -- it must never construct a
+		// Prism parser, so it stays on the tight budget alongside schema/about.
+		{name: "concerns", args: []string{"--root", fixtureRoot, "concerns"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "model", args: []string{"--root", fixtureRoot, "model", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		{name: "concerns searchable", args: []string{"--root", fixtureRoot, "concerns", "searchable"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 	}
 
 	for _, tc := range cases {
