@@ -130,6 +130,24 @@ rails-kit concerns controller/authenticatable --json
 
 Inspects model and controller concerns, including methods, class methods, and `included` or `class_methods` blocks. Qualify the type when the same name exists in both directories.
 
+## `controllers`
+
+```sh
+rails-kit controllers
+rails-kit controllers users
+rails-kit controllers admin/reports
+rails-kit controllers Admin::ReportsController --json
+```
+
+Summarizes a controller's filters (`before_action`/`after_action`/`around_action` and their
+`skip_*` variants, with `only:`/`except:`/`if:`/`unless:`), `rescue_from` handlers, helper
+methods, `layout`, class-level `respond_to`, strong params (`params.require(...).permit(...)`),
+and public action methods. Parsing is static, AST-backed by Prism, single-file only: a
+controller's own declarations are shown, not ones inherited from `ApplicationController` or any
+other superclass -- `parent_class` says where to look next. Recoverable Ruby syntax errors
+produce line-specific warnings on stderr while successfully recovered fields remain on stdout,
+including in JSON mode.
+
 ## `completion`
 
 ```sh

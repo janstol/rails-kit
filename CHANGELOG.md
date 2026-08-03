@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `rails-kit controllers [name]` lists controllers, or shows a structural summary of one: filters
+  (`before_action`/`after_action`/`around_action` and their `skip_*` variants, with
+  `only:`/`except:`/`if:`/`unless:`), `rescue_from` handlers, `helper_method`, `layout`,
+  class-level `respond_to`, strong params (`params.require(...).permit(...)`), and public action
+  methods. AST-backed by Prism, following the same single-process, no-Rails-boot shape as `model`
+  and `concerns`. Single-file only: a controller's own declarations are shown, not ones inherited
+  from `ApplicationController` or any other superclass — `parent_class` says where to look next.
+  Recoverable Ruby syntax errors produce line-specific warnings on stderr, matching `model`.
+
 ### Changed
 
 - `concerns` now parses Ruby through the embedded Prism AST instead of a hand-rolled line scanner with heuristic block-depth tracking. The old depth tracker was demonstrably approximate: an adversarial-fixture audit reproduced all five suspected bug classes against the pre-change binary (a stray `end` not alone on its line, an endless method, `class << self` bodies landing in the wrong list, heredoc bodies scanned as code, and nested-module name truncation), and dogfooding against two real applications turned up two more of the same kind — an off-by-one at the close of a `class_methods` block, and a nested `class ... < StandardError` body's own methods leaking into the concern's method list — plus a distinct pre-`ActiveSupport::Concern` idiom (`def self.included(base); base.class_eval do ... end; end`) that the old scanner handled only by accident, alongside emitting a bogus `self` method for it; `Parse` now recognizes that idiom explicitly. Recoverable Ruby syntax errors return a partial result with line-specific warnings on stderr, matching `model`. Nested keyword modules (`module A; module B; ...; end; end`) now report only the outermost module's name (`A`, not `A::B`) — a deliberate, documented divergence rather than a fix. `concerns <name>` accepts the same ~100-150 ms Prism cold start as `model`/`routes --static`, guarded by the startup-budget test; the no-arg `concerns` list stays on the tight sub-ms budget since it never parses Ruby.

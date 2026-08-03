@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "controllers",
+  "data": {
+    "controllers": [
+      "admin/reports",
+      "application",
+      "users"
+    ]
+  }
+}

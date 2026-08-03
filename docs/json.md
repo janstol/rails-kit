@@ -187,6 +187,24 @@ Detail mode returns the full concern object directly under `data`:
 `methods` and `class_methods` are `omitempty`; `has_included_block` and
 `has_class_methods_block` are always present.
 
+### `controllers`
+
+List mode:
+
+```json
+{ "controllers": ["admin/reports", "application", "users"] }
+```
+
+Detail mode returns the full controller object directly under `data`:
+
+```json
+{ "class_name": "UsersController", "parent_class": "ApplicationController", "rel_path": "app/controllers/users_controller.rb", "filters": [...], "rescue_from": [...], "helper_methods": [...], "layout": "\"users\"", "respond_to": [...], "strong_params": [...], "actions": [...] }
+```
+
+`class_name` and `rel_path` are always present; every other field is `omitempty` (absent when
+the controller has none of that kind). Only the controller's own file is parsed -- filters and
+other declarations inherited from a superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

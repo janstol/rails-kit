@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "command": "controllers",
+  "data": {
+    "class_name": "UsersController",
+    "parent_class": "ApplicationController",
+    "rel_path": "app/controllers/users_controller.rb",
+    "filters": [
+      "before_action :authenticate_user!",
+      "before_action :set_user, only: [:show, :edit, :update, :destroy]",
+      "skip_before_action :authenticate_user!, only: [:index], if: :public_action?",
+      "after_action :log_action",
+      "around_action :measure_time"
+    ],
+    "rescue_from": [
+      "rescue_from ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid, with: :handle_not_found",
+      "rescue_from StandardError (block)"
+    ],
+    "helper_methods": [
+      "user_display_name"
+    ],
+    "layout": "\"users\"",
+    "respond_to": [
+      "html",
+      "json"
+    ],
+    "strong_params": [
+      "user_params: params.require(:user).permit(:name, :email, tags: [])"
+    ],
+    "actions": [
+      "index",
+      "show",
+      "create",
+      "update",
+      "destroy"
+    ]
+  }
+}

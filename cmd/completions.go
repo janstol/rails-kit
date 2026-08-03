@@ -8,6 +8,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/concerns"
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/controllers"
 	"github.com/janstol/rails-kit/internal/fixtures"
 	"github.com/janstol/rails-kit/internal/gem"
 	"github.com/janstol/rails-kit/internal/locales"
@@ -39,6 +40,16 @@ func listModelNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeModelNames = completeWithConfig(listModelNames)
+
+func listControllerNames(root string, cfg config.Config, _ string) []string {
+	names, err := controllers.ListNames(root, cfg.ControllersPath, cfg.ControllerConcernsPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeControllerNames = completeWithConfig(listControllerNames)
 
 // completeSkeletonArgs offers model names alongside the shell's own file
 // completion, since skeleton also accepts paths, directories, and globs.
