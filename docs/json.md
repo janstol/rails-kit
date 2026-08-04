@@ -255,6 +255,32 @@ Detail mode returns the full job object directly under `data`:
 - Only the job's own file is parsed -- queue, retry, and discard declarations inherited from a
   superclass (ApplicationJob, etc.) are not resolved; `parent_class` names it.
 
+### `services`
+
+List mode:
+
+```json
+{ "services": ["admin/billing_service", "notification_service", "user_export_service"] }
+```
+
+Detail mode returns the full service object directly under `data`:
+
+```json
+{ "class_name": "UserExportService", "kind": "class", "parent_class": "", "rel_path": "app/services/user_export_service.rb", "concerns": [...], "constants": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; a module-style service (`module Foo; def self.bar; end; end`)
+  has `kind: "module"` and no `parent_class`.
+- `constants` entries are `NAME = value` (e.g. `DEFAULT_LIMIT = 100`), with the value's whitespace
+  collapsed; class-level constants are part of a service's interface.
+- `methods` are public instance methods (`def foo`, visibility tracked through both the bare
+  `private`/`protected`/`public` switch and the `private def foo; end` form) plus singleton class
+  methods (`def self.foo`), which are collected regardless of visibility.
+- Services have no universal naming convention, so no suffix is appended or stripped -- the name
+  is matched as given. Only the service's own file is parsed -- declarations inherited from a
+  superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

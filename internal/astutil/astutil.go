@@ -95,3 +95,42 @@ func findClassInStatements(nodes []parser.Node) *parser.ClassNode {
 	}
 	return nil
 }
+
+// TopLevelClassOrModule returns the first *parser.ClassNode or *parser.ModuleNode
+// reachable from program's top-level statements, descending into *parser.ModuleNode
+// bodies (the `module Admin; class X; ...; end; end` idiom) but not into another
+// class's or module's body -- a nested class/module (e.g. a rescued error type
+// defined inline) does not count and is not descended into either, mirroring the
+// anti-leak rule of TopLevelClass.
+//
+// Unlike TopLevelClass, when the outermost container is a module with no nested
+// class it returns that module (as the module result) rather than skipping it.
+// This is what lets a reader recognize module-style services
+// (`module Foo; def self.bar; end; end`).
+//
+// At most one of class or module is non-nil.
+func TopLevelClassOrModule(program *parser.ProgramNode) (class *parser.ClassNode, module *parser.ModuleNode) {
+	if program.Statements == nil {
+		return nil, nil
+	}
+	return findClassOrModuleInStatements(program.Statements.Body)
+}
+
+func findClassOrModuleInStatements(nodes []parser.Node) (*parser.ClassNode, *parser.ModuleNode) {
+	for _, node := range nodes {
+		switch n := node.(type) {
+		case *parser.ClassNode:
+			return n, nil
+		case *parser.ModuleNode:
+			// Descend into a namespace module looking for a nested class or
+			// module. If the module body holds neither, return the module
+			// itself -- this is the module-style-service case that
+			// TopLevelClass deliberately skips.
+			if c, m := findClassOrModuleInStatements(prism.BlockStatements(n.Body)); c != nil || m != nil {
+				return c, m
+			}
+			return nil, n
+		}
+	}
+	return nil, nil
+}

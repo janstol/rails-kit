@@ -16,6 +16,7 @@ import (
 	"github.com/janstol/rails-kit/internal/mailers"
 	"github.com/janstol/rails-kit/internal/model"
 	"github.com/janstol/rails-kit/internal/schema"
+	"github.com/janstol/rails-kit/internal/services"
 )
 
 // completeWithConfig adapts a candidate-lister to cobra's completion signature.
@@ -72,6 +73,16 @@ func listJobNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeJobNames = completeWithConfig(listJobNames)
+
+func listServiceNames(root string, cfg config.Config, _ string) []string {
+	names, err := services.ListNames(root, cfg.ServicesPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeServiceNames = completeWithConfig(listServiceNames)
 
 // completeSkeletonArgs offers model names alongside the shell's own file
 // completion, since skeleton also accepts paths, directories, and globs.

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "command": "services",
+  "data": {
+    "class_name": "UserExportService",
+    "kind": "class",
+    "rel_path": "app/services/user_export_service.rb",
+    "concerns": [
+      "Searchable"
+    ],
+    "constants": [
+      "DEFAULT_LIMIT = 100"
+    ],
+    "methods": [
+      "initialize",
+      "call"
+    ]
+  }
+}

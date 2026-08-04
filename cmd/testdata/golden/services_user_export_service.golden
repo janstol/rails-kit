@@ -1,0 +1,13 @@
+UserExportService (app/services/user_export_service.rb)
+========================================
+
+Constants:
+  DEFAULT_LIMIT = 100
+
+Concerns:
+  Searchable
+
+Methods:
+  initialize
+  call
+

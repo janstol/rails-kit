@@ -228,6 +228,21 @@ func TestCompleteGemNames(t *testing.T) {
 	mustEqualStrings(t, candidates, []string{"rails", "rake"})
 }
 
+func TestCompleteServiceNames(t *testing.T) {
+	root := writeCompletionFixture(t)
+	mustWriteCmdFile(t, filepath.Join(root, "app/services/user_export_service.rb"), "class UserExportService\nend\n")
+	mustWriteCmdFile(t, filepath.Join(root, "app/services/admin/billing_service.rb"), "class Admin::BillingService\nend\n")
+
+	candidates, directive, out, errOut := runCompletionForTest(t, servicesCmd, root, nil, "")
+	if out != "" || errOut != "" {
+		t.Fatalf("expected no stdout/stderr, got stdout=%q stderr=%q", out, errOut)
+	}
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Fatalf("directive = %v, want NoFileComp", directive)
+	}
+	mustEqualStrings(t, candidates, []string{"admin/billing_service", "user_export_service"})
+}
+
 func TestCompleteLocalesScope(t *testing.T) {
 	root := writeCompletionFixture(t)
 

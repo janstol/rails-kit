@@ -181,6 +181,26 @@ own declarations are shown, not ones inherited from `ApplicationJob` or any othe
 `parent_class` says where to look next. Recoverable Ruby syntax errors produce line-specific
 warnings on stderr while successfully recovered fields remain on stdout, including in JSON mode.
 
+## `services`
+
+```sh
+rails-kit services
+rails-kit services user_export_service
+rails-kit services admin/billing_service
+rails-kit services Admin::BillingService --json
+```
+
+Summarizes a service's parent class (if any), included concerns, class-level constants, and
+methods. Services have no universal naming convention (no `_controller`/`_job` suffix) and no
+conventional macros, so this reader is thinner than the others: it strips no suffix from file
+names and matches the name as given. Both public instance methods (`def call`) and singleton
+class methods (`def self.call` -- the common `Service.call` pattern) are collected; a service
+defined as a module (`module Foo; def self.bar; end; end`) is reported with `kind: "module"` and
+no `parent_class`. Parsing is static, AST-backed by Prism, single-file only: a service's own
+declarations are shown, not ones inherited from a superclass -- `parent_class` says where to
+look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr while
+successfully recovered fields remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -191,7 +211,7 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
-time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, and `jobs`
+time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, and `services`
 complete their respective names — all read
 from the current Rails project. `routes` and other flag-only commands are
 unaffected.

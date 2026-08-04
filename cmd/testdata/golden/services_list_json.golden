@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "services",
+  "data": {
+    "services": [
+      "admin/billing_service",
+      "notification_service",
+      "user_export_service"
+    ]
+  }
+}
