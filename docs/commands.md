@@ -191,6 +191,7 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
-time; `concerns`, `fixtures`, and `gem` complete their respective names — all read
+time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, and `jobs`
+complete their respective names — all read
 from the current Rails project. `routes` and other flag-only commands are
 unaffected.

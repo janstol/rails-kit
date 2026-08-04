@@ -63,7 +63,7 @@ rails-kit --root /path/to/app schema users --json
 
 See the [command reference](docs/commands.md) for examples, JSON shapes, requirements, and limitations.
 
-`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem and concern names, and locale keys (drilling down one dotted segment at a time for `locales`).
+`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem, concern, controller, mailer, and job names, and locale keys (drilling down one dotted segment at a time for `locales`).
 
 ## Documentation
 
