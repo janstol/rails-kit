@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/prism"
 )
@@ -49,7 +50,7 @@ func Parse(controllerPath, railsRoot, controllersPath string) (*Summary, error) 
 		return s, nil
 	}
 
-	class := topLevelClass(result.Value)
+	class := astutil.TopLevelClass(result.Value)
 	if class == nil {
 		return s, nil
 	}
@@ -88,33 +89,6 @@ func summaryForPath(controllerPath, railsRoot, controllersPath string) *Summary 
 	}
 	s.ClassName = strings.Join(classSegments, "::")
 	return s
-}
-
-// topLevelClass returns the first *parser.ClassNode reachable from program's
-// top-level statements, descending into *parser.ModuleNode bodies (the
-// `module Admin; class ReportsController; ...; end; end` idiom) but not into
-// another class's body -- a nested class (e.g. a rescued error type defined
-// inline) does not count and is not descended into either, mirroring the
-// concerns migration's rule against leaking nested-class methods.
-func topLevelClass(program *parser.ProgramNode) *parser.ClassNode {
-	if program.Statements == nil {
-		return nil
-	}
-	return findClassInStatements(program.Statements.Body)
-}
-
-func findClassInStatements(nodes []parser.Node) *parser.ClassNode {
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case *parser.ClassNode:
-			return n
-		case *parser.ModuleNode:
-			if c := findClassInStatements(prism.BlockStatements(n.Body)); c != nil {
-				return c
-			}
-		}
-	}
-	return nil
 }
 
 type controllerWalker struct {
@@ -188,7 +162,7 @@ func (w *controllerWalker) handleInclude(args []parser.Node) {
 	if len(args) == 0 {
 		return
 	}
-	name := constantName(w.src, args[0])
+	name := astutil.ConstantName(w.src, args[0])
 	if name == "" {
 		return
 	}
@@ -264,14 +238,14 @@ func actionListValue(src []byte, node parser.Node) string {
 			return "[" + strings.Join(names, ", ") + "]"
 		}
 	}
-	return joinedSource(src, node.GetLocation())
+	return astutil.JoinedSource(src, node.GetLocation())
 }
 
 func conditionValue(src []byte, node parser.Node) string {
 	if name, ok := prism.SymbolValue(node); ok {
 		return ":" + name
 	}
-	return joinedSource(src, node.GetLocation())
+	return astutil.JoinedSource(src, node.GetLocation())
 }
 
 func (w *controllerWalker) handleRescueFrom(call *parser.CallNode, args []parser.Node) {
@@ -291,7 +265,7 @@ func (w *controllerWalker) handleRescueFrom(call *parser.CallNode, args []parser
 			}
 			continue
 		}
-		if name := constantName(w.src, arg); name != "" {
+		if name := astutil.ConstantName(w.src, arg); name != "" {
 			classes = append(classes, name)
 		}
 	}
@@ -320,7 +294,7 @@ func (w *controllerWalker) handleLayout(args []parser.Node) {
 		return
 	}
 	switch {
-	case isFalseNode(args[0]):
+	case astutil.IsFalseNode(args[0]):
 		w.summary.Layout = "false"
 	default:
 		if name, ok := prism.StringValue(args[0]); ok {
@@ -331,13 +305,8 @@ func (w *controllerWalker) handleLayout(args []parser.Node) {
 			w.summary.Layout = ":" + name
 			return
 		}
-		w.summary.Layout = joinedSource(w.src, args[0].GetLocation())
+		w.summary.Layout = astutil.JoinedSource(w.src, args[0].GetLocation())
 	}
-}
-
-func isFalseNode(n parser.Node) bool {
-	_, ok := n.(*parser.FalseNode)
-	return ok
 }
 
 func (w *controllerWalker) handleRespondTo(args []parser.Node) {
@@ -379,7 +348,7 @@ func (w *controllerWalker) collectStrongParams(def *parser.DefNode) {
 		key, _ := requirePermitKey(call)
 		permitArgs := ""
 		if call.Arguments != nil {
-			permitArgs = joinedSource(w.src, call.Arguments.GetLocation())
+			permitArgs = astutil.JoinedSource(w.src, call.Arguments.GetLocation())
 		}
 		entry := fmt.Sprintf("  %s: params.require(:%s).permit(%s)", def.Name, key, permitArgs)
 		w.summary.StrongParams = append(w.summary.StrongParams, entry)
@@ -405,20 +374,4 @@ func requirePermitKey(call *parser.CallNode) (string, bool) {
 		return "", false
 	}
 	return prism.SymbolValue(requireArgs[0])
-}
-
-func constantName(src []byte, node parser.Node) string {
-	switch node.(type) {
-	case *parser.ConstantReadNode, *parser.ConstantPathNode:
-		return strings.TrimSpace(prism.Slice(src, node.GetLocation()))
-	default:
-		return ""
-	}
-}
-
-// joinedSource returns the source text at loc with all whitespace runs
-// (including newlines from multi-line expressions) collapsed to a single
-// space, for compact one-line display.
-func joinedSource(src []byte, loc parser.Location) string {
-	return strings.Join(strings.Fields(prism.Slice(src, loc)), " ")
 }

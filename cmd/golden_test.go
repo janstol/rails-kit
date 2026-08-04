@@ -79,6 +79,11 @@ func TestGolden(t *testing.T) {
 		{name: "mailers_list_json", cmd: mailersCmd, json: true},
 		{name: "mailers_user", cmd: mailersCmd, args: []string{"user"}},
 		{name: "mailers_user_json", cmd: mailersCmd, args: []string{"user"}, json: true},
+
+		{name: "jobs_list", cmd: jobsCmd},
+		{name: "jobs_list_json", cmd: jobsCmd, json: true},
+		{name: "jobs_sync_user", cmd: jobsCmd, args: []string{"sync_user"}},
+		{name: "jobs_sync_user_json", cmd: jobsCmd, args: []string{"sync_user"}, json: true},
 	}
 
 	for _, tc := range cases {

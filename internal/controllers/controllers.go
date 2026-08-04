@@ -13,18 +13,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/term"
-)
-
-var (
-	reHasUpper        = regexp.MustCompile(`[A-Z]`)
-	reAcronymBoundary = regexp.MustCompile(`([A-Z\d]+)([A-Z][a-z])`)
-	reWordBoundary    = regexp.MustCompile(`([a-z\d])([A-Z])`)
 )
 
 // Summary holds the extracted controller structure.
@@ -98,8 +92,8 @@ func Resolve(railsRoot, controllersPath, input string) (string, error) {
 		return "", fmt.Errorf("controller file not found: %s", input)
 	}
 
-	name := underscore(input)
-	normalizedName := normalizeLookupName(name)
+	name := astutil.Underscore(input)
+	normalizedName := astutil.NormalizeLookupName(name)
 	info, err := os.Stat(controllersDir)
 	if err != nil {
 		return "", fmt.Errorf("controllers path %s: %w", controllersDir, err)
@@ -224,25 +218,6 @@ func ListNames(railsRoot, controllersPath, controllerConcernsPath string) ([]str
 	}
 	sort.Strings(names)
 	return names, nil
-}
-
-// underscore converts a CamelCase or namespaced class name into its Rails
-// autoloading-style snake_case path, mirroring ActiveSupport's `underscore`.
-// Inputs without uppercase letters (already snake_case) are returned unchanged.
-func underscore(input string) string {
-	if !reHasUpper.MatchString(input) {
-		return input
-	}
-	result := strings.ReplaceAll(input, "::", "/")
-	result = reAcronymBoundary.ReplaceAllString(result, "${1}_${2}")
-	result = reWordBoundary.ReplaceAllString(result, "${1}_${2}")
-	return strings.ToLower(result)
-}
-
-func normalizeLookupName(name string) string {
-	replaced := strings.ReplaceAll(name, "\\", string(filepath.Separator))
-	replaced = strings.ReplaceAll(replaced, "/", string(filepath.Separator))
-	return filepath.Clean(replaced)
 }
 
 // macroAllowlist holds the controller macros whose entry line gets a color

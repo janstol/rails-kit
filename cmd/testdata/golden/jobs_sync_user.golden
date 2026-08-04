@@ -1,0 +1,18 @@
+SyncUserJob < ApplicationJob (app/jobs/sync_user_job.rb)
+========================================
+
+Queue:
+  :default
+
+Concerns:
+  Retryable
+
+Retry On:
+  retry_on StandardError, wait: 5.seconds, attempts: 3
+
+Discard On:
+  discard_on ActiveJob::DeserializationError
+
+Job Methods:
+  perform
+

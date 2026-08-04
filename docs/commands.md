@@ -148,6 +148,39 @@ other superclass -- `parent_class` says where to look next. Recoverable Ruby syn
 produce line-specific warnings on stderr while successfully recovered fields remain on stdout,
 including in JSON mode.
 
+## `mailers`
+
+```sh
+rails-kit mailers
+rails-kit mailers user
+rails-kit mailers admin/notification
+rails-kit mailers Admin::NotificationMailer --json
+```
+
+Summarizes a mailer's `default` headers, `layout`, included concerns, attachments (regular and
+inline, collected from inside action methods regardless of visibility), and public action
+methods. Parsing is static, AST-backed by Prism, single-file only: a mailer's own declarations
+are shown, not ones inherited from `ApplicationMailer` or any other superclass -- `parent_class`
+says where to look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr
+while successfully recovered fields remain on stdout, including in JSON mode.
+
+## `jobs`
+
+```sh
+rails-kit jobs
+rails-kit jobs sync_user
+rails-kit jobs admin/export
+rails-kit jobs Admin::ExportJob --json
+```
+
+Summarizes an ActiveJob's `queue_as`, `retry_on`/`discard_on` handlers (exception classes plus
+`wait`/`attempts`/`wait_jitter`/`queue`/`priority` options, in a fixed order), included concerns,
+and public methods -- `perform` is a public method like any other and surfaces in the methods
+list, not a dedicated section. Parsing is static, AST-backed by Prism, single-file only: a job's
+own declarations are shown, not ones inherited from `ApplicationJob` or any other superclass --
+`parent_class` says where to look next. Recoverable Ruby syntax errors produce line-specific
+warnings on stderr while successfully recovered fields remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh

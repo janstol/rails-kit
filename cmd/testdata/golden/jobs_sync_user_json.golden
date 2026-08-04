@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "command": "jobs",
+  "data": {
+    "class_name": "SyncUserJob",
+    "parent_class": "ApplicationJob",
+    "rel_path": "app/jobs/sync_user_job.rb",
+    "concerns": [
+      "Retryable"
+    ],
+    "queue": ":default",
+    "retry_on": [
+      "retry_on StandardError, wait: 5.seconds, attempts: 3"
+    ],
+    "discard_on": [
+      "discard_on ActiveJob::DeserializationError"
+    ],
+    "methods": [
+      "perform"
+    ]
+  }
+}

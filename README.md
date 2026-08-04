@@ -54,6 +54,9 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit skeleton <input...>` | Generate compact Ruby AST skeletons through Prism |
 | `rails-kit gem [name]` | Inspect `Gemfile.lock` |
 | `rails-kit concerns [name]` | Inspect model and controller concerns |
+| `rails-kit controllers [name]` | Summarize a Rails controller's filters, rescue_from, and actions |
+| `rails-kit mailers [name]` | Summarize a Rails mailer's defaults, layout, and attachments |
+| `rails-kit jobs [name]` | Summarize a Rails ActiveJob's queue, retry/discard, and methods |
 | `rails-kit skill install\|uninstall` | Manage the bundled Claude Code or Codex skill |
 | `rails-kit completion bash\|zsh\|fish` | Generate shell completions |
 | `rails-kit version` | Print version information |

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "jobs",
+  "data": {
+    "jobs": [
+      "admin/export",
+      "application",
+      "sync_user"
+    ]
+  }
+}

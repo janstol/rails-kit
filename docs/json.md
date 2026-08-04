@@ -229,6 +229,32 @@ Detail mode returns the full mailer object directly under `data`:
 - Only the mailer's own file is parsed -- defaults and other declarations inherited from a
   superclass are not resolved; `parent_class` names it.
 
+### `jobs`
+
+List mode:
+
+```json
+{ "jobs": ["admin/export", "application", "sync_user"] }
+```
+
+Detail mode returns the full job object directly under `data`:
+
+```json
+{ "class_name": "SyncUserJob", "parent_class": "ApplicationJob", "rel_path": "app/jobs/sync_user_job.rb", "concerns": [...], "queue": ":default", "retry_on": [...], "discard_on": [...], "methods": [...] }
+```
+
+- `class_name` and `rel_path` are always present; every other field is `omitempty`.
+- `queue` is the rendered queue argument: a symbol as `:name`, a string as `"name"`, an explicit
+  nil as `nil`, a bare block (no args) as `(block)`, otherwise the joined source of the expression.
+- `retry_on`/`discard_on` entries are `macro Class, key: value, ...` -- the exception class names
+  followed by keyword options (`wait`, `attempts`, `wait_jitter`, `queue`, `priority`) in that fixed
+  order regardless of source order; a trailing block with no options is noted as ` (block)`.
+- `methods` are public methods only (visibility tracked through both the bare
+  `private`/`protected`/`public` switch and the `private def foo; end` form); `perform` is a public
+  method like any other and surfaces here, not in a dedicated section.
+- Only the job's own file is parsed -- queue, retry, and discard declarations inherited from a
+  superclass (ApplicationJob, etc.) are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this
