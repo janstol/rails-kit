@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-04
+
 ### Added
 
 - `rails-kit controllers [name]` lists controllers, or shows a structural summary of one: filters
@@ -16,9 +18,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and `concerns`. Single-file only: a controller's own declarations are shown, not ones inherited
   from `ApplicationController` or any other superclass — `parent_class` says where to look next.
   Recoverable Ruby syntax errors produce line-specific warnings on stderr, matching `model`.
+- `rails-kit mailers [name]` lists mailers, or shows one mailer's defaults, layout, included
+  concerns, regular and inline attachments, public action methods, and `parent_class`. The detail
+  view is AST-backed and single-file only; inherited declarations are not expanded.
+- `rails-kit jobs [name]` lists jobs, or shows one job's queue, `retry_on` and `discard_on`
+  declarations (including retry options and handler blocks), included concerns, public methods,
+  and `parent_class`. The detail view is AST-backed and single-file only.
+- `rails-kit services [name]` lists service objects without assuming a filename suffix, or shows
+  one class- or module-style service's constants, included modules, public instance methods,
+  singleton methods, and optional `parent_class`. The detail view is AST-backed and single-file
+  only.
+- `rails-kit datagrids [name]` lists datagrids, or shows one grid's filters, columns, scope,
+  decorator, macros, included concerns, methods, and `parent_class`. It understands the `datagrid`
+  gem's DSL while still producing a useful structural summary for custom grid implementations.
+  The detail view is AST-backed and single-file only.
 
 ### Changed
 
+- Dynamic positional-argument completion now includes controller, mailer, job, service, and
+  datagrid names for the five new domain readers.
 - `concerns` now parses Ruby through the embedded Prism AST instead of a hand-rolled line scanner with heuristic block-depth tracking. The old depth tracker was demonstrably approximate: an adversarial-fixture audit reproduced all five suspected bug classes against the pre-change binary (a stray `end` not alone on its line, an endless method, `class << self` bodies landing in the wrong list, heredoc bodies scanned as code, and nested-module name truncation), and dogfooding against two real applications turned up two more of the same kind — an off-by-one at the close of a `class_methods` block, and a nested `class ... < StandardError` body's own methods leaking into the concern's method list — plus a distinct pre-`ActiveSupport::Concern` idiom (`def self.included(base); base.class_eval do ... end; end`) that the old scanner handled only by accident, alongside emitting a bogus `self` method for it; `Parse` now recognizes that idiom explicitly. Recoverable Ruby syntax errors return a partial result with line-specific warnings on stderr, matching `model`. Nested keyword modules (`module A; module B; ...; end; end`) now report only the outermost module's name (`A`, not `A::B`) — a deliberate, documented divergence rather than a fix. `concerns <name>` accepts the same ~100-150 ms Prism cold start as `model`/`routes --static`, guarded by the startup-budget test; the no-arg `concerns` list stays on the tight sub-ms budget since it never parses Ruby.
 - `model` now parses Ruby through the embedded Prism AST instead of a hand-rolled regex line scanner. Its text and JSON output remain unchanged for valid files, verified byte-for-byte against the pre-change binary across the fixture contract and two real applications; recoverable Ruby syntax errors return partial results with line-specific warnings on stderr. Like `routes --static`, each fresh process pays the accepted ~100-150 ms Prism cold start, guarded by the startup-budget test.
 - `routes --static` now parses `config/routes.rb` (and drawn files) through the Prism AST (`go-ruby-prism` v1.2.0) instead of the hand-rolled regex line scanner. The semantic resolution core is reused unchanged; only the front-end is replaced. Text and `--json` output are byte-identical, including every warning message and line number (all 67 `static_test.go` cases and both `routes_static*.golden` files pass unchanged), and the parser was dogfooded against two real applications (Application A and Application B) with byte-identical `routes --static` and `routes --static --json` output versus the pre-change binary. The trade-off is a one-time ~100-150 ms WASM-compile cold start paid on first parse per process (accepted in place of today's sub-ms startup, for an 8-17x per-parse throughput win); subsequent parses in the same process are fast. The `TestStartupBudget` guard now carries a separate, larger budget for `routes --static` to accommodate the accepted cold start, while `schema`/`about` keep the tight budget.
@@ -112,7 +130,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GitHub release packaging for macOS and Linux on `amd64` and `arm64`.
 - Completion subcommands for `bash`, `zsh`, and `fish`.
 
-[Unreleased]: https://github.com/janstol/rails-kit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/janstol/rails-kit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/janstol/rails-kit/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/janstol/rails-kit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/janstol/rails-kit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/janstol/rails-kit/compare/v0.1.0...v0.2.0

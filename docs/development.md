@@ -31,6 +31,7 @@ Tagged releases publish prebuilt archives for:
 
 - macOS `amd64` and `arm64`
 - Linux `amd64` and `arm64`
+- Windows `amd64`
 
 Project history is maintained in the [changelog](../CHANGELOG.md). Release notes should call out static-parsing limitations and Rails runtime requirements where relevant.
 

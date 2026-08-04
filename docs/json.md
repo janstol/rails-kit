@@ -266,7 +266,7 @@ List mode:
 Detail mode returns the full service object directly under `data`:
 
 ```json
-{ "class_name": "UserExportService", "kind": "class", "parent_class": "", "rel_path": "app/services/user_export_service.rb", "concerns": [...], "constants": [...], "methods": [...] }
+{ "class_name": "UserExportService", "kind": "class", "rel_path": "app/services/user_export_service.rb", "concerns": [...], "constants": [...], "methods": [...] }
 ```
 
 - `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
