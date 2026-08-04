@@ -281,6 +281,39 @@ Detail mode returns the full service object directly under `data`:
   is matched as given. Only the service's own file is parsed -- declarations inherited from a
   superclass are not resolved; `parent_class` names it.
 
+### `datagrids`
+
+List mode:
+
+```json
+{ "datagrids": ["admin/report", "custom_grid", "example"] }
+```
+
+Detail mode returns the full datagrid object directly under `data`:
+
+```json
+{ "class_name": "ExampleDatagrid", "parent_class": "BaseDatagrid", "rel_path": "app/datagrids/example_datagrid.rb", "concerns": [...], "decorate": "ExampleDecorator", "scope": "(block)", "filters": [...], "columns": [...], "macros": [...], "methods": [...] }
+```
+
+- `class_name` and `rel_path` are always present; every other field is `omitempty` (absent when
+  the datagrid has none of that kind).
+- `decorate` is the decorator class from a `decorate { X }` block body, or `"(block)"` when the
+  body isn't a single constant; `scope` is `"(block)"` when a `scope do…end` block is present.
+- `filters`/`columns` render their arguments in source order with whitespace collapsed; a
+  trailing block literal is noted as ` (block)`, while a block-pass (`&:sym`) is folded into the
+  argument list.
+- `macros` is a catch-all for other class-level calls (e.g. `filter_per_page`, `column_actions`,
+  `column_id selection: false`, `tool :clear, ...`).
+- `methods` are public instance methods (visibility tracked through both the bare
+  `private`/`protected`/`public` switch and the `private def foo; end` form) plus singleton class
+  methods (`def self.foo`), which are collected regardless of visibility.
+- The reader targets the `datagrid` gem DSL but degrades gracefully: a custom grid or a different
+  grid library in `app/datagrids/` still resolves (the `_datagrid` suffix is tried first, then the
+  name as given) and reports `parent_class`/`concerns`/`methods`/`macros`, but the dedicated
+  `filters`/`columns`/`decorate`/`scope` fields stay empty because those calls don't use the
+  `datagrid`-gem DSL. Only the datagrid's own file is parsed -- declarations inherited from a
+  superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

@@ -9,6 +9,7 @@ import (
 	"github.com/janstol/rails-kit/internal/concerns"
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/controllers"
+	"github.com/janstol/rails-kit/internal/datagrids"
 	"github.com/janstol/rails-kit/internal/fixtures"
 	"github.com/janstol/rails-kit/internal/gem"
 	"github.com/janstol/rails-kit/internal/jobs"
@@ -83,6 +84,16 @@ func listServiceNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeServiceNames = completeWithConfig(listServiceNames)
+
+func listDatagridNames(root string, cfg config.Config, _ string) []string {
+	names, err := datagrids.ListNames(root, cfg.DatagridsPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeDatagridNames = completeWithConfig(listDatagridNames)
 
 // completeSkeletonArgs offers model names alongside the shell's own file
 // completion, since skeleton also accepts paths, directories, and globs.

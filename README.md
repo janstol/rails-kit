@@ -58,13 +58,14 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit mailers [name]` | Summarize a Rails mailer's defaults, layout, and attachments |
 | `rails-kit jobs [name]` | Summarize a Rails ActiveJob's queue, retry/discard, and methods |
 | `rails-kit services [name]` | Summarize a Rails service's constants, concerns, and methods |
+| `rails-kit datagrids [name]` | Summarize a Rails datagrid's filters, columns, scope, and decorator |
 | `rails-kit skill install\|uninstall` | Manage the bundled Claude Code or Codex skill |
 | `rails-kit completion bash\|zsh\|fish` | Generate shell completions |
 | `rails-kit version` | Print version information |
 
 See the [command reference](docs/commands.md) for examples, JSON shapes, requirements, and limitations.
 
-`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem, concern, controller, mailer, job, and service names, and locale keys (drilling down one dotted segment at a time for `locales`).
+`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem, concern, controller, mailer, job, service, and datagrid names, and locale keys (drilling down one dotted segment at a time for `locales`).
 
 ## Documentation
 

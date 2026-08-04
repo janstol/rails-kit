@@ -1,0 +1,31 @@
+ExampleDatagrid < BaseDatagrid (app/datagrids/example_datagrid.rb)
+========================================
+
+Decorate:
+  ExampleDecorator
+
+Scope:
+  (block)
+
+Concerns:
+  Filterable
+  Sortable
+
+Filters:
+  filter :name
+  filter :latch_model, :enum, select: -> { Example.latch_options }, input_options: { class: 'select2' }
+  filter :active, :boolean, default: false (block)
+
+Columns:
+  column :name, &:show_link
+  column :state, order: proc { |direction| direction }, &:state_name
+  column :score, order: "score" (block)
+
+Macros:
+  filter_per_page
+  column_actions
+
+Methods:
+  assets
+  build_default
+

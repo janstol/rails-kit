@@ -201,6 +201,31 @@ declarations are shown, not ones inherited from a superclass -- `parent_class` s
 look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr while
 successfully recovered fields remain on stdout, including in JSON mode.
 
+## `datagrids`
+
+```sh
+rails-kit datagrids
+rails-kit datagrids example
+rails-kit datagrids admin/report
+rails-kit datagrids Admin::ReportDatagrid --json
+```
+
+Summarizes a datagrid's parent class, included concerns, decorator (`decorate { X }`), scope
+(`scope do…end`, noted as `(block)`), `filter` calls, `column` calls, other class-level DSL
+calls (surfaces as macros), and methods (public instance methods plus singleton `def self.x`
+class methods). The reader targets the `datagrid` gem DSL (`filter`/`column`/`scope`/`decorate`
+on a `BaseDatagrid` subclass, files named `*_datagrid.rb`) but degrades gracefully: a custom
+grid implementation or a different grid library in `app/datagrids/` still resolves (the
+`_datagrid` suffix is tried first, then the name as given) and reports a useful summary --
+parent class, concerns, methods, and the class-level calls it does make -- just without the
+datagrid-gem-specific `filters`/`columns`/`decorate`/`scope` structure. Filter and column
+entries render their arguments in source order with whitespace collapsed; a trailing block
+literal is noted as ` (block)`, while a block-pass (`&:sym`) is folded into the argument list.
+Parsing is static, AST-backed by Prism, single-file only: a datagrid's own declarations are
+shown, not ones inherited from a superclass -- `parent_class` says where to look next.
+Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully
+recovered fields remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -211,7 +236,7 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
-time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, and `services`
-complete their respective names — all read
+time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
+and `datagrids` complete their respective names — all read
 from the current Rails project. `routes` and other flag-only commands are
 unaffected.

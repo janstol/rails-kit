@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "command": "datagrids",
+  "data": {
+    "class_name": "ExampleDatagrid",
+    "parent_class": "BaseDatagrid",
+    "rel_path": "app/datagrids/example_datagrid.rb",
+    "concerns": [
+      "Filterable",
+      "Sortable"
+    ],
+    "decorate": "ExampleDecorator",
+    "scope": "(block)",
+    "filters": [
+      "filter :name",
+      "filter :latch_model, :enum, select: -\u003e { Example.latch_options }, input_options: { class: 'select2' }",
+      "filter :active, :boolean, default: false (block)"
+    ],
+    "columns": [
+      "column :name, \u0026:show_link",
+      "column :state, order: proc { |direction| direction }, \u0026:state_name",
+      "column :score, order: \"score\" (block)"
+    ],
+    "macros": [
+      "filter_per_page",
+      "column_actions"
+    ],
+    "methods": [
+      "assets",
+      "build_default"
+    ]
+  }
+}

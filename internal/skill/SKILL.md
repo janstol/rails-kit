@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -22,6 +22,7 @@ model: haiku
 - `mailers` (no args) → `{ mailers: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, default?, layout?, attachments?, methods? }`
 - `jobs` (no args) → `{ jobs: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, queue?, retry_on?, discard_on?, methods? }`
 - `services` (no args) → `{ services: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }`
+- `datagrids` (no args) → `{ datagrids: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, decorate?, scope?, filters?, columns?, macros?, methods? }`
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -43,6 +44,7 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect a mailer's defaults, layout, attachments, and action methods | `rails-kit mailers` |
 | Inspect an ActiveJob's queue, retry_on/discard_on handlers, concerns, and methods | `rails-kit jobs` |
 | Inspect a service's parent class, concerns, constants, and methods | `rails-kit services` |
+| Inspect a datagrid's filters, columns, scope, decorator, and methods | `rails-kit datagrids` |
 
 ---
 
@@ -305,3 +307,18 @@ rails-kit services Admin::BillingService --json
 ```
 
 Parsing is static, AST-backed by Prism, single-file only: a service's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit datagrids
+
+Summarizes a datagrid's parent class, included concerns, decorator (`decorate { X }`), scope (`scope do…end`, noted as `(block)`), `filter` calls, `column` calls, other class-level DSL calls (surfaces as macros), and methods (public instance methods plus singleton `def self.x` class methods). The reader targets the `datagrid` gem DSL (`filter`/`column`/`scope`/`decorate` on a `BaseDatagrid` subclass, files named `*_datagrid.rb`) but degrades gracefully: a custom grid implementation or a different grid library in `app/datagrids/` still resolves (the `_datagrid` suffix is tried first, then the name as given) and reports a useful summary -- parent class, concerns, methods, and the class-level calls it does make -- just without the datagrid-gem-specific `filters`/`columns`/`decorate`/`scope` structure.
+
+```bash
+rails-kit datagrids
+rails-kit datagrids example
+rails-kit datagrids admin/report
+rails-kit datagrids Admin::ReportDatagrid --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a datagrid's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.

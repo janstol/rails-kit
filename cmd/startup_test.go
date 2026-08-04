@@ -75,6 +75,8 @@ func TestStartupBudget(t *testing.T) {
 		{name: "jobs", args: []string{"--root", fixtureRoot, "jobs"}, ceiling: startupCeiling, delta: startupDelta},
 		// services (no arg) only lists filenames -- same reasoning as the other readers.
 		{name: "services", args: []string{"--root", fixtureRoot, "services"}, ceiling: startupCeiling, delta: startupDelta},
+		// datagrids (no arg) only lists filenames -- same reasoning as the other readers.
+		{name: "datagrids", args: []string{"--root", fixtureRoot, "datagrids"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "model", args: []string{"--root", fixtureRoot, "model", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "concerns searchable", args: []string{"--root", fixtureRoot, "concerns", "searchable"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
@@ -82,6 +84,7 @@ func TestStartupBudget(t *testing.T) {
 		{name: "mailers user", args: []string{"--root", fixtureRoot, "mailers", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "jobs sync_user", args: []string{"--root", fixtureRoot, "jobs", "sync_user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "services user_export_service", args: []string{"--root", fixtureRoot, "services", "user_export_service"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		{name: "datagrids example", args: []string{"--root", fixtureRoot, "datagrids", "example"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 	}
 
 	for _, tc := range cases {
