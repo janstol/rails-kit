@@ -40,17 +40,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout tap
         uses: actions/checkout@v7
         with:
           repository: janstol/homebrew-tap
           path: tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      # Checkout must happen before setup-homebrew. Both actions configure GitHub
+      # authentication; the reverse order sends duplicate Authorization headers.
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Normalize cask style
         working-directory: tap
