@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "command": "mailers",
+  "data": {
+    "class_name": "UserMailer",
+    "parent_class": "ApplicationMailer",
+    "rel_path": "app/mailers/user_mailer.rb",
+    "concerns": [
+      "HeaderFooter"
+    ],
+    "default": [
+      "from: \"noreply@example.com\"",
+      "reply_to: \"support@example.com\""
+    ],
+    "layout": "\"mailer\"",
+    "attachments": [
+      "attachments[\"invoice.pdf\"]",
+      "attachments.inline[\"logo.png\"]",
+      "attachments[\"secret.txt\"]"
+    ],
+    "methods": [
+      "welcome_email",
+      "shipment_notification"
+    ]
+  }
+}

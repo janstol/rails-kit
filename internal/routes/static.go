@@ -123,6 +123,7 @@ type routeConcern struct {
 	nodes     []parser.Node
 	supported bool
 }
+
 // ParseStatic parses config/routes.rb and returns route entries.
 func ParseStatic(routesPath string, p *pluralize.Pluralizer) ([]RouteEntry, error) {
 	result, err := ParseStaticDetailed(routesPath, p)

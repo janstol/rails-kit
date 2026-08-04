@@ -132,7 +132,7 @@ func (p *staticParser) handleConditional(routesPath string, src []byte, n *parse
 
 	if call, ok := stmt.(*parser.CallNode); ok && call.Name == "mount" {
 		if malformed {
-			result := StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, keywordLine, "mount has a malformed postfix condition: " + firstLine(src, n.Location))}}
+			result := StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, keywordLine, "mount has a malformed postfix condition: "+firstLine(src, n.Location))}}
 			// The absorbed predicate is the next statement; walk it normally.
 			result.append(p.walkOne(routesPath, src, n.Predicate, frame, outerFrame, errs))
 			return result
@@ -648,7 +648,7 @@ func actionSet(actions []string) map[string]bool {
 func (p *staticParser) handleScope(routesPath string, src []byte, call *parser.CallNode, frame, outerFrame routeFrame, errs []parser.ParseError) StaticResult {
 	line := prism.LineAt(src, call.Location.StartOffset)
 	if blockKind(src, call.Block) != "do" {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "scope requires a single-line block declaration: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "scope requires a single-line block declaration: "+firstLine(src, call.Location))}}
 	}
 	args := prism.ArgNodes(call)
 	declaration, ok := parseScopeDeclarationAST(src, call, args, line)
@@ -688,9 +688,9 @@ func (p *staticParser) handleScope(routesPath string, src []byte, call *parser.C
 }
 
 type scopeDecl struct {
-	path, module, helper, controller string
+	path, module, helper, controller                                 string
 	hasPath, hasModule, hasHelper, hasController, unsupportedOptions bool
-	err string
+	err                                                              string
 }
 
 // parseScopeDeclarationAST builds a scope declaration from the call args.
@@ -772,15 +772,15 @@ func scopeScalar(src []byte, n parser.Node) (string, bool) {
 func (p *staticParser) handleController(routesPath string, src []byte, call *parser.CallNode, frame, outerFrame routeFrame, errs []parser.ParseError) StaticResult {
 	line := prism.LineAt(src, call.Location.StartOffset)
 	if blockKind(src, call.Block) != "do" {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "controller requires a single-line block declaration: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "controller requires a single-line block declaration: "+firstLine(src, call.Location))}}
 	}
 	args := prism.ArgNodes(call)
 	if len(args) != 1 {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic controller block is not modeled: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic controller block is not modeled: "+firstLine(src, call.Location))}}
 	}
 	controller, literal := scopeScalar(src, args[0])
 	if !literal || controller == "" {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic controller block is not modeled: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic controller block is not modeled: "+firstLine(src, call.Location))}}
 	}
 	cf := frame
 	f := cf
@@ -855,14 +855,14 @@ func (p *staticParser) handleMount(routesPath string, src []byte, call *parser.C
 
 	target, receiverTarget, dynamic := classifyMountTarget(src, targetNode)
 	if dynamic {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic mount target is not modeled: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic mount target is not modeled: "+firstLine(src, call.Location))}}
 	}
 	// Mount does not span continuation lines: only an `at` value on the same
 	// line as the call counts. A path on a later line (e.g. `mount X,\n  at:
 	// "/y"`) is treated as absent, matching the old line scanner.
 	path, pathOK := mountPath(src, pathNode, line, call)
 	if !pathOK {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "mount route requires a static at option: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "mount route requires a static at option: "+firstLine(src, call.Location))}}
 	}
 
 	declaration := mountDeclaration{
@@ -933,14 +933,14 @@ func (p *staticParser) handleDraw(routesPath string, src []byte, call *parser.Ca
 	if len(args) >= 1 {
 		name, ok := stringOrSymbol(args[0])
 		if !ok {
-			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic draw target is not modeled: " + firstLine(src, call.Location))}}
+			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic draw target is not modeled: "+firstLine(src, call.Location))}}
 		}
 		if !reDrawName.MatchString(name) {
-			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsafe or unsupported draw target: " + firstLine(src, call.Location))}}
+			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsafe or unsupported draw target: "+firstLine(src, call.Location))}}
 		}
 		for _, segment := range strings.Split(name, "/") {
 			if segment == "" || segment == "." || segment == ".." {
-				return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsafe or unsupported draw target: " + firstLine(src, call.Location))}}
+				return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsafe or unsupported draw target: "+firstLine(src, call.Location))}}
 			}
 		}
 		drawPath, err := p.resolveDrawPath(name)
@@ -952,11 +952,11 @@ func (p *staticParser) handleDraw(routesPath string, src []byte, call *parser.Ca
 			canonicalDrawPath = resolved
 		}
 		if p.active[canonicalDrawPath] {
-			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "cyclic draw was skipped: " + name)}}
+			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "cyclic draw was skipped: "+name)}}
 		}
 		drawn, drawErr := p.parseFileAST(drawPath, frame)
 		if drawErr != nil {
-			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "drawn route file could not be read: " + drawErr.Error())}}
+			return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "drawn route file could not be read: "+drawErr.Error())}}
 		}
 		return drawn
 	}
@@ -977,22 +977,22 @@ func (p *staticParser) handleConcern(routesPath string, src []byte, call *parser
 	name, ok := prism.SymbolValue(args[0])
 	if !ok {
 		// reConcernAny path: dynamic concern definition; consume the block.
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern definition is not modeled: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern definition is not modeled: "+firstLine(src, call.Location))}}
 	}
 	if blockKind(src, call.Block) != "do" {
 		// No block (or a brace block, which the old scanner did not treat as a
 		// concern body): callable/dynamic concern.
 		p.concerns[name] = routeConcern{path: routesPath, supported: false}
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "callable or dynamic route concern is not modeled: " + name)}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "callable or dynamic route concern is not modeled: "+name)}}
 	}
 	bn := call.Block.(*parser.BlockNode)
 	if bn.ClosingLoc.Length == 0 {
 		p.concerns[name] = routeConcern{path: routesPath, supported: false}
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unterminated route concern: " + name)}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unterminated route concern: "+name)}}
 	}
 	if len(args) > 1 || bn.Parameters != nil {
 		p.concerns[name] = routeConcern{path: routesPath, supported: false}
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "parameterized route concern is not modeled: " + name)}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "parameterized route concern is not modeled: "+name)}}
 	}
 	p.concerns[name] = routeConcern{
 		path:      routesPath,
@@ -1024,12 +1024,12 @@ func (p *staticParser) handleConcerns(routesPath string, src []byte, call *parse
 				if v, ok := prism.SymbolValue(e); ok {
 					names = append(names, v)
 				} else {
-					return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern name is not modeled: " + firstLine(src, call.Location))}}
+					return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern name is not modeled: "+firstLine(src, call.Location))}}
 				}
 			}
 			continue
 		}
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern name is not modeled: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "dynamic route concern name is not modeled: "+firstLine(src, call.Location))}}
 	}
 	if len(names) == 0 {
 		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "route concern invocation has no names")}}
@@ -1075,7 +1075,7 @@ func (p *staticParser) handleVerb(routesPath string, src []byte, call *parser.Ca
 
 	routePath, symbolic, ok := routePathValue(src, pathNode)
 	if !ok {
-		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsupported verb route syntax: " + firstLine(src, call.Location))}}
+		return StaticResult{Warnings: []StaticWarning{staticWarning(routesPath, line, "unsupported verb route syntax: "+firstLine(src, call.Location))}}
 	}
 	declaration.routePath = routePath
 	declaration.symbolic = symbolic

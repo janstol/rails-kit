@@ -205,6 +205,30 @@ Detail mode returns the full controller object directly under `data`:
 the controller has none of that kind). Only the controller's own file is parsed -- filters and
 other declarations inherited from a superclass are not resolved; `parent_class` names it.
 
+### `mailers`
+
+List mode:
+
+```json
+{ "mailers": ["admin/notification", "application", "user"] }
+```
+
+Detail mode returns the full mailer object directly under `data`:
+
+```json
+{ "class_name": "UserMailer", "parent_class": "ApplicationMailer", "rel_path": "app/mailers/user_mailer.rb", "concerns": [...], "default": [...], "layout": "\"mailer\"", "attachments": [...], "methods": [...] }
+```
+
+- `class_name` and `rel_path` are always present; every other field is `omitempty`.
+- `default` entries are `key: value` pairs (e.g. `from: "noreply@example.com"`), one per key, in
+  source order; multiple `default` calls append in order.
+- `attachments` entries are `attachments["name"]` (regular) or `attachments.inline["name"]`
+  (inline), collected from inside action methods regardless of visibility.
+- `methods` are public action methods only (visibility tracked through both the bare
+  `private`/`protected`/`public` switch and the `private def foo; end` form).
+- Only the mailer's own file is parsed -- defaults and other declarations inherited from a
+  superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

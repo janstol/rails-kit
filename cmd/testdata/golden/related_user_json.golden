@@ -18,6 +18,12 @@
         ]
       },
       {
+        "label": "Mailer",
+        "files": [
+          "app/mailers/user_mailer.rb"
+        ]
+      },
+      {
         "label": "Service",
         "files": [
           "app/services/user_export_service.rb"

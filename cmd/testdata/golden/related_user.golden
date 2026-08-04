@@ -2,6 +2,8 @@ Model:
   app/models/user.rb
 Controller:
   app/controllers/users_controller.rb
+Mailer:
+  app/mailers/user_mailer.rb
 Service:
   app/services/user_export_service.rb
 Fixtures:

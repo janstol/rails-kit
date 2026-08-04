@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "mailers",
+  "data": {
+    "mailers": [
+      "admin/notification",
+      "application",
+      "user"
+    ]
+  }
+}

@@ -46,7 +46,7 @@ type astWalker struct {
 	src []byte
 }
 
-func (w *astWalker) slice(loc parser.Location) string        { return Slice(w.src, loc) }
+func (w *astWalker) slice(loc parser.Location) string         { return Slice(w.src, loc) }
 func (w *astWalker) lineRange(loc parser.Location) (int, int) { return LineRange(w.src, loc) }
 
 func buildFile(path string, src []byte, result *parser.ParseResult) File {

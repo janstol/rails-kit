@@ -45,6 +45,8 @@ func TestJSONContractInvariants(t *testing.T) {
 		{name: "skeleton", cmd: skeletonCmd, args: []string{"app/models/user.rb"}},
 		{name: "controllers_list", cmd: controllersCmd},
 		{name: "controllers_detail", cmd: controllersCmd, args: []string{"users"}},
+		{name: "mailers_list", cmd: mailersCmd},
+		{name: "mailers_detail", cmd: mailersCmd, args: []string{"user"}},
 	}
 
 	for _, tc := range cases {
