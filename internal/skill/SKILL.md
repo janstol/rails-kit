@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses Ruby and Prism without loading the Rails application. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -18,6 +18,10 @@ model: haiku
 - `locales` (no args) → `{ scopes: [...] }`; with scope → `{ scope, value }`
 - `gem` (no args) → `{ gems: [{ name, version }] }`; with name → `{ name, version, source, source_url, revision?, branch?, tag?, ref?, dependencies? }`
 - `concerns` (no args) → `{ model_concerns, controller_concerns }`; with name → `{ name, path, type, methods, class_methods, has_included_block, has_class_methods_block }`
+- `controllers` (no args) → `{ controllers: [...] }`; with name → `{ class_name, parent_class?, rel_path, filters?, rescue_from?, helper_methods?, layout?, respond_to?, strong_params?, actions? }`
+- `mailers` (no args) → `{ mailers: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, default?, layout?, attachments?, methods? }`
+- `jobs` (no args) → `{ jobs: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, queue?, retry_on?, discard_on?, methods? }`
+- `services` (no args) → `{ services: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }`
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -35,6 +39,10 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect a large Ruby service/job/mailer/PORO without reading method bodies | `rails-kit skeleton` |
 | Check gem versions or find where a gem comes from | `rails-kit gem` |
 | List or inspect model/controller concerns | `rails-kit concerns` |
+| Inspect a controller's filters, rescue_from, helpers, layout, strong params, actions | `rails-kit controllers` |
+| Inspect a mailer's defaults, layout, attachments, and action methods | `rails-kit mailers` |
+| Inspect an ActiveJob's queue, retry_on/discard_on handlers, concerns, and methods | `rails-kit jobs` |
+| Inspect a service's parent class, concerns, constants, and methods | `rails-kit services` |
 
 ---
 
@@ -237,3 +245,63 @@ rails-kit concerns controller/authenticatable
 ```
 
 Use this to understand what reusable modules are available in the project before adding new behaviour to a model or controller.
+
+---
+
+## rails-kit controllers
+
+Summarizes a controller's filters (`before_action`/`after_action`/`around_action` and their `skip_*` variants, with `only:`/`except:`/`if:`/`unless:`), `rescue_from` handlers, helper methods, `layout`, class-level `respond_to`, strong params (`params.require(...).permit(...)`), and public action methods.
+
+```bash
+rails-kit controllers
+rails-kit controllers users
+rails-kit controllers admin/reports
+rails-kit controllers Admin::ReportsController --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a controller's own declarations are shown, not ones inherited from `ApplicationController` or any other superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit mailers
+
+Summarizes a mailer's `default` headers, `layout`, included concerns, attachments (regular and inline, collected from inside action methods regardless of visibility), and public action methods.
+
+```bash
+rails-kit mailers
+rails-kit mailers user
+rails-kit mailers admin/notification
+rails-kit mailers Admin::NotificationMailer --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a mailer's own declarations are shown, not ones inherited from `ApplicationMailer` or any other superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit jobs
+
+Summarizes an ActiveJob's `queue_as`, `retry_on`/`discard_on` handlers (exception classes plus `wait`/`attempts`/`wait_jitter`/`queue`/`priority` options, in a fixed order), included concerns, and public methods -- `perform` is a public method like any other and surfaces in the methods list, not a dedicated section.
+
+```bash
+rails-kit jobs
+rails-kit jobs sync_user
+rails-kit jobs admin/export
+rails-kit jobs Admin::ExportJob --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a job's own declarations are shown, not ones inherited from `ApplicationJob` or any other superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit services
+
+Summarizes a service's parent class (if any), included concerns, class-level constants, and methods. Services have no universal naming convention (no `_controller`/`_job` suffix) and no conventional macros, so this reader is thinner than the others: it strips no suffix from file names and matches the name as given. Both public instance methods (`def call`) and singleton class methods (`def self.call` -- the common `Service.call` pattern) are collected; a service defined as a module is reported with `kind: "module"` and no `parent_class`.
+
+```bash
+rails-kit services
+rails-kit services user_export_service
+rails-kit services admin/billing_service
+rails-kit services Admin::BillingService --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a service's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
