@@ -34,6 +34,11 @@ jobs:
   # before on_arm, stray blank lines) that `brew test-bot` rejects. Re-normalize
   # the generated cask with Homebrew's own linter and push the fix to the tap.
   # No-op (and skipped) when goreleaser's output is already clean.
+  # This also relocates the postflight_steps stanza injected via custom_block
+  # (goreleaser has no native postflight_steps support, so .goreleaser.yml
+  # emits it at the top of the cask, before `version`) into correct stanza
+  # order, after `binary`. Without this job that stanza would sit in the wrong
+  # place and fail `brew style`.
   normalize-cask:
     needs: release
     runs-on: ubuntu-latest

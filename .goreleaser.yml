@@ -44,10 +44,18 @@ homebrew_casks:
       - rails-kit
     url:
       template: "https://github.com/janstol/rails-kit/releases/download/v#{version}/{{ .ArtifactName }}"
-    hooks:
-      post:
-        install: |
-          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rails-kit"] if OS.mac?
+    # GoReleaser's cask template only emits the deprecated `postflight` stanza
+    # for hooks.post.install, so the quarantine step goes through custom_block
+    # instead. The token is escaped because GoReleaser templates the rendered
+    # cask; Homebrew expands {{staged_path}} at install time. custom_block lands
+    # at the top of the cask -- the normalize-cask release job moves it into
+    # stanza order.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ `{{staged_path}}` }}/rails-kit"]
+        end
+      end
 
 changelog:
   sort: asc
