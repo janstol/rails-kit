@@ -91,14 +91,22 @@ func init() {
 }
 
 func skeletonTimeout(fileCount int) time.Duration {
-	// Each file pays a full parser.NewParser cold-start (~150-160ms observed;
-	// go-ruby-prism's Parser.Parse is unsafe to reuse across files, see
-	// internal/prism.Runner.ParseFiles), so perExtra carries headroom over
-	// that measured cost rather than assuming a cheap warm reuse.
+	// prismRunner shares one pooled Parser (pool size min(NumCPU, len(paths)))
+	// across the whole batch: at most `workers` cold starts (~150-160ms each,
+	// paid concurrently), then warm parses for every other file. See
+	// internal/prism.Runner.ParseFiles's doc comment for the authoritative
+	// explanation. base covers one cold start plus process start and file
+	// I/O, with wide margin for a cold/loaded CI box; perExtra is a warm-parse
+	// margin, not a per-file cold-start estimate.
+	//
+	// maxTimeout is unreachable today: resolveSkeletonPathsWithExcludes caps
+	// fileCount at maxSkeletonFiles (500) before this function ever runs, and
+	// base+perExtra*(500-1) stays under maxTimeout. It's kept as
+	// defense-in-depth should that cap ever be raised.
 	const (
-		base       = 10 * time.Second
-		perExtra   = 200 * time.Millisecond
-		maxTimeout = 120 * time.Second
+		base       = 5 * time.Second
+		perExtra   = 20 * time.Millisecond
+		maxTimeout = 20 * time.Second
 	)
 	if fileCount <= 1 {
 		return base

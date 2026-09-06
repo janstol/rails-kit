@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Retuned `skeleton`'s internal timeout for the pooled Prism parser introduced in v1.2.0: a hang
+  or pathological file now fails within roughly 20 seconds worst case instead of up to 120
+  seconds. No change to normal output; only how quickly a genuine hang is reported.
+
 ## [0.5.0] - 2026-08-04
 
 ### Added

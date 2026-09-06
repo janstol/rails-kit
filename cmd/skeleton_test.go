@@ -417,11 +417,15 @@ func TestSkeletonTimeout(t *testing.T) {
 		count int
 		want  time.Duration
 	}{
-		{count: 0, want: 10 * time.Second},
-		{count: 1, want: 10 * time.Second},
-		{count: 11, want: 12 * time.Second},
-		{count: 501, want: 110 * time.Second},
-		{count: 1000, want: 120 * time.Second},
+		{count: 0, want: 5 * time.Second},
+		{count: 1, want: 5 * time.Second},
+		{count: 11, want: 5*time.Second + 10*20*time.Millisecond},
+		// 500 is the actual worst case: resolveSkeletonPathsWithExcludes
+		// rejects anything past maxSkeletonFiles before skeletonTimeout runs.
+		{count: 500, want: 5*time.Second + 499*20*time.Millisecond},
+		// Unreachable in production (see the 500 case above) — this exercises
+		// the maxTimeout cap directly, not a realistic input size.
+		{count: 1000, want: 20 * time.Second},
 	}
 	for _, tt := range tests {
 		if got := skeletonTimeout(tt.count); got != tt.want {
