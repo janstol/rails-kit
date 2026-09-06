@@ -27,10 +27,11 @@ const (
 	startupCeiling = 25 * time.Millisecond
 )
 
-// `routes --static` and `model` parse via the Prism AST (go-ruby-prism, WASM via wazero).
-// Each process pays a one-time ~100-150 ms WASM-compile cold start on first
-// parse. For routes this buys an 8-17x per-parse throughput win; for model it
-// buys structurally reliable Ruby parsing in place of the regex line scanner.
+// `routes --static`, `model`, and `skeleton` parse via the Prism AST
+// (go-ruby-prism, WASM via wazero). Each process pays a one-time ~100-150 ms
+// WASM-compile cold start on first parse. For routes this buys an 8-17x
+// per-parse throughput win; for model it buys structurally reliable Ruby
+// parsing in place of the regex line scanner.
 // That cold start dominates the per-process wall time this test measures
 // (every `cmd.Run` is a fresh process), so the tight schema/about budget does
 // not fit. The Prism budget is sized to accommodate the cold start with
@@ -85,6 +86,10 @@ func TestStartupBudget(t *testing.T) {
 		{name: "jobs sync_user", args: []string{"--root", fixtureRoot, "jobs", "sync_user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "services user_export_service", args: []string{"--root", fixtureRoot, "services", "user_export_service"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "datagrids example", args: []string{"--root", fixtureRoot, "datagrids", "example"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		// skeleton parses via Prism like model/routes --static; a single-file input
+		// isolates the one-time WASM cold start from batch parse work, which the
+		// BenchmarkParseFiles* benchmarks cover instead.
+		{name: "skeleton", args: []string{"--root", fixtureRoot, "skeleton", "app/models/user.rb"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 	}
 
 	for _, tc := range cases {
