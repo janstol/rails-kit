@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Retuned `skeleton`'s internal timeout for the pooled Prism parser introduced in v1.2.0: a hang
   or pathological file now fails within roughly 20 seconds worst case instead of up to 120
   seconds. No change to normal output; only how quickly a genuine hang is reported.
+- `mailers`, `jobs`, and `services` now name the resolved absolute directory (rather than the
+  configured relative path) in the "path ... not found"/"not a directory" error when their app
+  directory is missing or not a directory, matching what `controllers` and `datagrids` already
+  did. Only these error messages change; normal output is unaffected.
 
 ## [0.5.0] - 2026-08-04
 

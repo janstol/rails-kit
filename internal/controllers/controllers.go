@@ -9,15 +9,10 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 
-	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/reader"
 	"github.com/janstol/rails-kit/internal/term"
 )
 
@@ -45,181 +40,6 @@ type ParseDiagnostic struct {
 
 var errAmbiguousControllerName = errors.New("ambiguous controller name")
 
-// IsAmbiguousError reports whether err indicates multiple controller matches.
-func IsAmbiguousError(err error) bool {
-	return errors.Is(err, errAmbiguousControllerName)
-}
-
-// Resolve finds the controller file for the given name or path within railsRoot.
-// The name may be a short resource name ("users"), the full file basename
-// ("users_controller"), a CamelCase class name ("UsersController",
-// "Admin::ReportsController"), or a file path ending in .rb.
-func Resolve(railsRoot, controllersPath, input string) (string, error) {
-	controllersDir := config.ResolvePath(railsRoot, controllersPath)
-
-	if strings.HasSuffix(input, ".rb") {
-		path := input
-		if !filepath.IsAbs(path) {
-			abs, err := filepath.Abs(path)
-			if err == nil {
-				path = abs
-			}
-		}
-		if _, err := os.Stat(path); err == nil {
-			rel, err := filepath.Rel(controllersDir, path)
-			if err != nil || strings.HasPrefix(rel, "..") {
-				return "", fmt.Errorf("controller file is outside controllers directory: %s", path)
-			}
-			return path, nil
-		}
-		cleanInput := input
-		if !filepath.IsAbs(controllersPath) {
-			prefix := filepath.ToSlash(filepath.Clean(controllersPath)) + "/"
-			cleanInput = strings.TrimPrefix(filepath.ToSlash(cleanInput), prefix)
-		}
-		path3 := filepath.Join(controllersDir, cleanInput)
-		if _, err := os.Stat(path3); err == nil {
-			return path3, nil
-		}
-		path2 := filepath.Join(railsRoot, input)
-		if _, err := os.Stat(path2); err == nil {
-			rel, err := filepath.Rel(controllersDir, path2)
-			if err != nil || strings.HasPrefix(rel, "..") {
-				return "", fmt.Errorf("controller file is outside controllers directory: %s", path2)
-			}
-			return path2, nil
-		}
-		return "", fmt.Errorf("controller file not found: %s", input)
-	}
-
-	name := astutil.Underscore(input)
-	normalizedName := astutil.NormalizeLookupName(name)
-	info, err := os.Stat(controllersDir)
-	if err != nil {
-		return "", fmt.Errorf("controllers path %s: %w", controllersDir, err)
-	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("controllers path %s: not a directory", controllersDir)
-	}
-
-	// Prefer the conventional "*_controller.rb" file. Fall back to the name
-	// exactly as given -- a handful of real apps keep .rb files directly
-	// under app/controllers (outside concerns/) that don't follow that
-	// convention, and ListNames surfaces those names unmodified.
-	suffixed := normalizedName
-	if !strings.HasSuffix(suffixed, "_controller") {
-		suffixed += "_controller"
-	}
-	candidates := []string{suffixed + ".rb"}
-	if suffixed != normalizedName {
-		candidates = append(candidates, normalizedName+".rb")
-	}
-
-	for _, target := range candidates {
-		found, matches, err := findControllerFile(controllersDir, target)
-		if err != nil {
-			return "", err
-		}
-		if found != "" {
-			return found, nil
-		}
-		if len(matches) > 1 {
-			var relNames []string
-			for _, m := range matches {
-				if r, e := filepath.Rel(controllersDir, m); e == nil {
-					relNames = append(relNames, filepath.ToSlash(r))
-				} else {
-					relNames = append(relNames, m)
-				}
-			}
-			return "", fmt.Errorf("%w '%s', matches: %s", errAmbiguousControllerName, input, strings.Join(relNames, ", "))
-		}
-		if len(matches) == 1 {
-			return matches[0], nil
-		}
-	}
-	return "", fmt.Errorf("controller file not found for '%s'", input)
-}
-
-// findControllerFile looks for target (a controllers-dir-relative path) under
-// controllersDir. If target has no path separators, it also matches by
-// basename anywhere in the tree, returning every match so the caller can
-// detect ambiguity.
-func findControllerFile(controllersDir, target string) (found string, matches []string, err error) {
-	basenameOnly := filepath.Base(target) == target
-	targetBase := filepath.Base(target)
-	err = filepath.WalkDir(controllersDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		rel, relErr := filepath.Rel(controllersDir, path)
-		if relErr != nil {
-			return nil
-		}
-		if rel == target {
-			found = path
-			return fs.SkipAll
-		}
-		if basenameOnly && d.Name() == targetBase {
-			matches = append(matches, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return "", nil, fmt.Errorf("walking controllers path %s: %w", controllersDir, err)
-	}
-	return found, matches, nil
-}
-
-// ListNames returns sorted snake_case controller names (relative to the
-// controllers directory, without .rb, with the "_controller" suffix
-// stripped) for every controller file under railsRoot's controllers path.
-// Files under controllerConcernsPath are excluded -- they hold concern
-// modules, not controllers. Returns nil, nil if the controllers directory
-// does not exist.
-func ListNames(railsRoot, controllersPath, controllerConcernsPath string) ([]string, error) {
-	controllersDir := config.ResolvePath(railsRoot, controllersPath)
-	concernsDir := config.ResolvePath(railsRoot, controllerConcernsPath)
-
-	info, err := os.Stat(controllersDir)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("controllers path %s: %w", controllersDir, err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("controllers path %s: not a directory", controllersDir)
-	}
-
-	var names []string
-	err = filepath.WalkDir(controllersDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if path == concernsDir {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if strings.HasSuffix(path, ".rb") {
-			rel, relErr := filepath.Rel(controllersDir, path)
-			if relErr == nil {
-				name := strings.TrimSuffix(filepath.ToSlash(rel), ".rb")
-				name = strings.TrimSuffix(name, "_controller")
-				names = append(names, name)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
 // macroAllowlist holds the controller macros whose entry line gets a color
 // accent in Format. Bare-name sections (Concerns, HelperMethods, RespondTo,
 // Actions) are intentionally excluded -- their section label already carries
@@ -236,24 +56,36 @@ func isMacroToken(tok string) bool {
 		strings.HasPrefix(tok, "skip_before_") || strings.HasPrefix(tok, "skip_after_") || strings.HasPrefix(tok, "skip_around_")
 }
 
-// styleEntry colors the leading macro keyword of a "  macro ..." entry line
-// produced by Parse, leaving the rest of the line untouched. Lines whose
-// first token is not a known macro (bare names like a helper method or
-// action) pass through unchanged.
-func styleEntry(entry string, st term.Styler) string {
-	const indent = "  "
-	if !strings.HasPrefix(entry, indent) {
-		return entry
-	}
-	rest := entry[len(indent):]
-	tok := rest
-	if idx := strings.IndexByte(rest, ' '); idx >= 0 {
-		tok = rest[:idx]
-	}
-	if !isMacroToken(tok) {
-		return entry
-	}
-	return indent + st.Cyan(tok) + rest[len(tok):]
+var kind = reader.Kind{
+	Noun:         "controller",
+	Plural:       "controllers",
+	Suffix:       "_controller",
+	ErrAmbiguous: errAmbiguousControllerName,
+	IsMacro:      isMacroToken,
+}
+
+// IsAmbiguousError reports whether err indicates multiple controller matches.
+func IsAmbiguousError(err error) bool {
+	return errors.Is(err, errAmbiguousControllerName)
+}
+
+// Resolve finds the controller file for the given name or path within railsRoot.
+// The name may be a short resource name ("users"), the full file basename
+// ("users_controller"), a CamelCase class name ("UsersController",
+// "Admin::ReportsController"), or a file path ending in .rb.
+func Resolve(railsRoot, controllersPath, input string) (string, error) {
+	return kind.Resolve(railsRoot, controllersPath, input)
+}
+
+// ListNames returns sorted snake_case controller names (relative to the
+// controllers directory, without .rb, with the "_controller" suffix
+// stripped) for every controller file under railsRoot's controllers path.
+// Files under controllerConcernsPath are excluded -- they hold concern
+// modules, not controllers. Returns nil, nil if the controllers directory
+// does not exist.
+func ListNames(railsRoot, controllersPath, controllerConcernsPath string) ([]string, error) {
+	concernsDir := config.ResolvePath(railsRoot, controllerConcernsPath)
+	return kind.ListNames(railsRoot, controllersPath, concernsDir)
 }
 
 // Format renders the summary as a human-readable string. st controls
@@ -292,7 +124,7 @@ func Format(s *Summary, st term.Styler) string {
 		sb.WriteString("\n")
 		sb.WriteString(st.Bold(sec.label+":") + "\n")
 		for _, e := range sec.entries {
-			sb.WriteString(styleEntry(e, st) + "\n")
+			sb.WriteString(kind.StyleEntry(e, st) + "\n")
 		}
 	}
 	sb.WriteString("\n")
