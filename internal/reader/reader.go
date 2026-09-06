@@ -1,6 +1,6 @@
 // Package reader holds the file-resolution, listing, and entry-styling
-// conventions shared by the controllers, mailers, jobs, services, and
-// datagrids readers. Each of those packages configures a Kind describing its
+// conventions shared by the controllers, mailers, jobs, services, datagrids,
+// and model readers. Each of those packages configures a Kind describing its
 // own naming convention and delegates Resolve, ListNames, and StyleEntry to
 // it, keeping the AST-parsing and Format logic (which does vary per reader)
 // in the package itself.

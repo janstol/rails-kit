@@ -40,6 +40,43 @@ func classBody(t *testing.T, src string) ([]byte, []parser.Node) {
 	return p.Src, prism.BlockStatements(class.Body)
 }
 
+func TestUnderscore(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"S3BucketArchivePolicy", "s3_bucket_archive_policy"},
+		{"OrderItem", "order_item"},
+		{"APIKey", "api_key"},
+		{"User", "user"},
+		{"order_item", "order_item"},
+		{"Admin::Dashboard", "admin/dashboard"},
+	}
+	for _, c := range cases {
+		got := astutil.Underscore(c.input)
+		if got != c.want {
+			t.Errorf("Underscore(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+func TestNormalizeLookupName(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{`admin\dashboard`, filepath.Join("admin", "dashboard")},
+		{"admin/dashboard", filepath.Join("admin", "dashboard")},
+		{"./admin/dashboard", filepath.Join("admin", "dashboard")},
+	}
+	for _, c := range cases {
+		got := astutil.NormalizeLookupName(c.input)
+		if got != c.want {
+			t.Errorf("NormalizeLookupName(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
 func TestParseFile(t *testing.T) {
 	p, err := astutil.ParseFile(writeRuby(t, "class Foo\nend\n"))
 	if err != nil {
