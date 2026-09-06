@@ -9,7 +9,6 @@ package mailers
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/reader"
@@ -77,45 +76,15 @@ func ListNames(railsRoot, mailersPath string) ([]string, error) {
 // terminal color accents; the zero value renders identically to the
 // uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	var sb strings.Builder
-	sb.WriteString(st.Bold(s.ClassName))
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + st.Cyan(s.ParentClass))
-	}
-	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
-	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
-
-	if len(s.Default) > 0 {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Default:") + "\n")
-		for _, e := range s.Default {
-			sb.WriteString(kind.StyleEntry(e, st) + "\n")
-		}
-	}
-	if s.Layout != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Layout:") + "\n")
-		sb.WriteString("  " + s.Layout + "\n")
-	}
-
-	sections := []struct {
-		label   string
-		entries []string
-	}{
-		{"Concerns", s.Concerns},
-		{"Attachments", s.Attachments},
-		{"Mailer Methods", s.Methods},
-	}
-	for _, sec := range sections {
-		if len(sec.entries) == 0 {
-			continue
-		}
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold(sec.label+":") + "\n")
-		for _, e := range sec.entries {
-			sb.WriteString(kind.StyleEntry(e, st) + "\n")
-		}
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return kind.Format(
+		reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath},
+		[]reader.Section{
+			{Label: "Default", Entries: s.Default},
+			{Label: "Layout", Value: s.Layout},
+			{Label: "Concerns", Entries: s.Concerns},
+			{Label: "Attachments", Entries: s.Attachments},
+			{Label: "Mailer Methods", Entries: s.Methods},
+		},
+		st,
+	)
 }

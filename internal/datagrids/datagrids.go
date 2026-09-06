@@ -96,45 +96,17 @@ func ListNames(railsRoot, datagridsPath string) ([]string, error) {
 // Format renders the summary as a human-readable string. st controls terminal
 // color accents; the zero value renders identically to the uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	var sb strings.Builder
-	sb.WriteString(st.Bold(s.ClassName))
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + st.Cyan(s.ParentClass))
-	}
-	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
-	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
-
-	if s.Decorate != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Decorate:") + "\n")
-		sb.WriteString("  " + s.Decorate + "\n")
-	}
-	if s.Scope != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Scope:") + "\n")
-		sb.WriteString("  " + s.Scope + "\n")
-	}
-
-	sections := []struct {
-		label   string
-		entries []string
-	}{
-		{"Concerns", s.Concerns},
-		{"Filters", s.Filters},
-		{"Columns", s.Columns},
-		{"Macros", s.Macros},
-		{"Methods", s.Methods},
-	}
-	for _, sec := range sections {
-		if len(sec.entries) == 0 {
-			continue
-		}
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold(sec.label+":") + "\n")
-		for _, e := range sec.entries {
-			sb.WriteString(kind.StyleEntry(e, st) + "\n")
-		}
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return kind.Format(
+		reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath},
+		[]reader.Section{
+			{Label: "Decorate", Value: s.Decorate},
+			{Label: "Scope", Value: s.Scope},
+			{Label: "Concerns", Entries: s.Concerns},
+			{Label: "Filters", Entries: s.Filters},
+			{Label: "Columns", Entries: s.Columns},
+			{Label: "Macros", Entries: s.Macros},
+			{Label: "Methods", Entries: s.Methods},
+		},
+		st,
+	)
 }

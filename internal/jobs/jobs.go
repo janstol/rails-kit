@@ -9,7 +9,6 @@ package jobs
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/reader"
@@ -76,39 +75,15 @@ func ListNames(railsRoot, jobsPath string) ([]string, error) {
 // Format renders the summary as a human-readable string. st controls terminal
 // color accents; the zero value renders identically to the uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	var sb strings.Builder
-	sb.WriteString(st.Bold(s.ClassName))
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + st.Cyan(s.ParentClass))
-	}
-	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
-	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
-
-	if s.Queue != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Queue:") + "\n")
-		sb.WriteString("  " + s.Queue + "\n")
-	}
-
-	sections := []struct {
-		label   string
-		entries []string
-	}{
-		{"Concerns", s.Concerns},
-		{"Retry On", s.RetryOn},
-		{"Discard On", s.DiscardOn},
-		{"Job Methods", s.Methods},
-	}
-	for _, sec := range sections {
-		if len(sec.entries) == 0 {
-			continue
-		}
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold(sec.label+":") + "\n")
-		for _, e := range sec.entries {
-			sb.WriteString(kind.StyleEntry(e, st) + "\n")
-		}
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return kind.Format(
+		reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath},
+		[]reader.Section{
+			{Label: "Queue", Value: s.Queue},
+			{Label: "Concerns", Entries: s.Concerns},
+			{Label: "Retry On", Entries: s.RetryOn},
+			{Label: "Discard On", Entries: s.DiscardOn},
+			{Label: "Job Methods", Entries: s.Methods},
+		},
+		st,
+	)
 }

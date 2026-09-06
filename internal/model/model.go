@@ -12,6 +12,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/reader"
 	"github.com/janstol/rails-kit/internal/term"
 )
 
@@ -217,65 +218,27 @@ func isMacroToken(tok string) bool {
 	return strings.HasPrefix(tok, "before_") || strings.HasPrefix(tok, "after_") || strings.HasPrefix(tok, "around_")
 }
 
-// styleEntry colors the leading macro keyword of a "  macro ..." entry line
-// produced by Parse, leaving the rest of the line untouched. Lines whose
-// first token is not a known macro (bare names like concern or scope
-// entries) pass through unchanged.
-func styleEntry(entry string, st term.Styler) string {
-	const indent = "  "
-	if !strings.HasPrefix(entry, indent) {
-		return entry
-	}
-	rest := entry[len(indent):]
-	tok := rest
-	if idx := strings.IndexByte(rest, ' '); idx >= 0 {
-		tok = rest[:idx]
-	}
-	if !isMacroToken(tok) {
-		return entry
-	}
-	return indent + st.Cyan(tok) + rest[len(tok):]
-}
+// kind is configured for entry styling and Format only -- model keeps its own
+// Resolve/ListNames because its lookup rules differ from the domain readers
+// in internal/reader.
+var kind = reader.Kind{IsMacro: isMacroToken}
 
 // Format renders the summary as a human-readable string. st controls
 // terminal color accents; the zero value renders identically to the
 // uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	var sb strings.Builder
-	sb.WriteString(st.Bold(s.ClassName))
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + st.Cyan(s.ParentClass))
-	}
-	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
-	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
-	if s.TableName != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Table:") + "\n")
-		sb.WriteString("  " + s.TableName + "\n")
-	}
-
-	sections := []struct {
-		label   string
-		entries []string
-	}{
-		{"Concerns", s.Concerns},
-		{"Associations", s.Assocs},
-		{"Validations", s.Valids},
-		{"Scopes", s.Scopes},
-		{"Callbacks", s.Callbacks},
-		{"Enums", s.Enums},
-		{"Delegates", s.Delegates},
-	}
-	for _, sec := range sections {
-		if len(sec.entries) == 0 {
-			continue
-		}
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold(sec.label+":") + "\n")
-		for _, e := range sec.entries {
-			sb.WriteString(styleEntry(e, st) + "\n")
-		}
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return kind.Format(
+		reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath},
+		[]reader.Section{
+			{Label: "Table", Value: s.TableName},
+			{Label: "Concerns", Entries: s.Concerns},
+			{Label: "Associations", Entries: s.Assocs},
+			{Label: "Validations", Entries: s.Valids},
+			{Label: "Scopes", Entries: s.Scopes},
+			{Label: "Callbacks", Entries: s.Callbacks},
+			{Label: "Enums", Entries: s.Enums},
+			{Label: "Delegates", Entries: s.Delegates},
+		},
+		st,
+	)
 }

@@ -90,41 +90,18 @@ func ListNames(railsRoot, controllersPath, controllerConcernsPath string) ([]str
 // terminal color accents; the zero value renders identically to the
 // uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	var sb strings.Builder
-	sb.WriteString(st.Bold(s.ClassName))
-	if s.ParentClass != "" {
-		sb.WriteString(" < " + st.Cyan(s.ParentClass))
-	}
-	sb.WriteString(" " + st.Dim("("+s.RelPath+")") + "\n")
-	sb.WriteString(st.Dim(strings.Repeat("=", 40)) + "\n")
-	if s.Layout != "" {
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold("Layout:") + "\n")
-		sb.WriteString("  " + s.Layout + "\n")
-	}
-
-	sections := []struct {
-		label   string
-		entries []string
-	}{
-		{"Concerns", s.Concerns},
-		{"Filters", s.Filters},
-		{"Rescue From", s.RescueFrom},
-		{"Helper Methods", s.HelperMethods},
-		{"Respond To", s.RespondTo},
-		{"Strong Params", s.StrongParams},
-		{"Actions", s.Actions},
-	}
-	for _, sec := range sections {
-		if len(sec.entries) == 0 {
-			continue
-		}
-		sb.WriteString("\n")
-		sb.WriteString(st.Bold(sec.label+":") + "\n")
-		for _, e := range sec.entries {
-			sb.WriteString(kind.StyleEntry(e, st) + "\n")
-		}
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	return kind.Format(
+		reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath},
+		[]reader.Section{
+			{Label: "Layout", Value: s.Layout},
+			{Label: "Concerns", Entries: s.Concerns},
+			{Label: "Filters", Entries: s.Filters},
+			{Label: "Rescue From", Entries: s.RescueFrom},
+			{Label: "Helper Methods", Entries: s.HelperMethods},
+			{Label: "Respond To", Entries: s.RespondTo},
+			{Label: "Strong Params", Entries: s.StrongParams},
+			{Label: "Actions", Entries: s.Actions},
+		},
+		st,
+	)
 }
