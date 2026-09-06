@@ -106,6 +106,107 @@ func TestParseFile_SyntaxError(t *testing.T) {
 	}
 }
 
+// programFrom parses src and returns its recovered *parser.ProgramNode,
+// failing the test if Prism could not recover one.
+func programFrom(t *testing.T, src string) *parser.ProgramNode {
+	t.Helper()
+	p, err := astutil.ParseFile(writeRuby(t, src))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if p.Program == nil {
+		t.Fatalf("no program recovered from source: %s", src)
+	}
+	return p.Program
+}
+
+func TestTopLevelClassOrModule_PureNamespaceDescendsToNestedClass(t *testing.T) {
+	// A module with nothing but a nested class is pure namespacing --
+	// descend into it, mirroring the `module Admin; class ReportsHelper;
+	// ...; end; end` idiom.
+	program := programFrom(t, `module Admin
+  class ReportsHelper
+    def summary; end
+  end
+end
+`)
+	class, module := astutil.TopLevelClassOrModule(program)
+	if module != nil {
+		t.Fatalf("module = %v, want nil", module)
+	}
+	if class == nil || class.Name != "ReportsHelper" {
+		t.Fatalf("class = %v, want ReportsHelper", class)
+	}
+}
+
+func TestTopLevelClassOrModule_PureNamespaceWithConstantsDescends(t *testing.T) {
+	// Namespace-level constants alongside a nested class don't disqualify
+	// the descent -- they're shared values, not the module's own behavior
+	// (real shape: a namespace module holding shared constants plus the one
+	// class that is the file's actual target).
+	program := programFrom(t, `module Wrapper
+  TYPE_A = :a
+  TYPE_B = :b
+
+  class Worker
+    def call; end
+  end
+end
+`)
+	class, module := astutil.TopLevelClassOrModule(program)
+	if module != nil {
+		t.Fatalf("module = %v, want nil", module)
+	}
+	if class == nil || class.Name != "Worker" {
+		t.Fatalf("class = %v, want Worker", class)
+	}
+}
+
+func TestTopLevelClassOrModule_OwnMethodsKeepModuleAsTarget(t *testing.T) {
+	// A module that defines its own methods alongside a nested class is not
+	// pure namespacing -- the nested class is a private implementation
+	// detail (e.g. a link-renderer helper class), not the file's real
+	// target. Returning the nested class here would silently drop the
+	// module's own, actually-callable methods.
+	program := programFrom(t, `module Paginator
+  def paginate_remote(collection); end
+
+  class RemoteLinkRenderer
+    def link; end
+  end
+
+  def paginate_turbo(collection); end
+end
+`)
+	class, module := astutil.TopLevelClassOrModule(program)
+	if class != nil {
+		t.Fatalf("class = %v, want nil (must not pick the nested implementation class)", class)
+	}
+	if module == nil || module.Name != "Paginator" {
+		t.Fatalf("module = %v, want Paginator", module)
+	}
+}
+
+func TestTopLevelClassOrModule_OwnMacroCallKeepsModuleAsTarget(t *testing.T) {
+	// A receiverless macro call (not just a def) at the module's own level
+	// is also real content -- not pure namespacing.
+	program := programFrom(t, `module WithConcern
+  include Formattable
+
+  class Internal
+    def helper_method; end
+  end
+end
+`)
+	class, module := astutil.TopLevelClassOrModule(program)
+	if class != nil {
+		t.Fatalf("class = %v, want nil", class)
+	}
+	if module == nil || module.Name != "WithConcern" {
+		t.Fatalf("module = %v, want WithConcern", module)
+	}
+}
+
 func TestSummaryPath_Nested(t *testing.T) {
 	railsRoot := filepath.FromSlash("/rails")
 	dirPath := "app/controllers"

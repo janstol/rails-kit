@@ -26,6 +26,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   directory is missing or not a directory, matching what `controllers` and `datagrids` already
   did. Only these error messages change; normal output is unaffected.
 
+### Fixed
+
+- `services` no longer discards a module's own methods in favor of a nested implementation class
+  when both are present (e.g. `module Foo; def bar; end; class Helper; ...; end; end`). Previously
+  the nested class's methods silently replaced the module's own, real API; now the module is
+  recognized as the target and the nested class is skipped, not promoted, matching the existing
+  rule against nested-class methods leaking into an outer summary. A module whose only content is
+  the nested class (plus namespace-level constants) still descends into it unchanged.
+
 ## [0.5.0] - 2026-08-04
 
 ### Added

@@ -109,6 +109,16 @@ func findClassInStatements(nodes []parser.Node) *parser.ClassNode {
 // This is what lets a reader recognize module-style services
 // (`module Foo; def self.bar; end; end`).
 //
+// Descent only happens through a *pure namespace* module -- one whose body
+// holds nothing but nested class/module declarations and (optionally)
+// namespace-level constants. A module that also defines its own methods
+// (e.g. `module Foo; def bar; end; class Helper; ...; end; end`, a helper
+// exposing its API alongside a private implementation class) is returned as
+// itself rather than having its methods discarded in favor of the nested
+// class -- nesting only ever hides a class's contents from its container, it
+// never promotes the nested class over a container that has real content of
+// its own.
+//
 // At most one of class or module is non-nil.
 func TopLevelClassOrModule(program *parser.ProgramNode) (class *parser.ClassNode, module *parser.ModuleNode) {
 	if program.Statements == nil {
@@ -118,20 +128,44 @@ func TopLevelClassOrModule(program *parser.ProgramNode) (class *parser.ClassNode
 }
 
 func findClassOrModuleInStatements(nodes []parser.Node) (*parser.ClassNode, *parser.ModuleNode) {
+	var found parser.Node
 	for _, node := range nodes {
-		switch n := node.(type) {
-		case *parser.ClassNode:
-			return n, nil
-		case *parser.ModuleNode:
-			// Descend into a namespace module looking for a nested class or
-			// module. If the module body holds neither, return the module
-			// itself -- this is the module-style-service case that
-			// TopLevelClass deliberately skips.
-			if c, m := findClassOrModuleInStatements(prism.BlockStatements(n.Body)); c != nil || m != nil {
-				return c, m
-			}
-			return nil, n
+		switch node.(type) {
+		case *parser.ClassNode, *parser.ModuleNode:
+			found = node
+		}
+		if found != nil {
+			break
 		}
 	}
-	return nil, nil
+	if found == nil {
+		return nil, nil
+	}
+	if class, ok := found.(*parser.ClassNode); ok {
+		return class, nil
+	}
+	module := found.(*parser.ModuleNode)
+	body := prism.BlockStatements(module.Body)
+	if isPureNamespace(body) {
+		if c, m := findClassOrModuleInStatements(body); c != nil || m != nil {
+			return c, m
+		}
+	}
+	return nil, module
+}
+
+// isPureNamespace reports whether nodes hold nothing but nested class/module
+// declarations and namespace-level constants -- the shape that makes it safe
+// to descend past a module looking for the class/module it wraps, rather than
+// treating the module itself as the target.
+func isPureNamespace(nodes []parser.Node) bool {
+	for _, node := range nodes {
+		switch node.(type) {
+		case *parser.ClassNode, *parser.ModuleNode, *parser.ConstantWriteNode:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }

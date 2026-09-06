@@ -119,12 +119,14 @@ func TestParse_ClassForm(t *testing.T) {
 // not leak into the recognized inner module's summary, mirroring the
 // `module Admin; module ReportsHelper; ...; end; end` idiom real helper files
 // use for namespacing.
-func TestParse_OnlyOutermostModule(t *testing.T) {
+// TestParse_PureNamespaceModuleDescendsToNested pins the legitimate
+// namespacing idiom: a wrapping module with no content of its own besides
+// the nested module is pure namespacing, so Parse descends into the nested
+// module -- the real `module Admin; module ReportsHelper; ...; end; end`
+// shape.
+func TestParse_PureNamespaceModuleDescendsToNested(t *testing.T) {
 	content := strings.Join([]string{
 		"module Namespace",
-		"  def leaked_method",
-		"  end",
-		"",
 		"  module Nested",
 		"    def real_method",
 		"    end",
@@ -135,7 +137,40 @@ func TestParse_OnlyOutermostModule(t *testing.T) {
 	s := parseTempHelper(t, "nested_helper.rb", content)
 
 	if want := []string{"  real_method"}; !reflect.DeepEqual(s.Methods, want) {
-		t.Fatalf("Methods = %#v, want %#v (leaked_method must not appear)", s.Methods, want)
+		t.Fatalf("Methods = %#v, want %#v", s.Methods, want)
+	}
+}
+
+// TestParse_ModuleWithOwnMethodKeepsOwnMethodOverNestedClass pins the fix for
+// a real bug found dogfooding: a module that defines its own methods
+// alongside a nested class (a link-renderer/decorator-style implementation
+// detail, e.g. real apps' `WillPaginateHelper`/`CarouselHelper`) must keep
+// its own methods as the summary -- the nested class is not the file's real
+// target, and must not silently replace the module's actually-callable
+// methods (nor leak its own method into the module's summary, mirroring the
+// anti-leak rule for nested classes elsewhere).
+func TestParse_ModuleWithOwnMethodKeepsOwnMethodOverNestedClass(t *testing.T) {
+	content := strings.Join([]string{
+		"module Paginator",
+		"  def paginate_remote(collection)",
+		"  end",
+		"",
+		"  class RemoteLinkRenderer",
+		"    def link",
+		"    end",
+		"  end",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempHelper(t, "paginator_helper.rb", content)
+
+	if s.Kind != "module" {
+		t.Errorf("Kind = %q, want module", s.Kind)
+	}
+	want := []string{"  paginate_remote(collection)"}
+	if !reflect.DeepEqual(s.Methods, want) {
+		t.Fatalf("Methods = %#v, want %#v (RemoteLinkRenderer#link must not leak, "+
+			"and must not replace paginate_remote)", s.Methods, want)
 	}
 }
 

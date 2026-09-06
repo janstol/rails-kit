@@ -332,6 +332,40 @@ func TestParse_ModuleWithoutNestedClassIsRecognized(t *testing.T) {
 	}
 }
 
+// TestParse_ModuleWithOwnMethodKeepsOwnMethodOverNestedClass mirrors the
+// helpers-side fix for a real bug found dogfooding: a module-style service
+// that defines its own methods alongside a nested class (e.g. a namespaced
+// value object used only internally) must keep its own methods as the
+// summary rather than having a nested implementation class silently
+// substituted in. A pure-namespace module (nothing of its own besides the
+// nested class, see TestParse_ModuleWithoutNestedClassIsRecognized's
+// counterpart in astutil_test.go) is unaffected -- only a module with real
+// content of its own is kept as the target.
+func TestParse_ModuleWithOwnMethodKeepsOwnMethodOverNestedClass(t *testing.T) {
+	content := strings.Join([]string{
+		"module Reporting",
+		"  def self.call",
+		"  end",
+		"",
+		"  class InternalRow",
+		"    def to_a",
+		"    end",
+		"  end",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempService(t, "reporting.rb", content)
+
+	if s.Kind != "module" {
+		t.Fatalf("Kind = %q, want module", s.Kind)
+	}
+	want := []string{"  call"}
+	if !reflect.DeepEqual(s.Methods, want) {
+		t.Fatalf("Methods = %#v, want %#v (InternalRow#to_a must not leak, "+
+			"and must not replace call)", s.Methods, want)
+	}
+}
+
 func parseTempService(t *testing.T, relPath, content string) *services.Summary {
 	t.Helper()
 	root := t.TempDir()
