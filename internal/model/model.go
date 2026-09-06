@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/term"
 )
@@ -38,10 +39,7 @@ type Summary struct {
 }
 
 // ParseDiagnostic describes a recoverable Ruby syntax error reported by Prism.
-type ParseDiagnostic struct {
-	Line    int
-	Message string
-}
+type ParseDiagnostic = astutil.ParseDiagnostic
 
 var errAmbiguousModelName = errors.New("ambiguous model name")
 

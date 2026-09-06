@@ -1,14 +1,11 @@
 package model
 
 import (
-	"context"
-	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
-	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/prism"
 )
 
@@ -34,60 +31,21 @@ var skippedConcernPrefixes = []string{
 // Prism is error-tolerant: recoverable syntax errors are attached to the summary while
 // whatever structure Prism could recover is still returned.
 func Parse(modelPath, railsRoot, modelsPath string) (*Summary, error) {
-	ctx := context.Background()
-	p, err := prism.NewParser(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating prism parser: %w", err)
-	}
-	defer p.Close(ctx) //nolint:errcheck
-
-	result, src, err := p.Parse(ctx, modelPath)
+	p, err := astutil.ParseFile(modelPath)
 	if err != nil {
 		return nil, err
 	}
 
-	s := summaryForPath(modelPath, railsRoot, modelsPath)
-	for _, parseErr := range result.Errors {
-		s.ParseErrors = append(s.ParseErrors, ParseDiagnostic{
-			Line:    prism.LineAt(src, parseErr.Location.StartOffset),
-			Message: parseErr.Message,
-		})
-	}
-	if result.Value == nil {
+	s := &Summary{}
+	s.RelPath, s.ClassName = astutil.SummaryPath(modelPath, railsRoot, modelsPath)
+	s.ParseErrors = p.Diagnostics
+	if p.Program == nil {
 		return s, nil
 	}
 
-	w := modelWalker{src: src, summary: s, seenLines: make(map[int]bool)}
-	w.walk(result.Value)
+	w := modelWalker{src: p.Src, summary: s, seenLines: make(map[int]bool)}
+	w.walk(p.Program)
 	return s, nil
-}
-
-func summaryForPath(modelPath, railsRoot, modelsPath string) *Summary {
-	s := &Summary{}
-	rel, err := filepath.Rel(railsRoot, modelPath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		rel = modelPath
-	}
-	s.RelPath = filepath.ToSlash(rel)
-
-	modelsDir := config.ResolvePath(railsRoot, modelsPath)
-	namePart, err := filepath.Rel(modelsDir, modelPath)
-	if err != nil || strings.HasPrefix(namePart, "..") {
-		namePart = filepath.Base(modelPath)
-	}
-	namePart = strings.TrimSuffix(namePart, ".rb")
-	classSegments := make([]string, 0, 2)
-	for _, seg := range strings.Split(namePart, string(filepath.Separator)) {
-		var camel string
-		for _, part := range strings.Split(seg, "_") {
-			if part != "" {
-				camel += strings.ToUpper(part[:1]) + part[1:]
-			}
-		}
-		classSegments = append(classSegments, camel)
-	}
-	s.ClassName = strings.Join(classSegments, "::")
-	return s
 }
 
 type modelWalker struct {

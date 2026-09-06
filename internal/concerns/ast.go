@@ -1,10 +1,8 @@
 package concerns
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/danielgatis/go-ruby-prism/parser"
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/prism"
 )
 
@@ -13,14 +11,7 @@ import (
 // attached to the detail while whatever structure Prism could recover is
 // still returned.
 func Parse(filePath, relPath, concernType string) (*ConcernDetail, error) {
-	ctx := context.Background()
-	p, err := prism.NewParser(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating prism parser: %w", err)
-	}
-	defer p.Close(ctx) //nolint:errcheck
-
-	result, src, err := p.Parse(ctx, filePath)
+	p, err := astutil.ParseFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -29,21 +20,16 @@ func Parse(filePath, relPath, concernType string) (*ConcernDetail, error) {
 		Path: relPath,
 		Type: concernType,
 	}
-	for _, parseErr := range result.Errors {
-		d.ParseErrors = append(d.ParseErrors, ParseDiagnostic{
-			Line:    prism.LineAt(src, parseErr.Location.StartOffset),
-			Message: parseErr.Message,
-		})
-	}
-	if result.Value == nil {
+	d.ParseErrors = p.Diagnostics
+	if p.Program == nil {
 		return d, nil
 	}
 
-	module := topLevelModule(result.Value)
+	module := topLevelModule(p.Program)
 	if module == nil {
 		return d, nil
 	}
-	d.Name = prism.Slice(src, module.ConstantPath.GetLocation())
+	d.Name = prism.Slice(p.Src, module.ConstantPath.GetLocation())
 
 	w := concernWalker{detail: d}
 	w.walkModuleBody(prism.BlockStatements(module.Body))

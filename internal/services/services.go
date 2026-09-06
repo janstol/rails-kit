@@ -14,6 +14,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/reader"
 	"github.com/janstol/rails-kit/internal/term"
 )
@@ -31,10 +32,7 @@ type Summary struct {
 }
 
 // ParseDiagnostic describes a recoverable Ruby syntax error reported by Prism.
-type ParseDiagnostic struct {
-	Line    int
-	Message string
-}
+type ParseDiagnostic = astutil.ParseDiagnostic
 
 var errAmbiguousServiceName = errors.New("ambiguous service name")
 

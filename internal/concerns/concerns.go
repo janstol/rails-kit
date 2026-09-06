@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/janstol/rails-kit/internal/astutil"
 )
 
 // ConcernDetail holds parsed information about a single concern file.
@@ -22,10 +24,7 @@ type ConcernDetail struct {
 }
 
 // ParseDiagnostic describes a recoverable Ruby syntax error reported by Prism.
-type ParseDiagnostic struct {
-	Line    int
-	Message string
-}
+type ParseDiagnostic = astutil.ParseDiagnostic
 
 // ListFiles returns sorted snake_case names (without .rb extension) of all concern
 // files in dir, including nested subdirectories.

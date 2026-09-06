@@ -1,8 +1,9 @@
 // Package astutil holds AST-walking helpers shared across the Prism-backed
-// readers (controllers, mailers, jobs). Each reader's Summary type is
-// domain-specific, but the name-mangling, source-rendering, and top-level
-// class-discovery primitives are byte-identical across them, so they live here
-// once rather than being copy-pasted per package.
+// readers (controllers, mailers, jobs, services, datagrids, model, concerns).
+// Each reader's Summary type is domain-specific, but the name-mangling,
+// source-rendering, top-level class-discovery, parsing, and class-body-walking
+// primitives are byte-identical across them, so they live here once rather
+// than being copy-pasted per package.
 package astutil
 
 import (

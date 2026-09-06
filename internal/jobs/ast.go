@@ -1,15 +1,11 @@
 package jobs
 
 import (
-	"context"
-	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
 
 	"github.com/janstol/rails-kit/internal/astutil"
-	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/prism"
 )
 
@@ -21,105 +17,37 @@ var skippedConcernPrefixes = []string{
 // summary. Prism is error-tolerant: recoverable syntax errors are attached to
 // the summary while whatever structure Prism could recover is still returned.
 func Parse(jobPath, railsRoot, jobsPath string) (*Summary, error) {
-	ctx := context.Background()
-	p, err := prism.NewParser(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating prism parser: %w", err)
-	}
-	defer p.Close(ctx) //nolint:errcheck
-
-	result, src, err := p.Parse(ctx, jobPath)
+	p, err := astutil.ParseFile(jobPath)
 	if err != nil {
 		return nil, err
 	}
 
-	s := summaryForPath(jobPath, railsRoot, jobsPath)
-	for _, parseErr := range result.Errors {
-		s.ParseErrors = append(s.ParseErrors, ParseDiagnostic{
-			Line:    prism.LineAt(src, parseErr.Location.StartOffset),
-			Message: parseErr.Message,
-		})
-	}
-	if result.Value == nil {
+	s := &Summary{}
+	s.RelPath, s.ClassName = astutil.SummaryPath(jobPath, railsRoot, jobsPath)
+	s.ParseErrors = p.Diagnostics
+	if p.Program == nil {
 		return s, nil
 	}
 
-	class := astutil.TopLevelClass(result.Value)
+	class := astutil.TopLevelClass(p.Program)
 	if class == nil {
 		return s, nil
 	}
 	if class.Superclass != nil {
-		s.ParentClass = prism.Slice(src, class.Superclass.GetLocation())
+		s.ParentClass = prism.Slice(p.Src, class.Superclass.GetLocation())
 	}
 
-	w := jobWalker{src: src, summary: s}
-	w.walkClassBody(prism.BlockStatements(class.Body))
+	w := jobWalker{src: p.Src, summary: s}
+	astutil.WalkClassBody(prism.BlockStatements(class.Body), astutil.ClassBody{
+		Def:  w.handleDef,
+		Call: w.handleCall,
+	})
 	return s, nil
-}
-
-func summaryForPath(jobPath, railsRoot, jobsPath string) *Summary {
-	s := &Summary{}
-	rel, err := filepath.Rel(railsRoot, jobPath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		rel = jobPath
-	}
-	s.RelPath = filepath.ToSlash(rel)
-
-	jobsDir := config.ResolvePath(railsRoot, jobsPath)
-	namePart, err := filepath.Rel(jobsDir, jobPath)
-	if err != nil || strings.HasPrefix(namePart, "..") {
-		namePart = filepath.Base(jobPath)
-	}
-	namePart = strings.TrimSuffix(namePart, ".rb")
-	classSegments := make([]string, 0, 2)
-	for _, seg := range strings.Split(namePart, string(filepath.Separator)) {
-		var camel string
-		for _, part := range strings.Split(seg, "_") {
-			if part != "" {
-				camel += strings.ToUpper(part[:1]) + part[1:]
-			}
-		}
-		classSegments = append(classSegments, camel)
-	}
-	s.ClassName = strings.Join(classSegments, "::")
-	return s
 }
 
 type jobWalker struct {
 	src     []byte
 	summary *Summary
-}
-
-// walkClassBody scans the job class's top-level statements, tracking
-// `private`/`protected`/`public` visibility switches (both the bare-call form
-// and the `private def foo; end` single-method form) so only public methods
-// are reported.
-func (w *jobWalker) walkClassBody(nodes []parser.Node) {
-	visibility := "public"
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case *parser.CallNode:
-			if n.Receiver == nil {
-				switch n.Name {
-				case "private", "protected", "public":
-					args := prism.ArgNodes(n)
-					if len(args) == 0 && n.Block == nil {
-						visibility = n.Name
-						continue
-					}
-					if len(args) == 1 {
-						if def, ok := args[0].(*parser.DefNode); ok {
-							w.handleDef(def, n.Name)
-							continue
-						}
-					}
-				}
-			}
-			w.handleCall(n)
-		case *parser.DefNode:
-			w.handleDef(n, visibility)
-		}
-	}
 }
 
 func (w *jobWalker) handleDef(def *parser.DefNode, visibility string) {
@@ -146,19 +74,9 @@ func (w *jobWalker) handleCall(call *parser.CallNode) {
 }
 
 func (w *jobWalker) handleInclude(args []parser.Node) {
-	if len(args) == 0 {
-		return
+	if name := astutil.IncludedConcern(w.src, args, skippedConcernPrefixes); name != "" {
+		w.summary.Concerns = append(w.summary.Concerns, "  "+name)
 	}
-	name := astutil.ConstantName(w.src, args[0])
-	if name == "" {
-		return
-	}
-	for _, prefix := range skippedConcernPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			return
-		}
-	}
-	w.summary.Concerns = append(w.summary.Concerns, "  "+name)
 }
 
 // handleQueueAs renders the queue argument: a symbol as `:name`, a string as
@@ -234,12 +152,7 @@ func (w *jobWalker) handleRetryOrDiscard(call *parser.CallNode, args []parser.No
 // of source order, so entries are deterministic. Values are rendered as their
 // joined source (e.g. `5.seconds`, `3`).
 func retryOptions(src []byte, assocs []*parser.AssocNode) []string {
-	byKey := make(map[string]parser.Node, len(assocs))
-	for _, assoc := range assocs {
-		if key, ok := prism.SymbolValue(assoc.Key); ok {
-			byKey[key] = assoc.Value
-		}
-	}
+	byKey := astutil.AssocsBySymbolKey(assocs)
 	var opts []string
 	for _, key := range []string{"wait", "attempts", "wait_jitter", "queue", "priority"} {
 		if value, ok := byKey[key]; ok {

@@ -1,15 +1,9 @@
 package datagrids
 
 import (
-	"context"
-	"fmt"
-	"path/filepath"
-	"strings"
-
 	"github.com/danielgatis/go-ruby-prism/parser"
 
 	"github.com/janstol/rails-kit/internal/astutil"
-	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/prism"
 )
 
@@ -17,112 +11,38 @@ import (
 // summary. Prism is error-tolerant: recoverable syntax errors are attached to
 // the summary while whatever structure Prism could recover is still returned.
 func Parse(datagridPath, railsRoot, datagridsPath string) (*Summary, error) {
-	ctx := context.Background()
-	p, err := prism.NewParser(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("creating prism parser: %w", err)
-	}
-	defer p.Close(ctx) //nolint:errcheck
-
-	result, src, err := p.Parse(ctx, datagridPath)
+	p, err := astutil.ParseFile(datagridPath)
 	if err != nil {
 		return nil, err
 	}
 
-	s := summaryForPath(datagridPath, railsRoot, datagridsPath)
-	for _, parseErr := range result.Errors {
-		s.ParseErrors = append(s.ParseErrors, ParseDiagnostic{
-			Line:    prism.LineAt(src, parseErr.Location.StartOffset),
-			Message: parseErr.Message,
-		})
-	}
-	if result.Value == nil {
+	s := &Summary{}
+	s.RelPath, s.ClassName = astutil.SummaryPath(datagridPath, railsRoot, datagridsPath)
+	s.ParseErrors = p.Diagnostics
+	if p.Program == nil {
 		return s, nil
 	}
 
-	class := astutil.TopLevelClass(result.Value)
+	class := astutil.TopLevelClass(p.Program)
 	if class == nil {
 		return s, nil
 	}
 	if class.Superclass != nil {
-		s.ParentClass = prism.Slice(src, class.Superclass.GetLocation())
+		s.ParentClass = prism.Slice(p.Src, class.Superclass.GetLocation())
 	}
 
-	w := datagridWalker{src: src, summary: s}
-	w.walkClassBody(prism.BlockStatements(class.Body))
+	w := datagridWalker{src: p.Src, summary: s}
+	astutil.WalkClassBody(prism.BlockStatements(class.Body), astutil.ClassBody{
+		Def:                 w.handleDef,
+		Call:                w.handleCall,
+		SkipVisibilityCalls: true,
+	})
 	return s, nil
-}
-
-func summaryForPath(datagridPath, railsRoot, datagridsPath string) *Summary {
-	s := &Summary{}
-	rel, err := filepath.Rel(railsRoot, datagridPath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		rel = datagridPath
-	}
-	s.RelPath = filepath.ToSlash(rel)
-
-	datagridsDir := config.ResolvePath(railsRoot, datagridsPath)
-	namePart, err := filepath.Rel(datagridsDir, datagridPath)
-	if err != nil || strings.HasPrefix(namePart, "..") {
-		namePart = filepath.Base(datagridPath)
-	}
-	namePart = strings.TrimSuffix(namePart, ".rb")
-	classSegments := make([]string, 0, 2)
-	for _, seg := range strings.Split(namePart, string(filepath.Separator)) {
-		var camel string
-		for _, part := range strings.Split(seg, "_") {
-			if part != "" {
-				camel += strings.ToUpper(part[:1]) + part[1:]
-			}
-		}
-		classSegments = append(classSegments, camel)
-	}
-	s.ClassName = strings.Join(classSegments, "::")
-	return s
 }
 
 type datagridWalker struct {
 	src     []byte
 	summary *Summary
-}
-
-// walkClassBody scans the datagrid class's top-level statements, tracking
-// `private`/`protected`/`public` visibility switches (both the bare-call form
-// and the `private def foo; end` single-method form) so only public instance
-// methods are reported. Singleton methods (`def self.foo`) are collected
-// regardless of visibility -- singleton-method visibility is unconventional and
-// rare.
-func (w *datagridWalker) walkClassBody(nodes []parser.Node) {
-	visibility := "public"
-	for _, node := range nodes {
-		switch n := node.(type) {
-		case *parser.CallNode:
-			if n.Receiver == nil {
-				switch n.Name {
-				case "private", "protected", "public":
-					args := prism.ArgNodes(n)
-					if len(args) == 0 && n.Block == nil {
-						visibility = n.Name
-						continue
-					}
-					if len(args) == 1 {
-						if def, ok := args[0].(*parser.DefNode); ok {
-							w.handleDef(def, n.Name)
-							continue
-						}
-					}
-					// `private :foo, :bar` (symbol-list form) only toggles
-					// visibility of named methods; it is not a datagrid
-					// declaration, so drop it rather than surfacing it in the
-					// Macros catch-all.
-					continue
-				}
-			}
-			w.handleCall(n)
-		case *parser.DefNode:
-			w.handleDef(n, visibility)
-		}
-	}
 }
 
 // handleDef collects an instance method (`def foo`, Receiver nil) only when it
@@ -170,14 +90,9 @@ func (w *datagridWalker) handleCall(call *parser.CallNode) {
 // to suppress (unlike controllers' ActionController/ActiveSupport prefixes), so
 // no prefix is filtered out.
 func (w *datagridWalker) handleInclude(args []parser.Node) {
-	if len(args) == 0 {
-		return
+	if name := astutil.IncludedConcern(w.src, args, nil); name != "" {
+		w.summary.Concerns = append(w.summary.Concerns, "  "+name)
 	}
-	name := astutil.ConstantName(w.src, args[0])
-	if name == "" {
-		return
-	}
-	w.summary.Concerns = append(w.summary.Concerns, "  "+name)
 }
 
 // renderCall renders a class-level call as `  name args` with whitespace
