@@ -314,6 +314,33 @@ Detail mode returns the full datagrid object directly under `data`:
   `datagrid`-gem DSL. Only the datagrid's own file is parsed -- declarations inherited from a
   superclass are not resolved; `parent_class` names it.
 
+### `helpers`
+
+List mode:
+
+```json
+{ "helpers": ["admin/reports", "application", "users"] }
+```
+
+Detail mode returns the full helper object directly under `data`:
+
+```json
+{ "class_name": "UsersHelper", "kind": "module", "rel_path": "app/helpers/users_helper.rb", "concerns": [...], "constants": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; helpers are almost always modules, with no `parent_class`.
+- `constants` entries are `NAME = value`, with the value's whitespace collapsed.
+- `methods` entries are full signatures (`user_badge(user, size = DEFAULT_AVATAR_SIZE)`), not bare
+  names -- unlike every other reader. A helper is an API surface consumed from views, so its
+  parameters are the useful part; a multi-line parameter list is collapsed onto one line, and a
+  no-parameter method (`current_user_name`) has no trailing `()`. Methods are public instance
+  methods (visibility tracked through both the bare `private`/`protected`/`public` switch and the
+  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
+  regardless of visibility.
+- Helper files follow the `_helper.rb` naming convention without exception, so the suffix is tried
+  first and the raw filename falls back. Only the helper's own file is parsed.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

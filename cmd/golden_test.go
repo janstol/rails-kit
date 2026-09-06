@@ -94,6 +94,11 @@ func TestGolden(t *testing.T) {
 		{name: "datagrids_list_json", cmd: datagridsCmd, json: true},
 		{name: "datagrids_example", cmd: datagridsCmd, args: []string{"example"}},
 		{name: "datagrids_example_json", cmd: datagridsCmd, args: []string{"example"}, json: true},
+
+		{name: "helpers_list", cmd: helpersCmd},
+		{name: "helpers_list_json", cmd: helpersCmd, json: true},
+		{name: "helpers_users", cmd: helpersCmd, args: []string{"users"}},
+		{name: "helpers_users_json", cmd: helpersCmd, args: []string{"users"}, json: true},
 	}
 
 	for _, tc := range cases {

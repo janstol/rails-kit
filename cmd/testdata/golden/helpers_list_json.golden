@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "helpers",
+  "data": {
+    "helpers": [
+      "admin/reports",
+      "application",
+      "users"
+    ]
+  }
+}

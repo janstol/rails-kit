@@ -59,7 +59,7 @@ rails-kit related app/views/admin/users/show.html.erb
 rails-kit related user --json
 ```
 
-Accepts model names and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, decorator, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
+Accepts model names and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, helper, decorator, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
 
 ## `fixtures`
 
@@ -227,6 +227,26 @@ shown, not ones inherited from a superclass -- `parent_class` says where to look
 Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully
 recovered fields remain on stdout, including in JSON mode.
 
+## `helpers`
+
+```sh
+rails-kit helpers
+rails-kit helpers users
+rails-kit helpers admin/reports
+rails-kit helpers Admin::ReportsHelper --json
+```
+
+Summarizes a view helper's included concerns, class-level constants, and methods. Unlike the
+other readers, `methods` entries are full signatures (`user_badge(user, size =
+DEFAULT_AVATAR_SIZE)`), not bare names -- a helper is an API surface consumed from views, so its
+parameters are the useful part; a multi-line parameter list is collapsed onto one line, and a
+no-parameter method has no trailing `()`. Both public instance methods and singleton class
+methods (`def self.x`) are collected. Helper files follow the `_helper.rb` naming convention
+without exception, so the suffix is tried first and the raw filename falls back. Parsing is
+static, AST-backed by Prism, single-file only. Recoverable Ruby syntax errors produce
+line-specific warnings on stderr while successfully recovered fields remain on stdout, including
+in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -238,6 +258,6 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
 time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
-and `datagrids` complete their respective names — all read
+`datagrids`, and `helpers` complete their respective names — all read
 from the current Rails project. `routes` and other flag-only commands are
 unaffected.

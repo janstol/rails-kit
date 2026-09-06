@@ -1,0 +1,19 @@
+module UsersHelper (app/helpers/users_helper.rb)
+========================================
+
+Constants:
+  DEFAULT_AVATAR_SIZE = 40
+
+Concerns:
+  IconHelper
+
+Methods:
+  user_avatar(user)
+  user_badge(user, size = DEFAULT_AVATAR_SIZE)
+  user_status_tag(user:, css_class: "status")
+  user_tags(*tags)
+  with_user_context(&block)
+  current_user_name
+  user_summary(user, show_email: false, show_role: false)
+  default_avatar_url
+

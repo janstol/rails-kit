@@ -14,6 +14,7 @@ jobs_path: app/jobs
 mailers_path: app/mailers
 formers_path: app/formers
 services_path: app/services
+helpers_path: app/helpers
 datagrids_path: app/datagrids
 test_models_path: test/models
 test_controllers_path: test/controllers

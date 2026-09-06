@@ -12,6 +12,7 @@ import (
 	"github.com/janstol/rails-kit/internal/datagrids"
 	"github.com/janstol/rails-kit/internal/fixtures"
 	"github.com/janstol/rails-kit/internal/gem"
+	"github.com/janstol/rails-kit/internal/helpers"
 	"github.com/janstol/rails-kit/internal/jobs"
 	"github.com/janstol/rails-kit/internal/locales"
 	"github.com/janstol/rails-kit/internal/mailers"
@@ -84,6 +85,16 @@ func listServiceNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeServiceNames = completeWithConfig(listServiceNames)
+
+func listHelperNames(root string, cfg config.Config, _ string) []string {
+	names, err := helpers.ListNames(root, cfg.HelpersPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeHelperNames = completeWithConfig(listHelperNames)
 
 func listDatagridNames(root string, cfg config.Config, _ string) []string {
 	names, err := datagrids.ListNames(root, cfg.DatagridsPath)

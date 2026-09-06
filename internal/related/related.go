@@ -44,6 +44,9 @@ func Find(railsRoot string, cfg config.Config, name, plural string) ([]Category,
 		{"Views", func() ([]string, error) {
 			return walkMatchDirNS(config.ResolvePath(r, cfg.ViewsPath), namespace, plural)
 		}},
+		{"Helper", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.HelpersPath), namespace, plural+"_helper.rb")
+		}},
 		{"Decorator", func() ([]string, error) {
 			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.DecoratorsPath), name+"_decorator.rb"))
 		}},
@@ -342,7 +345,7 @@ func NormalizeNameWithPrefixes(input string, extra []string) string {
 	}
 
 	base := filepath.Base(name)
-	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_datagrid", "_former", "_service", "_job", "_mailer"} {
+	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_former", "_helper", "_datagrid", "_service", "_job", "_mailer"} {
 		if strings.HasSuffix(base, suffix) {
 			base = strings.TrimSuffix(base, suffix)
 			break

@@ -59,6 +59,7 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit jobs [name]` | Summarize a Rails ActiveJob's queue, retry/discard, and methods |
 | `rails-kit services [name]` | Summarize a Rails service's constants, concerns, and methods |
 | `rails-kit datagrids [name]` | Summarize a Rails datagrid's filters, columns, scope, and decorator |
+| `rails-kit helpers [name]` | Summarize a Rails view helper's concerns, constants, and method signatures |
 | `rails-kit skill install\|uninstall` | Manage the bundled Claude Code or Codex skill |
 | `rails-kit completion bash\|zsh\|fish` | Generate shell completions |
 | `rails-kit version` | Print version information |

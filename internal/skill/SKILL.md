@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses an embedded in-process Prism parser (pure-Go WASM) without loading the Rails application or requiring Ruby to be installed. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -23,6 +23,7 @@ model: haiku
 - `jobs` (no args) → `{ jobs: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, queue?, retry_on?, discard_on?, methods? }`
 - `services` (no args) → `{ services: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }`
 - `datagrids` (no args) → `{ datagrids: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, decorate?, scope?, filters?, columns?, macros?, methods? }`
+- `helpers` (no args) → `{ helpers: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }` -- `methods` entries are full signatures (`user_avatar(user)`), not bare names
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -45,6 +46,7 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect an ActiveJob's queue, retry_on/discard_on handlers, concerns, and methods | `rails-kit jobs` |
 | Inspect a service's parent class, concerns, constants, and methods | `rails-kit services` |
 | Inspect a datagrid's filters, columns, scope, decorator, and methods | `rails-kit datagrids` |
+| Inspect a view helper's methods and their signatures | `rails-kit helpers` |
 
 ---
 
@@ -322,3 +324,18 @@ rails-kit datagrids Admin::ReportDatagrid --json
 ```
 
 Parsing is static, AST-backed by Prism, single-file only: a datagrid's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit helpers
+
+Summarizes a view helper's included concerns, class-level constants, and methods. Unlike the other readers, `methods` renders each entry as its full parameter signature (`user_badge(user, size = DEFAULT_AVATAR_SIZE)`), not just the method name -- a helper is an API surface consumed from views, so its parameters are the useful part. Both public instance methods and singleton class methods (`def self.x`) are collected. Helper files follow the `_helper.rb` naming convention without exception, so the suffix is tried first and the raw filename falls back.
+
+```bash
+rails-kit helpers
+rails-kit helpers users
+rails-kit helpers admin/reports
+rails-kit helpers Admin::ReportsHelper --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only.

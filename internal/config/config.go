@@ -21,6 +21,7 @@ type Config struct {
 	DecoratorsPath         string            `yaml:"decorators_path"`
 	FormersPath            string            `yaml:"formers_path"`
 	ServicesPath           string            `yaml:"services_path"`
+	HelpersPath            string            `yaml:"helpers_path"`
 	DatagridsPath          string            `yaml:"datagrids_path"`
 	JobsPath               string            `yaml:"jobs_path"`
 	MailersPath            string            `yaml:"mailers_path"`
@@ -53,6 +54,7 @@ func Defaults() Config {
 		DecoratorsPath:         "app/decorators",
 		FormersPath:            "app/formers",
 		ServicesPath:           "app/services",
+		HelpersPath:            "app/helpers",
 		DatagridsPath:          "app/datagrids",
 		JobsPath:               "app/jobs",
 		MailersPath:            "app/mailers",
@@ -117,6 +119,9 @@ func Load(railsRoot string) (Config, error) {
 	}
 	if cfg.ServicesPath == "" {
 		cfg.ServicesPath = "app/services"
+	}
+	if cfg.HelpersPath == "" {
+		cfg.HelpersPath = "app/helpers"
 	}
 	if cfg.DatagridsPath == "" {
 		cfg.DatagridsPath = "app/datagrids"

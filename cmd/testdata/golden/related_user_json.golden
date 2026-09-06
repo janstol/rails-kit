@@ -18,6 +18,12 @@
         ]
       },
       {
+        "label": "Helper",
+        "files": [
+          "app/helpers/users_helper.rb"
+        ]
+      },
+      {
         "label": "Mailer",
         "files": [
           "app/mailers/user_mailer.rb"

@@ -36,6 +36,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ServicesPath != "app/services" {
 		t.Errorf("ServicesPath = %q, want app/services", cfg.ServicesPath)
 	}
+	if cfg.HelpersPath != "app/helpers" {
+		t.Errorf("HelpersPath = %q, want app/helpers", cfg.HelpersPath)
+	}
 	if cfg.JobsPath != "app/jobs" {
 		t.Errorf("JobsPath = %q, want app/jobs", cfg.JobsPath)
 	}
@@ -97,6 +100,9 @@ plurals:
 	// Unset fields use defaults
 	if cfg.FixturesPath != "test/fixtures" {
 		t.Errorf("FixturesPath = %q", cfg.FixturesPath)
+	}
+	if cfg.HelpersPath != "app/helpers" {
+		t.Errorf("HelpersPath = %q", cfg.HelpersPath)
 	}
 }
 

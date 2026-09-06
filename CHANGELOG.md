@@ -6,8 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `rails-kit helpers [name]` lists view helpers, or shows one helper's included concerns,
+  class-level constants, and methods. Unlike the other readers, each method renders as its full
+  parameter signature rather than a bare name -- a helper is an API surface consumed from views,
+  so its parameters are the useful part. The detail view is AST-backed and single-file only.
+
 ### Changed
 
+- `related` now searches a configurable `helpers_path` (default `app/helpers`) and reports a
+  `Helper` category alongside the existing `Helper spec` one, so `rails-kit related user` finds
+  `app/helpers/users_helper.rb` in addition to its spec.
 - Retuned `skeleton`'s internal timeout for the pooled Prism parser introduced in v1.2.0: a hang
   or pathological file now fails within roughly 20 seconds worst case instead of up to 120
   seconds. No change to normal output; only how quickly a genuine hang is reported.
