@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "command": "decorators",
+  "data": {
+    "decorators": [
+      "admin/report",
+      "concerns/formatting",
+      "user"
+    ]
+  }
+}

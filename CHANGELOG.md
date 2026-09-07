@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   class-level constants, and methods. Unlike the other readers, each method renders as its full
   parameter signature rather than a bare name -- a helper is an API surface consumed from views,
   so its parameters are the useful part. The detail view is AST-backed and single-file only.
+- `rails-kit decorators [name]` lists decorators, or shows one decorator's parent class, included
+  concerns, class-level constants, other class-level DSL calls (surfaced as macros, e.g.
+  `delegate_all`), and methods. Like `helpers`, each method renders as its full parameter
+  signature rather than a bare name. The reader targets the Draper gem convention but degrades
+  gracefully for a custom decorator implementation. `app/decorators/concerns` is listed like any
+  other decorator file rather than skipped, since nothing owns that directory the way
+  `app/controllers/concerns` is owned by the `concerns` command. The detail view is AST-backed and
+  single-file only.
 
 ### Changed
 
@@ -41,6 +49,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `ReportsController`, not `Internal`). A module whose only content is a nested class still
   resolves to that class unchanged, so a genuinely empty result never replaces an imperfect one.
   No output change was observed on any real application scanned during development.
+- `controllers`, `mailers`, `jobs`, `services`, `datagrids`, and `helpers` no longer silently drop
+  a dotted `include` such as `include Rails.application.routes.url_helpers` from their Concerns
+  output. Prism parses a dotted chain as a `CallNode`, not a constant, so `IncludedConcern` was
+  only ever recognizing a plain constant or constant-path include (`include Trackable`,
+  `include ActionController::Cookies`) and silently returning nothing for anything else; it now
+  falls back to the include argument's source text. Found while building `decorators`, where the
+  gap is common (Draper decorators routinely `include Rails.application.routes.url_helpers` for
+  URL helpers). No fixture under any of these readers' existing `testdata/` exercised a dotted
+  include, so this fix caused no golden-file changes to any of them.
 
 ## [0.5.0] - 2026-08-04
 

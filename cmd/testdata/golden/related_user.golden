@@ -4,6 +4,8 @@ Controller:
   app/controllers/users_controller.rb
 Helper:
   app/helpers/users_helper.rb
+Decorator:
+  app/decorators/user_decorator.rb
 Mailer:
   app/mailers/user_mailer.rb
 Service:

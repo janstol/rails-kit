@@ -1,0 +1,18 @@
+UserDecorator < ApplicationDecorator (app/decorators/user_decorator.rb)
+========================================
+
+Constants:
+  DEFAULT_AVATAR = "avatar.png"
+
+Concerns:
+  Rails.application.routes.url_helpers
+  ActionView::Helpers::NumberHelper
+
+Macros:
+  delegate_all
+
+Methods:
+  full_name
+  formatted_created_at(format: :short)
+  build_default
+

@@ -81,6 +81,8 @@ func TestStartupBudget(t *testing.T) {
 		{name: "datagrids", args: []string{"--root", fixtureRoot, "datagrids"}, ceiling: startupCeiling, delta: startupDelta},
 		// helpers (no arg) only lists filenames -- same reasoning as the other readers.
 		{name: "helpers", args: []string{"--root", fixtureRoot, "helpers"}, ceiling: startupCeiling, delta: startupDelta},
+		// decorators (no arg) only lists filenames -- same reasoning as the other readers.
+		{name: "decorators", args: []string{"--root", fixtureRoot, "decorators"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "model", args: []string{"--root", fixtureRoot, "model", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "concerns searchable", args: []string{"--root", fixtureRoot, "concerns", "searchable"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
@@ -90,6 +92,7 @@ func TestStartupBudget(t *testing.T) {
 		{name: "services user_export_service", args: []string{"--root", fixtureRoot, "services", "user_export_service"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "datagrids example", args: []string{"--root", fixtureRoot, "datagrids", "example"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "helpers users", args: []string{"--root", fixtureRoot, "helpers", "users"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		{name: "decorators user", args: []string{"--root", fixtureRoot, "decorators", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		// skeleton parses via Prism like model/routes --static; a single-file input
 		// isolates the one-time WASM cold start from batch parse work, which the
 		// BenchmarkParseFiles* benchmarks cover instead.

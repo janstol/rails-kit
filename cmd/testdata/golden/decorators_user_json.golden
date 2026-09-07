@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "command": "decorators",
+  "data": {
+    "class_name": "UserDecorator",
+    "kind": "class",
+    "parent_class": "ApplicationDecorator",
+    "rel_path": "app/decorators/user_decorator.rb",
+    "concerns": [
+      "Rails.application.routes.url_helpers",
+      "ActionView::Helpers::NumberHelper"
+    ],
+    "constants": [
+      "DEFAULT_AVATAR = \"avatar.png\""
+    ],
+    "macros": [
+      "delegate_all"
+    ],
+    "methods": [
+      "full_name",
+      "formatted_created_at(format: :short)",
+      "build_default"
+    ]
+  }
+}

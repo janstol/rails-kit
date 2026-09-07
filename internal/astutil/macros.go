@@ -8,17 +8,20 @@ import (
 	"github.com/janstol/rails-kit/internal/prism"
 )
 
-// IncludedConcern returns the constant name from an `include X` call's args,
-// or "" when there is no constant or its name starts with one of
-// skippedPrefixes (the framework bases a reader suppresses). Callers apply
-// their own indent.
+// IncludedConcern returns the included module's name from an `include X`
+// call's args, or "" when there are no args or the name starts with one of
+// skippedPrefixes (the framework bases a reader suppresses). When the first
+// arg is not a plain constant -- a dotted chain like
+// `include Rails.application.routes.url_helpers` is a CallNode, not a
+// ConstantReadNode/ConstantPathNode -- the joined source of the arg is used
+// instead of dropping it silently. Callers apply their own indent.
 func IncludedConcern(src []byte, args []parser.Node, skippedPrefixes []string) string {
 	if len(args) == 0 {
 		return ""
 	}
 	name := ConstantName(src, args[0])
 	if name == "" {
-		return ""
+		name = JoinedSource(src, args[0].GetLocation())
 	}
 	for _, prefix := range skippedPrefixes {
 		if strings.HasPrefix(name, prefix) {

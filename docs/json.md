@@ -341,6 +341,42 @@ Detail mode returns the full helper object directly under `data`:
 - Helper files follow the `_helper.rb` naming convention without exception, so the suffix is tried
   first and the raw filename falls back. Only the helper's own file is parsed.
 
+### `decorators`
+
+List mode:
+
+```json
+{ "decorators": ["admin/report", "concerns/formatting", "user"] }
+```
+
+Detail mode returns the full decorator object directly under `data`:
+
+```json
+{ "class_name": "UserDecorator", "kind": "class", "parent_class": "ApplicationDecorator", "rel_path": "app/decorators/user_decorator.rb", "concerns": [...], "constants": [...], "macros": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; a module-style decorator (e.g. a file under
+  `app/decorators/concerns`) has `kind: "module"` and no `parent_class`.
+- `constants` entries are `NAME = value`, with the value's whitespace collapsed.
+- `macros` is a catch-all for class-level calls (e.g. `delegate_all`, `decorates_association`),
+  modeled the way `datagrids` models its own DSL rather than as dedicated fields, since
+  `delegate_all` alone appears in nearly every Draper decorator and carries little signal as a
+  named field.
+- `methods` entries are full signatures (`formatted_created_at(format: :short)`), not bare names
+  -- like `helpers`, not the other readers. A multi-line parameter list is collapsed onto one
+  line, and a no-parameter method has no trailing `()`. Methods are public instance methods
+  (visibility tracked through both the bare `private`/`protected`/`public` switch and the
+  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
+  regardless of visibility.
+- The reader targets the Draper gem convention (`delegate_all` on an
+  `ApplicationDecorator`/`Draper::Decorator` subclass) but degrades gracefully: a custom decorator
+  implementation still resolves (the `_decorator` suffix is tried first, then the name as given)
+  and reports `parent_class`/`concerns`/`methods`/`macros`. `app/decorators/concerns` is listed
+  like any other decorator file rather than skipped -- nothing owns that directory the way
+  `app/controllers/concerns` is owned by the `concerns` command. Only the decorator's own file is
+  parsed -- declarations inherited from a superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

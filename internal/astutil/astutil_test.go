@@ -485,6 +485,33 @@ end
 	}
 }
 
+// TestIncludedConcern_DottedChainFallsBackToSource pins the fix for a real
+// bug found dogfooding decorators: a dotted include like
+// `include Rails.application.routes.url_helpers` is a CallNode chain, not a
+// ConstantReadNode/ConstantPathNode, so ConstantName alone returns "" and the
+// include was silently dropped. IncludedConcern must fall back to the joined
+// source of the arg instead.
+func TestIncludedConcern_DottedChainFallsBackToSource(t *testing.T) {
+	src, nodes := classBody(t, `class Foo
+  include Rails.application.routes.url_helpers
+end
+`)
+
+	var calls []*parser.CallNode
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Call: func(call *parser.CallNode) {
+			calls = append(calls, call)
+		},
+	})
+	if len(calls) != 1 {
+		t.Fatalf("got %d include calls, want 1", len(calls))
+	}
+
+	if got := astutil.IncludedConcern(src, prism.ArgNodes(calls[0]), nil); got != "Rails.application.routes.url_helpers" {
+		t.Errorf("IncludedConcern = %q, want Rails.application.routes.url_helpers", got)
+	}
+}
+
 func TestLayoutValue(t *testing.T) {
 	src, nodes := classBody(t, `class Foo
   layout false
@@ -555,6 +582,45 @@ end
 	}
 	if len(byKey) != 2 {
 		t.Errorf("byKey has %d entries, want 2", len(byKey))
+	}
+}
+
+func TestSignature(t *testing.T) {
+	src, nodes := classBody(t, `class Foo
+  def bare
+  end
+
+  def with_params(a, b = 1, *rest, key:, other: 2, &block)
+  end
+
+  def multiline(
+    a,
+    b
+  )
+  end
+end
+`)
+
+	var defs []*parser.DefNode
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Def: func(def *parser.DefNode, _ string) { defs = append(defs, def) },
+	})
+	if len(defs) != 3 {
+		t.Fatalf("got %d defs, want 3", len(defs))
+	}
+
+	cases := []struct {
+		def  *parser.DefNode
+		want string
+	}{
+		{defs[0], "bare"},
+		{defs[1], "with_params(a, b = 1, *rest, key:, other: 2, &block)"},
+		{defs[2], "multiline(a, b)"},
+	}
+	for _, c := range cases {
+		if got := astutil.Signature(src, c.def); got != c.want {
+			t.Errorf("Signature(%s) = %q, want %q", c.def.Name, got, c.want)
+		}
 	}
 }
 

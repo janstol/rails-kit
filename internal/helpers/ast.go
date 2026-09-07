@@ -60,23 +60,12 @@ type helperWalker struct {
 // signature, since a helper's parameters are the useful part of its API.
 func (w *helperWalker) handleDef(def *parser.DefNode, visibility string) {
 	if _, ok := def.Receiver.(*parser.SelfNode); ok {
-		w.summary.Methods = append(w.summary.Methods, "  "+signature(w.src, def))
+		w.summary.Methods = append(w.summary.Methods, "  "+astutil.Signature(w.src, def))
 		return
 	}
 	if def.Receiver == nil && visibility == "public" {
-		w.summary.Methods = append(w.summary.Methods, "  "+signature(w.src, def))
+		w.summary.Methods = append(w.summary.Methods, "  "+astutil.Signature(w.src, def))
 	}
-}
-
-// signature renders a method as `name` or `name(params)`, collapsing a
-// multi-line parameter list onto one line.
-func signature(src []byte, def *parser.DefNode) string {
-	if def.Parameters != nil {
-		if params := astutil.JoinedSource(src, def.Parameters.Location); params != "" {
-			return def.Name + "(" + params + ")"
-		}
-	}
-	return def.Name
 }
 
 func (w *helperWalker) handleCall(call *parser.CallNode) {

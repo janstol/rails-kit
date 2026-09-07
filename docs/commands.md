@@ -247,6 +247,29 @@ static, AST-backed by Prism, single-file only. Recoverable Ruby syntax errors pr
 line-specific warnings on stderr while successfully recovered fields remain on stdout, including
 in JSON mode.
 
+## `decorators`
+
+```sh
+rails-kit decorators
+rails-kit decorators user
+rails-kit decorators admin/report
+rails-kit decorators Admin::ReportDecorator --json
+```
+
+Summarizes a decorator's parent class, included concerns, class-level constants, other
+class-level DSL calls (surfaced as macros), and methods. Like `helpers`, each method renders as
+its full signature, not a bare name -- a decorator's parameters are the useful part. The reader
+targets the Draper gem convention (`delegate_all` on an `ApplicationDecorator`/
+`Draper::Decorator` subclass) but degrades gracefully: a custom decorator implementation still
+resolves (the `_decorator` suffix is tried first, then the name as given) and reports a useful
+summary -- parent class, concerns, methods, and the class-level calls it does make -- just
+without the Draper-specific accent. `app/decorators/concerns` is listed like any other decorator
+file rather than skipped, since nothing owns that directory the way `app/controllers/concerns` is
+owned by the `concerns` command. Parsing is static, AST-backed by Prism, single-file only: a
+decorator's own declarations are shown, not ones inherited from a superclass -- `parent_class`
+says where to look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr
+while successfully recovered fields remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -258,6 +281,6 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
 time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
-`datagrids`, and `helpers` complete their respective names — all read
-from the current Rails project. `routes` and other flag-only commands are
-unaffected.
+`datagrids`, `helpers`, and `decorators` complete their respective names — all
+read from the current Rails project. `routes` and other flag-only commands
+are unaffected.

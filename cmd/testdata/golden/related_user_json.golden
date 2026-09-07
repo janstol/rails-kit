@@ -24,6 +24,12 @@
         ]
       },
       {
+        "label": "Decorator",
+        "files": [
+          "app/decorators/user_decorator.rb"
+        ]
+      },
+      {
         "label": "Mailer",
         "files": [
           "app/mailers/user_mailer.rb"

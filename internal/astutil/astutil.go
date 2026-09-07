@@ -70,6 +70,19 @@ func IsFalseNode(n parser.Node) bool {
 	return ok
 }
 
+// Signature renders a method as `name` or `name(params)`, collapsing a
+// multi-line parameter list onto one line. Used by readers (helpers,
+// decorators) where a method's parameters are part of the useful summary,
+// unlike the bare-name rendering most readers use.
+func Signature(src []byte, def *parser.DefNode) string {
+	if def.Parameters != nil {
+		if params := JoinedSource(src, def.Parameters.Location); params != "" {
+			return def.Name + "(" + params + ")"
+		}
+	}
+	return def.Name
+}
+
 // TopLevelClass returns the first *parser.ClassNode reachable from program's
 // top-level statements, descending into *parser.ModuleNode bodies (the
 // `module Admin; class ReportsController; ...; end; end` idiom) but not into

@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses an embedded in-process Prism parser (pure-Go WASM) without loading the Rails application or requiring Ruby to be installed. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -24,6 +24,7 @@ model: haiku
 - `services` (no args) → `{ services: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }`
 - `datagrids` (no args) → `{ datagrids: [...] }`; with name → `{ class_name, parent_class?, rel_path, concerns?, decorate?, scope?, filters?, columns?, macros?, methods? }`
 - `helpers` (no args) → `{ helpers: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }` -- `methods` entries are full signatures (`user_avatar(user)`), not bare names
+- `decorators` (no args) → `{ decorators: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -47,6 +48,7 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect a service's parent class, concerns, constants, and methods | `rails-kit services` |
 | Inspect a datagrid's filters, columns, scope, decorator, and methods | `rails-kit datagrids` |
 | Inspect a view helper's methods and their signatures | `rails-kit helpers` |
+| Inspect a decorator's parent class, concerns, macros, and method signatures | `rails-kit decorators` |
 
 ---
 
@@ -339,3 +341,18 @@ rails-kit helpers Admin::ReportsHelper --json
 ```
 
 Parsing is static, AST-backed by Prism, single-file only.
+
+---
+
+## rails-kit decorators
+
+Summarizes a decorator's parent class, included concerns, class-level constants, other class-level DSL calls (surfaced as macros), and methods. Like `helpers`, each method renders as its full parameter signature, not just the name -- a decorator's parameters are the useful part. The reader targets the Draper gem convention (`delegate_all` on an `ApplicationDecorator`/`Draper::Decorator` subclass) but degrades gracefully: a custom decorator implementation still resolves (the `_decorator` suffix is tried first, then the name as given) and reports a useful summary -- parent class, concerns, methods, and the class-level calls it does make -- just without the Draper-specific accent. `app/decorators/concerns` is listed like any other decorator file rather than skipped.
+
+```bash
+rails-kit decorators
+rails-kit decorators user
+rails-kit decorators admin/report
+rails-kit decorators Admin::ReportDecorator --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a decorator's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
