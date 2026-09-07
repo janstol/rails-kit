@@ -207,6 +207,100 @@ end
 	}
 }
 
+func TestTopLevelClass_PureNamespaceDescendsToNestedClass(t *testing.T) {
+	// A module with nothing but a nested class is pure namespacing --
+	// descend into it, mirroring the `module Admin; class
+	// ReportsController; ...; end; end` idiom.
+	program := programFrom(t, `module Admin
+  class ReportsController
+    def index; end
+  end
+end
+`)
+	class := astutil.TopLevelClass(program)
+	if class == nil || class.Name != "ReportsController" {
+		t.Fatalf("class = %v, want ReportsController", class)
+	}
+}
+
+func TestTopLevelClass_PureNamespaceWithConstantsDescends(t *testing.T) {
+	// Namespace-level constants alongside a nested class don't disqualify
+	// the descent -- they're shared values, not the module's own behavior.
+	program := programFrom(t, `module Wrapper
+  TYPE_A = :a
+  TYPE_B = :b
+
+  class Worker
+    def call; end
+  end
+end
+`)
+	class := astutil.TopLevelClass(program)
+	if class == nil || class.Name != "Worker" {
+		t.Fatalf("class = %v, want Worker", class)
+	}
+}
+
+func TestTopLevelClass_ContentBearingModuleDoesNotHijackLaterClass(t *testing.T) {
+	// A content-bearing module preceding the real class must not hijack the
+	// search -- its own nested class is a private implementation detail,
+	// not the file's real target, and a real top-level class follows it.
+	program := programFrom(t, `module Reportable
+  def reportable?
+    true
+  end
+
+  class Internal
+    def helper; end
+  end
+end
+
+class ReportsController < ApplicationController
+  def index; end
+end
+`)
+	class := astutil.TopLevelClass(program)
+	if class == nil || class.Name != "ReportsController" {
+		t.Fatalf("class = %v, want ReportsController", class)
+	}
+}
+
+func TestTopLevelClass_ContentBearingModuleWrappingOnlyClassStillResolves(t *testing.T) {
+	// When a content-bearing module is the *only* path to a class anywhere
+	// in the file, the pure-namespace pass finds nothing and the fallback
+	// pass must still descend into it -- returning the nested class
+	// imperfectly beats returning nil (and thus an empty summary) for a
+	// file that plainly contains a controller class.
+	program := programFrom(t, `module Paginator
+  def paginate(collection); end
+
+  class RemoteLinkRenderer
+    def link; end
+  end
+end
+`)
+	class := astutil.TopLevelClass(program)
+	if class == nil || class.Name != "RemoteLinkRenderer" {
+		t.Fatalf("class = %v, want RemoteLinkRenderer", class)
+	}
+}
+
+func TestTopLevelClass_NestedClassInsideClassNotDescended(t *testing.T) {
+	// A class nested inside another class (e.g. a rescued error type
+	// defined inline) does not count and is not descended into -- only the
+	// outer class is returned.
+	program := programFrom(t, `class ReportsController < ApplicationController
+  class InvalidReport < StandardError; end
+
+  def index; end
+end
+`)
+	class := astutil.TopLevelClass(program)
+	if class == nil || class.Name != "ReportsController" {
+		t.Fatalf("class = %v, want ReportsController", class)
+	}
+}
+
 func TestSummaryPath_Nested(t *testing.T) {
 	railsRoot := filepath.FromSlash("/rails")
 	dirPath := "app/controllers"

@@ -276,6 +276,35 @@ func TestParse_OnlyOutermostClass(t *testing.T) {
 	}
 }
 
+func TestParse_ContentBearingModuleDoesNotHijackLaterClass(t *testing.T) {
+	content := strings.Join([]string{
+		"module Reportable",
+		"  def reportable?",
+		"    true",
+		"  end",
+		"",
+		"  class Internal",
+		"    def helper",
+		"    end",
+		"  end",
+		"end",
+		"",
+		"class ReportsController < ApplicationController",
+		"  def index",
+		"  end",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempController(t, "reports_controller.rb", content)
+
+	if s.ClassName != "ReportsController" {
+		t.Fatalf("ClassName = %q, want ReportsController (leading content-bearing module hijacked the search)", s.ClassName)
+	}
+	if want := []string{"  index"}; !reflect.DeepEqual(s.Actions, want) {
+		t.Fatalf("Actions = %#v, want %#v", s.Actions, want)
+	}
+}
+
 func containsSubstr(slice []string, substr string) bool {
 	for _, s := range slice {
 		if strings.Contains(s, substr) {

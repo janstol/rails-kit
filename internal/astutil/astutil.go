@@ -76,6 +76,17 @@ func IsFalseNode(n parser.Node) bool {
 // another class's body -- a nested class (e.g. a rescued error type defined
 // inline) does not count and is not descended into either, mirroring the rule
 // against leaking nested-class methods.
+//
+// Descent prefers a *pure namespace* module (see isPureNamespace) over a
+// content-bearing one: a module that also defines its own methods is skipped
+// in favor of a real class found among its later siblings, so that module's
+// contents don't hijack the search away from the class the caller actually
+// wants. Unlike TopLevelClassOrModule this function can only ever return a
+// class, never a module -- so if no pure-namespace path turns up a class
+// anywhere, it falls back to descending into content-bearing modules too
+// (today's behavior) rather than returning nil. A hard guard here would mean
+// a file that plainly contains a controller class reports nothing at all,
+// which is worse than returning the nested class imperfectly.
 func TopLevelClass(program *parser.ProgramNode) *parser.ClassNode {
 	if program.Statements == nil {
 		return nil
@@ -84,12 +95,23 @@ func TopLevelClass(program *parser.ProgramNode) *parser.ClassNode {
 }
 
 func findClassInStatements(nodes []parser.Node) *parser.ClassNode {
+	if c := findClass(nodes, true); c != nil {
+		return c
+	}
+	return findClass(nodes, false)
+}
+
+func findClass(nodes []parser.Node, pureOnly bool) *parser.ClassNode {
 	for _, node := range nodes {
 		switch n := node.(type) {
 		case *parser.ClassNode:
 			return n
 		case *parser.ModuleNode:
-			if c := findClassInStatements(prism.BlockStatements(n.Body)); c != nil {
+			body := prism.BlockStatements(n.Body)
+			if pureOnly && !isPureNamespace(body) {
+				continue
+			}
+			if c := findClass(body, pureOnly); c != nil {
 				return c
 			}
 		}

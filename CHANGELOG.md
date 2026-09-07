@@ -34,6 +34,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   recognized as the target and the nested class is skipped, not promoted, matching the existing
   rule against nested-class methods leaking into an outer summary. A module whose only content is
   the nested class (plus namespace-level constants) still descends into it unchanged.
+- `controllers`, `mailers`, `jobs`, and `datagrids` no longer resolve to a class nested inside an
+  unrelated content-bearing module when the file's real class is defined at top level (e.g. a
+  leading `module Reportable; def x; end; class Internal; ...; end; end` followed by
+  `class ReportsController < ApplicationController; ...; end` now correctly reports
+  `ReportsController`, not `Internal`). A module whose only content is a nested class still
+  resolves to that class unchanged, so a genuinely empty result never replaces an imperfect one.
+  No output change was observed on any real application scanned during development.
 
 ## [0.5.0] - 2026-08-04
 
