@@ -194,13 +194,13 @@ rails-kit services Admin::BillingService --json
 Summarizes a service's parent class (if any), included concerns, class-level constants, and
 methods. Services have no universal naming convention (no `_controller`/`_job` suffix) and no
 conventional macros, so this reader is thinner than the others: it strips no suffix from file
-names and matches the name as given. Both public instance methods (`def call`) and singleton
-class methods (`def self.call` -- the common `Service.call` pattern) are collected; a service
-defined as a module (`module Foo; def self.bar; end; end`) is reported with `kind: "module"` and
-no `parent_class`. Parsing is static, AST-backed by Prism, single-file only: a service's own
-declarations are shown, not ones inherited from a superclass -- `parent_class` says where to
-look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr while
-successfully recovered fields remain on stdout, including in JSON mode.
+names and matches the name as given. Both public instance methods (`def call`) and class methods
+(`def self.call` -- the common `Service.call` pattern -- or a def inside a `class << self` block)
+are collected; a service defined as a module (`module Foo; def self.bar; end; end`) is reported
+with `kind: "module"` and no `parent_class`. Parsing is static, AST-backed by Prism, single-file
+only: a service's own declarations are shown, not ones inherited from a superclass --
+`parent_class` says where to look next. Recoverable Ruby syntax errors produce line-specific
+warnings on stderr while successfully recovered fields remain on stdout, including in JSON mode.
 
 ## `datagrids`
 
@@ -213,19 +213,19 @@ rails-kit datagrids Admin::ReportDatagrid --json
 
 Summarizes a datagrid's parent class, included concerns, decorator (`decorate { X }`), scope
 (`scope do…end`, noted as `(block)`), `filter` calls, `column` calls, other class-level DSL
-calls (surfaces as macros), and methods (public instance methods plus singleton `def self.x`
-class methods). The reader targets the `datagrid` gem DSL (`filter`/`column`/`scope`/`decorate`
-on a `BaseDatagrid` subclass, files named `*_datagrid.rb`) but degrades gracefully: a custom
-grid implementation or a different grid library in `app/datagrids/` still resolves (the
-`_datagrid` suffix is tried first, then the name as given) and reports a useful summary --
-parent class, concerns, methods, and the class-level calls it does make -- just without the
-datagrid-gem-specific `filters`/`columns`/`decorate`/`scope` structure. Filter and column
-entries render their arguments in source order with whitespace collapsed; a trailing block
-literal is noted as ` (block)`, while a block-pass (`&:sym`) is folded into the argument list.
-Parsing is static, AST-backed by Prism, single-file only: a datagrid's own declarations are
-shown, not ones inherited from a superclass -- `parent_class` says where to look next.
-Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully
-recovered fields remain on stdout, including in JSON mode.
+calls (surfaces as macros), and methods (public instance methods plus class methods -- `def
+self.x`, or a def inside a `class << self` block). The reader targets the `datagrid` gem DSL
+(`filter`/`column`/`scope`/`decorate` on a `BaseDatagrid` subclass, files named `*_datagrid.rb`)
+but degrades gracefully: a custom grid implementation or a different grid library in
+`app/datagrids/` still resolves (the `_datagrid` suffix is tried first, then the name as given)
+and reports a useful summary -- parent class, concerns, methods, and the class-level calls it
+does make -- just without the datagrid-gem-specific `filters`/`columns`/`decorate`/`scope`
+structure. Filter and column entries render their arguments in source order with whitespace
+collapsed; a trailing block literal is noted as ` (block)`, while a block-pass (`&:sym`) is
+folded into the argument list. Parsing is static, AST-backed by Prism, single-file only: a
+datagrid's own declarations are shown, not ones inherited from a superclass -- `parent_class`
+says where to look next. Recoverable Ruby syntax errors produce line-specific warnings on
+stderr while successfully recovered fields remain on stdout, including in JSON mode.
 
 ## `helpers`
 
@@ -240,12 +240,12 @@ Summarizes a view helper's included concerns, class-level constants, and methods
 other readers, `methods` entries are full signatures (`user_badge(user, size =
 DEFAULT_AVATAR_SIZE)`), not bare names -- a helper is an API surface consumed from views, so its
 parameters are the useful part; a multi-line parameter list is collapsed onto one line, and a
-no-parameter method has no trailing `()`. Both public instance methods and singleton class
-methods (`def self.x`) are collected. Helper files follow the `_helper.rb` naming convention
-without exception, so the suffix is tried first and the raw filename falls back. Parsing is
-static, AST-backed by Prism, single-file only. Recoverable Ruby syntax errors produce
-line-specific warnings on stderr while successfully recovered fields remain on stdout, including
-in JSON mode.
+no-parameter method has no trailing `()`. Both public instance methods and class methods (`def
+self.x`, or a def inside a `class << self` block) are collected. Helper files follow the
+`_helper.rb` naming convention without exception, so the suffix is tried first and the raw
+filename falls back. Parsing is static, AST-backed by Prism, single-file only. Recoverable Ruby
+syntax errors produce line-specific warnings on stderr while successfully recovered fields
+remain on stdout, including in JSON mode.
 
 ## `decorators`
 

@@ -34,11 +34,61 @@ func TestParseFilesExtractsRubySkeleton(t *testing.T) {
 	if len(class.Includes) != 1 || class.Includes[0].Source != "include Searchable" {
 		t.Fatalf("unexpected includes: %#v", class.Includes)
 	}
-	if len(class.Methods) != 3 {
-		t.Fatalf("methods len = %d, want 3: %#v", len(class.Methods), class.Methods)
+	if len(class.Methods) != 4 {
+		t.Fatalf("methods len = %d, want 4: %#v", len(class.Methods), class.Methods)
 	}
-	if class.Methods[2].Name != "export" || class.Methods[2].Visibility != "private" {
-		t.Fatalf("private method not detected: %#v", class.Methods[2])
+	if class.Methods[2].Name != "build" || !class.Methods[2].Singleton {
+		t.Fatalf("class << self method not detected: %#v", class.Methods[2])
+	}
+	if class.Methods[3].Name != "export" || class.Methods[3].Visibility != "private" {
+		t.Fatalf("private method not detected: %#v", class.Methods[3])
+	}
+}
+
+// TestParseFilesMarksSingletonMethods pins the Singleton field on both the
+// `def self.foo` form and a def nested inside a `class << self` block --
+// previously conflated as ordinary instance methods -- while an instance
+// method stays unmarked.
+func TestParseFilesMarksSingletonMethods(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "notifier.rb")
+	src := "class Notifier\n" +
+		"  def deliver\n" +
+		"  end\n" +
+		"\n" +
+		"  def self.default\n" +
+		"  end\n" +
+		"\n" +
+		"  class << self\n" +
+		"    def notifier\n" +
+		"    end\n" +
+		"  end\n" +
+		"end\n"
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	files, err := prism.Runner{}.ParseFiles(ctx, []string{path})
+	if err != nil {
+		t.Fatalf("ParseFiles error: %v", err)
+	}
+	if len(files) != 1 || len(files[0].Classes) != 1 {
+		t.Fatalf("unexpected files: %#v", files)
+	}
+	methods := files[0].Classes[0].Methods
+	if len(methods) != 3 {
+		t.Fatalf("methods len = %d, want 3: %#v", len(methods), methods)
+	}
+	if methods[0].Name != "deliver" || methods[0].Singleton {
+		t.Errorf("deliver = %#v, want an unmarked instance method", methods[0])
+	}
+	if methods[1].Name != "default" || !methods[1].Singleton {
+		t.Errorf("default = %#v, want Singleton=true (def self.foo)", methods[1])
+	}
+	if methods[2].Name != "notifier" || !methods[2].Singleton {
+		t.Errorf("notifier = %#v, want Singleton=true (class << self)", methods[2])
 	}
 }
 

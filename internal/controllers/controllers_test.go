@@ -305,6 +305,30 @@ func TestParse_ContentBearingModuleDoesNotHijackLaterClass(t *testing.T) {
 	}
 }
 
+// TestParse_SingletonClassDefsAreNotActions pins that a def inside a
+// `class << self` block is excluded from Actions just as `def self.foo`
+// always was -- controllers have no notion of a class-level action.
+func TestParse_SingletonClassDefsAreNotActions(t *testing.T) {
+	content := strings.Join([]string{
+		"class UsersController < ApplicationController",
+		"  def index",
+		"  end",
+		"",
+		"  class << self",
+		"    def permitted_formats",
+		"      [:html, :json]",
+		"    end",
+		"  end",
+		"end",
+		"",
+	}, "\n")
+	s := parseTempController(t, "users_controller.rb", content)
+
+	if want := []string{"  index"}; !reflect.DeepEqual(s.Actions, want) {
+		t.Fatalf("Actions = %#v, want %#v (class << self def leaked in as an action)", s.Actions, want)
+	}
+}
+
 func containsSubstr(slice []string, substr string) bool {
 	for _, s := range slice {
 		if strings.Contains(s, substr) {

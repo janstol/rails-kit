@@ -121,8 +121,12 @@ type Method struct {
 	Name       string `json:"name"`
 	Params     string `json:"params,omitempty"`
 	Visibility string `json:"visibility"`
-	StartLine  int    `json:"start_line"`
-	EndLine    int    `json:"end_line"`
+	// Singleton reports whether this is a class method -- `def self.foo`, or
+	// a def inside a `class << self` block -- rather than an instance
+	// method.
+	Singleton bool `json:"singleton,omitempty"`
+	StartLine int  `json:"start_line"`
+	EndLine   int  `json:"end_line"`
 }
 
 // ParseFiles parses paths using one shared Prism parser, which owns a pool of

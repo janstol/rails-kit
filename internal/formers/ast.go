@@ -66,13 +66,13 @@ func isValidationCall(name string) bool {
 }
 
 // handleDef collects an instance method (`def foo`, Receiver nil) only when
-// it is public, and a singleton method (`def self.foo`, Receiver is
-// *SelfNode) regardless of visibility. Every collected method is rendered as
-// a signature -- a former's parameters are part of its useful summary, same
-// reasoning as helpers and decorators, even though most former methods take
-// none.
-func (w *formerWalker) handleDef(def *parser.DefNode, visibility string) {
-	if _, ok := def.Receiver.(*parser.SelfNode); ok {
+// it is public, and a class method (`def self.foo`, or a def inside a
+// `class << self` block) regardless of visibility. Every collected method is
+// rendered as a signature -- a former's parameters are part of its useful
+// summary, same reasoning as helpers and decorators, even though most former
+// methods take none.
+func (w *formerWalker) handleDef(def *parser.DefNode, visibility string, singleton bool) {
+	if singleton {
 		w.summary.Methods = append(w.summary.Methods, "  "+astutil.Signature(w.src, def))
 		return
 	}

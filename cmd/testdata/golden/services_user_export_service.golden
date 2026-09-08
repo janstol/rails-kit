@@ -10,4 +10,5 @@ Concerns:
 Methods:
   initialize
   call
+  build
 

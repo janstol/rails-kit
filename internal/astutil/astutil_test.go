@@ -354,7 +354,7 @@ end
 
 	var defs []string
 	astutil.WalkClassBody(nodes, astutil.ClassBody{
-		Def: func(def *parser.DefNode, visibility string) {
+		Def: func(def *parser.DefNode, visibility string, _ bool) {
 			defs = append(defs, def.Name+":"+visibility)
 		},
 	})
@@ -374,7 +374,7 @@ end
 
 	var defs []string
 	astutil.WalkClassBody(nodes, astutil.ClassBody{
-		Def: func(def *parser.DefNode, visibility string) {
+		Def: func(def *parser.DefNode, visibility string, _ bool) {
 			defs = append(defs, def.Name+":"+visibility)
 		},
 	})
@@ -603,7 +603,7 @@ end
 
 	var defs []*parser.DefNode
 	astutil.WalkClassBody(nodes, astutil.ClassBody{
-		Def: func(def *parser.DefNode, _ string) { defs = append(defs, def) },
+		Def: func(def *parser.DefNode, _ string, _ bool) { defs = append(defs, def) },
 	})
 	if len(defs) != 3 {
 		t.Fatalf("got %d defs, want 3", len(defs))
@@ -638,7 +638,7 @@ end
 
 	var def *parser.DefNode
 	astutil.WalkClassBody(nodes, astutil.ClassBody{
-		Def: func(d *parser.DefNode, _ string) { def = d },
+		Def: func(d *parser.DefNode, _ string, _ bool) { def = d },
 	})
 	if def == nil {
 		t.Fatal("expected to find def bar")
@@ -668,7 +668,7 @@ end
 
 	var def *parser.DefNode
 	astutil.WalkClassBody(nodes, astutil.ClassBody{
-		Def: func(d *parser.DefNode, _ string) { def = d },
+		Def: func(d *parser.DefNode, _ string, _ bool) { def = d },
 	})
 	if def == nil {
 		t.Fatal("expected to find def bar")
@@ -679,5 +679,116 @@ end
 	})
 	if calls != nil {
 		t.Errorf("calls = %#v, want nil", calls)
+	}
+}
+
+func TestWalkClassBody_SingletonClass(t *testing.T) {
+	_, nodes := classBody(t, `class Foo
+  def a; end
+
+  class << self
+    def b; end
+  end
+end
+`)
+
+	type entry struct {
+		name      string
+		singleton bool
+	}
+	var defs []entry
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Def: func(def *parser.DefNode, _ string, singleton bool) {
+			defs = append(defs, entry{def.Name, singleton})
+		},
+	})
+
+	want := []entry{{"a", false}, {"b", true}}
+	if !reflect.DeepEqual(defs, want) {
+		t.Errorf("defs = %#v, want %#v", defs, want)
+	}
+}
+
+func TestWalkClassBody_SingletonClass_ForwardsCallsAndConsts(t *testing.T) {
+	_, nodes := classBody(t, `class Foo
+  class << self
+    LIMIT = 100
+    attr_accessor :instance
+  end
+end
+`)
+
+	var consts []string
+	var calls []string
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Const: func(n *parser.ConstantWriteNode) { consts = append(consts, n.Name) },
+		Call:  func(call *parser.CallNode) { calls = append(calls, call.Name) },
+	})
+
+	if want := []string{"LIMIT"}; !reflect.DeepEqual(consts, want) {
+		t.Errorf("consts = %#v, want %#v", consts, want)
+	}
+	if want := []string{"attr_accessor"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("calls = %#v, want %#v", calls, want)
+	}
+}
+
+// TestWalkClassBody_SingletonClass_VisibilityDoesNotLeak pins that
+// private/protected/public tracked inside a `class << self` block is local
+// to it -- it neither inherits the enclosing body's visibility nor leaks its
+// own back out once the block ends.
+func TestWalkClassBody_SingletonClass_VisibilityDoesNotLeak(t *testing.T) {
+	_, nodes := classBody(t, `class Foo
+  private
+
+  class << self
+    def b; end
+
+    private
+
+    def c; end
+  end
+
+  def d; end
+end
+`)
+
+	type entry struct {
+		name       string
+		visibility string
+	}
+	var defs []entry
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Def: func(def *parser.DefNode, visibility string, _ bool) {
+			defs = append(defs, entry{def.Name, visibility})
+		},
+	})
+
+	want := []entry{{"b", "public"}, {"c", "private"}, {"d", "private"}}
+	if !reflect.DeepEqual(defs, want) {
+		t.Errorf("defs = %#v, want %#v", defs, want)
+	}
+}
+
+// TestWalkClassBody_SingletonClass_NonSelfSkipped pins that `class << obj`
+// (anything but bare `self`) is skipped entirely -- it declares methods on
+// some other object, not the class being summarized.
+func TestWalkClassBody_SingletonClass_NonSelfSkipped(t *testing.T) {
+	_, nodes := classBody(t, `class Foo
+  OTHER = Object.new
+
+  class << OTHER
+    def b; end
+  end
+end
+`)
+
+	var defs []string
+	astutil.WalkClassBody(nodes, astutil.ClassBody{
+		Def: func(def *parser.DefNode, _ string, _ bool) { defs = append(defs, def.Name) },
+	})
+
+	if defs != nil {
+		t.Errorf("defs = %#v, want nil", defs)
 	}
 }

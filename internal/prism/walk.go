@@ -28,6 +28,13 @@ func isVisibilityCall(name string) bool {
 	return name == "public" || name == "protected" || name == "private"
 }
 
+// isSelfReceiver reports whether receiver is the bare `self` of a `def
+// self.foo` singleton method declaration.
+func isSelfReceiver(receiver parser.Node) bool {
+	_, ok := receiver.(*parser.SelfNode)
+	return ok
+}
+
 // container accumulates the structural children found while walking a body
 // scope (a file, class, or module), before being flattened into the
 // exported File/Class/Module structs.
@@ -78,7 +85,7 @@ func (w *astWalker) walkBody(nodes []parser.Node, c *container) {
 		case *parser.ConstantWriteNode:
 			c.constants = append(c.constants, w.constantEntry(n))
 		case *parser.DefNode:
-			c.methods = append(c.methods, w.methodEntry(n, visibility))
+			c.methods = append(c.methods, w.methodEntry(n, visibility, isSelfReceiver(n.Receiver)))
 		case *parser.CallNode:
 			switch {
 			case isVisibilityCall(n.Name) && n.Arguments == nil:
@@ -94,7 +101,28 @@ func (w *astWalker) walkBody(nodes []parser.Node, c *container) {
 			case n.Receiver == nil && !strings.HasSuffix(n.Name, "="):
 				c.calls = append(c.calls, w.callEntry(n, "macro"))
 			}
+		case *parser.SingletonClassNode:
+			w.walkSingletonBody(n, c)
 		}
+	}
+}
+
+// walkSingletonBody folds a `class << self` block into the enclosing scope:
+// its statements are walked into the same container c that walkBody itself
+// is filling, then every method appended by the walk is marked Singleton --
+// so a nested class/module, an attr_accessor, an include, and so on are all
+// recorded exactly as they would be if declared directly in the class body,
+// with only methods gaining the class-method marker. A `class << obj` block
+// naming anything other than `self` declares methods on some other object,
+// not on the class being summarized, and is skipped entirely.
+func (w *astWalker) walkSingletonBody(n *parser.SingletonClassNode, c *container) {
+	if !isSelfReceiver(n.Expression) {
+		return
+	}
+	start := len(c.methods)
+	w.walkBody(w.bodyNodes(n), c)
+	for i := start; i < len(c.methods); i++ {
+		c.methods[i].Singleton = true
 	}
 }
 
@@ -149,7 +177,7 @@ func (w *astWalker) constantEntry(n *parser.ConstantWriteNode) Constant {
 	}
 }
 
-func (w *astWalker) methodEntry(n *parser.DefNode, visibility string) Method {
+func (w *astWalker) methodEntry(n *parser.DefNode, visibility string, singleton bool) Method {
 	start, end := w.lineRange(n.Location)
 	params := ""
 	if n.Parameters != nil {
@@ -159,6 +187,7 @@ func (w *astWalker) methodEntry(n *parser.DefNode, visibility string) Method {
 		Name:       n.Name,
 		Params:     params,
 		Visibility: visibility,
+		Singleton:  singleton,
 		StartLine:  start,
 		EndLine:    end,
 	}
@@ -203,8 +232,12 @@ func (w *astWalker) callSource(n *parser.CallNode) string {
 
 // bodyNodes returns the top-level statements of a scope, matching
 // skeleton.rb's body_nodes: only a plain StatementsNode body is walked, so a
-// class/module body wrapped in a BeginNode (e.g. one with a top-level
-// rescue) yields no children, same as before.
+// class/module/singleton-class body wrapped in a BeginNode (e.g. one with a
+// top-level rescue) yields no children, same as before. This also means a
+// def, call, or const nested inside an `if`/`unless` is not seen -- a known,
+// deliberate gap, not a bug to be rediscovered. Whether a conditionally
+// defined method belongs in a summary is a modeling question, not a
+// walk-order one.
 func (w *astWalker) bodyNodes(n parser.Node) []parser.Node {
 	switch v := n.(type) {
 	case *parser.ProgramNode:
@@ -217,6 +250,10 @@ func (w *astWalker) bodyNodes(n parser.Node) []parser.Node {
 			return st.Body
 		}
 	case *parser.ModuleNode:
+		if st, ok := v.Body.(*parser.StatementsNode); ok {
+			return st.Body
+		}
+	case *parser.SingletonClassNode:
 		if st, ok := v.Body.(*parser.StatementsNode); ok {
 			return st.Body
 		}

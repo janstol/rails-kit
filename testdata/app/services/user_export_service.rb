@@ -11,6 +11,12 @@ class UserExportService
     export(format)
   end
 
+  class << self
+    def build(scope: User.all)
+      new(scope)
+    end
+  end
+
   private
 
   def export(format)

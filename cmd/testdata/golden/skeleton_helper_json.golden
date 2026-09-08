@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "command": "skeleton",
+  "data": {
+    "files": [
+      {
+        "path": "<fixture-root>/app/helpers/users_helper.rb",
+        "rel_path": "app/helpers/users_helper.rb",
+        "modules": [
+          {
+            "name": "UsersHelper",
+            "start_line": 1,
+            "end_line": 66,
+            "includes": [
+              {
+                "name": "include",
+                "kind": "include",
+                "args": [
+                  "IconHelper"
+                ],
+                "source": "include IconHelper",
+                "start_line": 4,
+                "end_line": 4
+              }
+            ],
+            "constants": [
+              {
+                "name": "DEFAULT_AVATAR_SIZE",
+                "source": "DEFAULT_AVATAR_SIZE = 40",
+                "start_line": 2,
+                "end_line": 2
+              }
+            ],
+            "calls": [
+              {
+                "name": "private",
+                "kind": "macro",
+                "args": [
+                  "def formatted_user_id(user)\n    \"USR-#{user.id}\"\n  end"
+                ],
+                "source": "private def formatted_user_id(user)\n    \"USR-#{user.id}\"\n  end",
+                "start_line": 63,
+                "end_line": 65
+              }
+            ],
+            "methods": [
+              {
+                "name": "user_avatar",
+                "params": "user",
+                "visibility": "public",
+                "start_line": 6,
+                "end_line": 8
+              },
+              {
+                "name": "user_badge",
+                "params": "user, size = DEFAULT_AVATAR_SIZE",
+                "visibility": "public",
+                "start_line": 10,
+                "end_line": 12
+              },
+              {
+                "name": "user_status_tag",
+                "params": "user:, css_class: \"status\"",
+                "visibility": "public",
+                "start_line": 14,
+                "end_line": 16
+              },
+              {
+                "name": "user_tags",
+                "params": "*tags",
+                "visibility": "public",
+                "start_line": 18,
+                "end_line": 20
+              },
+              {
+                "name": "with_user_context",
+                "params": "\u0026block",
+                "visibility": "public",
+                "start_line": 22,
+                "end_line": 24
+              },
+              {
+                "name": "current_user_name",
+                "visibility": "public",
+                "start_line": 26,
+                "end_line": 28
+              },
+              {
+                "name": "user_summary",
+                "params": "user,\n    show_email: false,\n    show_role: false",
+                "visibility": "public",
+                "start_line": 30,
+                "end_line": 39
+              },
+              {
+                "name": "default_avatar_url",
+                "visibility": "public",
+                "singleton": true,
+                "start_line": 41,
+                "end_line": 43
+              },
+              {
+                "name": "default_role_label",
+                "visibility": "public",
+                "singleton": true,
+                "start_line": 46,
+                "end_line": 48
+              },
+              {
+                "name": "internal_role_key",
+                "visibility": "private",
+                "singleton": true,
+                "start_line": 52,
+                "end_line": 54
+              },
+              {
+                "name": "user_secret_token",
+                "params": "user",
+                "visibility": "private",
+                "start_line": 59,
+                "end_line": 61
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

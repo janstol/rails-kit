@@ -50,8 +50,12 @@ type jobWalker struct {
 	summary *Summary
 }
 
-func (w *jobWalker) handleDef(def *parser.DefNode, visibility string) {
-	if def.Receiver == nil && visibility == "public" {
+// handleDef collects an instance method (`def foo`, Receiver nil) when it is
+// public. A class method -- `def self.foo`, or a def inside a
+// `class << self` block -- is excluded here just as `def self.foo` always
+// was: jobs have no notion of a class-level job method.
+func (w *jobWalker) handleDef(def *parser.DefNode, visibility string, singleton bool) {
+	if !singleton && def.Receiver == nil && visibility == "public" {
 		w.summary.Methods = append(w.summary.Methods, "  "+def.Name)
 	}
 }

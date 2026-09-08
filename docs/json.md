@@ -275,8 +275,9 @@ Detail mode returns the full service object directly under `data`:
 - `constants` entries are `NAME = value` (e.g. `DEFAULT_LIMIT = 100`), with the value's whitespace
   collapsed; class-level constants are part of a service's interface.
 - `methods` are public instance methods (`def foo`, visibility tracked through both the bare
-  `private`/`protected`/`public` switch and the `private def foo; end` form) plus singleton class
-  methods (`def self.foo`), which are collected regardless of visibility.
+  `private`/`protected`/`public` switch and the `private def foo; end` form) plus class methods
+  (`def self.foo`, or a def inside a `class << self` block), which are collected regardless of
+  visibility.
 - Services have no universal naming convention, so no suffix is appended or stripped -- the name
   is matched as given. Only the service's own file is parsed -- declarations inherited from a
   superclass are not resolved; `parent_class` names it.
@@ -305,8 +306,9 @@ Detail mode returns the full datagrid object directly under `data`:
 - `macros` is a catch-all for other class-level calls (e.g. `filter_per_page`, `column_actions`,
   `column_id selection: false`, `tool :clear, ...`).
 - `methods` are public instance methods (visibility tracked through both the bare
-  `private`/`protected`/`public` switch and the `private def foo; end` form) plus singleton class
-  methods (`def self.foo`), which are collected regardless of visibility.
+  `private`/`protected`/`public` switch and the `private def foo; end` form) plus class methods
+  (`def self.foo`, or a def inside a `class << self` block), which are collected regardless of
+  visibility.
 - The reader targets the `datagrid` gem DSL but degrades gracefully: a custom grid or a different
   grid library in `app/datagrids/` still resolves (the `_datagrid` suffix is tried first, then the
   name as given) and reports `parent_class`/`concerns`/`methods`/`macros`, but the dedicated
@@ -336,8 +338,8 @@ Detail mode returns the full helper object directly under `data`:
   parameters are the useful part; a multi-line parameter list is collapsed onto one line, and a
   no-parameter method (`current_user_name`) has no trailing `()`. Methods are public instance
   methods (visibility tracked through both the bare `private`/`protected`/`public` switch and the
-  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
-  regardless of visibility.
+  `private def foo; end` form) plus class methods (`def self.foo`, or a def inside a
+  `class << self` block), which are collected regardless of visibility.
 - Helper files follow the `_helper.rb` naming convention without exception, so the suffix is tried
   first and the raw filename falls back. Only the helper's own file is parsed.
 
@@ -367,8 +369,8 @@ Detail mode returns the full decorator object directly under `data`:
   -- like `helpers`, not the other readers. A multi-line parameter list is collapsed onto one
   line, and a no-parameter method has no trailing `()`. Methods are public instance methods
   (visibility tracked through both the bare `private`/`protected`/`public` switch and the
-  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
-  regardless of visibility.
+  `private def foo; end` form) plus class methods (`def self.foo`, or a def inside a
+  `class << self` block), which are collected regardless of visibility.
 - The reader targets the Draper gem convention (`delegate_all` on an
   `ApplicationDecorator`/`Draper::Decorator` subclass) but degrades gracefully: a custom decorator
   implementation still resolves (the `_decorator` suffix is tried first, then the name as given)
@@ -410,7 +412,8 @@ Detail mode returns the full former object directly under `data`:
   and `decorators`. A multi-line parameter list is collapsed onto one line, and a no-parameter
   method has no trailing `()`. Methods are public instance methods (visibility tracked through
   both the bare `private`/`protected`/`public` switch and the `private def foo; end` form) plus
-  singleton class methods (`def self.foo`), which are collected regardless of visibility.
+  class methods (`def self.foo`, or a def inside a `class << self` block), which are collected
+  regardless of visibility.
 - Former files follow two filename conventions across real apps -- `_former.rb` and `_form.rb` --
   plus a handful of bare-named files (mostly under `app/formers/concerns`), so both suffixes are
   tried, in that order, before the name as given. `app/formers/concerns` is listed like any other
@@ -446,8 +449,8 @@ Detail mode returns the full presenter object directly under `data`:
   like `helpers`, `decorators`, and `formers`. A multi-line parameter list is collapsed onto one
   line, and a no-parameter method has no trailing `()`. Methods are public instance methods
   (visibility tracked through both the bare `private`/`protected`/`public` switch and the
-  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
-  regardless of visibility.
+  `private def foo; end` form) plus class methods (`def self.foo`, or a def inside a
+  `class << self` block), which are collected regardless of visibility.
 - `app/presenters/concerns` is listed like any other presenter file rather than skipped --
   nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns`
   command. Only the presenter's own file is parsed -- declarations inherited from a superclass
@@ -464,6 +467,11 @@ contract exists to fix (previously a bare object for one file, an array for many
 
 Every field but `path` is `omitempty`. `parse_errors` (strings) is present only when Prism
 reported syntax errors for that file; the rest of the summary is best-effort in that case.
+
+Each `methods` entry carries `singleton: true` when it is a class method -- `def self.foo`, or a
+def inside a `class << self` block -- rather than an instance method; the field is omitted for an
+instance method. A def, call, or const nested inside an `if`/`unless`/`begin` is not seen -- a
+known, deliberate gap, not a bug.
 
 ### `version`
 

@@ -1,0 +1,31 @@
+app/helpers/users_helper.rb
+========================================
+
+Module UsersHelper (lines 1-66):
+
+  Includes:
+    include IconHelper (line 4)
+
+  Constants:
+    DEFAULT_AVATAR_SIZE = 40 (line 2)
+
+  Macros:
+    private def formatted_user_id(user)
+    "USR-#{user.id}"
+  end (lines 63-65)
+
+  Methods:
+    public def user_avatar(user) (lines 6-8)
+    public def user_badge(user, size = DEFAULT_AVATAR_SIZE) (lines 10-12)
+    public def user_status_tag(user:, css_class: "status") (lines 14-16)
+    public def user_tags(*tags) (lines 18-20)
+    public def with_user_context(&block) (lines 22-24)
+    public def current_user_name (lines 26-28)
+    public def user_summary(user,
+    show_email: false,
+    show_role: false) (lines 30-39)
+    public def self.default_avatar_url (lines 41-43)
+    public def self.default_role_label (lines 46-48)
+    private def self.internal_role_key (lines 52-54)
+    private def user_secret_token(user) (lines 59-61)
+

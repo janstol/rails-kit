@@ -79,6 +79,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   gap is common (Draper decorators routinely `include Rails.application.routes.url_helpers` for
   URL helpers). No fixture under any of these readers' existing `testdata/` exercised a dotted
   include, so this fix caused no golden-file changes to any of them.
+- `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`,
+  `presenters`, and `skeleton` no longer silently drop a `class << self` block: every def, call,
+  and constant assignment inside one is now walked exactly as if it appeared directly in the
+  surrounding class or module body, with each def reported as a class method just like
+  `def self.foo`. Previously the whole block matched no case in the shared walker and vanished
+  with no parse diagnostic, no stderr warning, and no exit code -- confirmed as real data loss
+  against several real Rails codebases, including large swaths of a Rails core module's own
+  public API. `skeleton` also gains a `singleton` marker on each method entry (rendered as a
+  `self.`-prefixed name in human output), so `def self.foo` and a `class << self` def are now
+  reported consistently and distinguishably from an instance method -- previously both forms were
+  silently conflated as plain instance methods. A def, call, or constant nested inside an
+  `if`/`unless`/`begin` remains out of scope, unchanged from before.
 
 ## [0.5.0] - 2026-08-04
 

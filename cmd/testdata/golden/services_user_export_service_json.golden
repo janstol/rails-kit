@@ -13,7 +13,8 @@
     ],
     "methods": [
       "initialize",
-      "call"
+      "call",
+      "build"
     ]
   }
 }

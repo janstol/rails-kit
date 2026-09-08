@@ -56,6 +56,8 @@ func TestGolden(t *testing.T) {
 
 		{name: "skeleton_user", cmd: skeletonCmd, args: []string{"app/models/user.rb"}},
 		{name: "skeleton_user_json", cmd: skeletonCmd, args: []string{"app/models/user.rb"}, json: true},
+		{name: "skeleton_helper", cmd: skeletonCmd, args: []string{"app/helpers/users_helper.rb"}},
+		{name: "skeleton_helper_json", cmd: skeletonCmd, args: []string{"app/helpers/users_helper.rb"}, json: true},
 
 		{name: "fixtures_list", cmd: fixturesCmd},
 		{name: "fixtures_list_json", cmd: fixturesCmd, json: true},

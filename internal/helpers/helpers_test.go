@@ -46,6 +46,8 @@ func TestParse_UsersHelper(t *testing.T) {
 		"  current_user_name",
 		"  user_summary(user, show_email: false, show_role: false)",
 		"  default_avatar_url",
+		"  default_role_label",
+		"  internal_role_key",
 	}
 	if !reflect.DeepEqual(s.Methods, want) {
 		t.Errorf("Methods = %#v, want %#v", s.Methods, want)

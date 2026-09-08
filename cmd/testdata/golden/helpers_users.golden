@@ -16,4 +16,6 @@ Methods:
   current_user_name
   user_summary(user, show_email: false, show_role: false)
   default_avatar_url
+  default_role_label
+  internal_role_key
 

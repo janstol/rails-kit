@@ -42,6 +42,18 @@ module UsersHelper
     "/images/default_avatar.png"
   end
 
+  class << self
+    def default_role_label
+      "Member"
+    end
+
+    private
+
+    def internal_role_key
+      :member
+    end
+  end
+
   private
 
   def user_secret_token(user)

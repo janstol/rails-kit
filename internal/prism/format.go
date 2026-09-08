@@ -108,7 +108,11 @@ func writeMethods(sb *strings.Builder, indent string, methods []Method) {
 		if params != "" {
 			params = "(" + params + ")"
 		}
-		fmt.Fprintf(sb, "%s  %s def %s%s%s\n", indent, method.Visibility, method.Name, params, lineSuffix(method.StartLine, method.EndLine))
+		name := method.Name
+		if method.Singleton {
+			name = "self." + name
+		}
+		fmt.Fprintf(sb, "%s  %s def %s%s%s\n", indent, method.Visibility, name, params, lineSuffix(method.StartLine, method.EndLine))
 	}
 }
 

@@ -36,7 +36,7 @@ func TestParse_UserExport(t *testing.T) {
 	if want := []string{"  Searchable"}; !reflect.DeepEqual(s.Concerns, want) {
 		t.Errorf("Concerns = %#v, want %#v", s.Concerns, want)
 	}
-	if want := []string{"  initialize", "  call"}; !reflect.DeepEqual(s.Methods, want) {
+	if want := []string{"  initialize", "  call", "  build"}; !reflect.DeepEqual(s.Methods, want) {
 		t.Errorf("Methods = %#v, want %#v", s.Methods, want)
 	}
 	// The private `export` must be excluded from Methods.

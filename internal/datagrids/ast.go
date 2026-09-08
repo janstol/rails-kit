@@ -46,10 +46,10 @@ type datagridWalker struct {
 }
 
 // handleDef collects an instance method (`def foo`, Receiver nil) only when it
-// is public, and a singleton method (`def self.foo`, Receiver is *SelfNode)
-// regardless of visibility.
-func (w *datagridWalker) handleDef(def *parser.DefNode, visibility string) {
-	if _, ok := def.Receiver.(*parser.SelfNode); ok {
+// is public, and a class method (`def self.foo`, or a def inside a
+// `class << self` block) regardless of visibility.
+func (w *datagridWalker) handleDef(def *parser.DefNode, visibility string, singleton bool) {
+	if singleton {
 		w.summary.Methods = append(w.summary.Methods, "  "+def.Name)
 		return
 	}

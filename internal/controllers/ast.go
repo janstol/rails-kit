@@ -56,8 +56,12 @@ type controllerWalker struct {
 	summary *Summary
 }
 
-func (w *controllerWalker) handleDef(def *parser.DefNode, visibility string) {
-	if def.Receiver == nil && visibility == "public" {
+// handleDef collects an instance method (`def foo`, Receiver nil) as an
+// action when it is public. A class method -- `def self.foo`, or a def
+// inside a `class << self` block -- is excluded here just as `def self.foo`
+// always was: controllers have no notion of a class-level action.
+func (w *controllerWalker) handleDef(def *parser.DefNode, visibility string, singleton bool) {
+	if !singleton && def.Receiver == nil && visibility == "public" {
 		w.summary.Actions = append(w.summary.Actions, "  "+def.Name)
 	}
 	w.collectStrongParams(def)
