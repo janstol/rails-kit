@@ -377,6 +377,47 @@ Detail mode returns the full decorator object directly under `data`:
   `app/controllers/concerns` is owned by the `concerns` command. Only the decorator's own file is
   parsed -- declarations inherited from a superclass are not resolved; `parent_class` names it.
 
+### `formers`
+
+List mode:
+
+```json
+{ "formers": ["admin/report", "concerns/validatable", "session", "user"] }
+```
+
+Detail mode returns the full former object directly under `data`:
+
+```json
+{ "class_name": "UserFormer", "kind": "class", "rel_path": "app/formers/user_former.rb", "concerns": [...], "constants": [...], "attributes": [...], "validations": [...], "macros": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; a module-style former (e.g. a file under
+  `app/formers/concerns`) has `kind: "module"` and no `parent_class`.
+- `constants` entries are `NAME = value`, with the value's whitespace collapsed.
+- `attributes` entries are `attr_accessor`/`attr_reader`/`attr_writer` calls rendered whole (e.g.
+  `attr_accessor :name, :email`), broken out of the macros catch-all since they're a dominant
+  signal in a former.
+- `validations` entries are `validate`/`validates`/`validates_*` calls, also broken out of macros
+  for the same reason. A `with_options do ... end` block wrapping validations is expanded inline:
+  the `with_options` call itself becomes one entry, immediately followed by each nested validation
+  call as its own entry -- the nesting is visible in human output as a deeper indent, but flattened
+  to a plain list here like every other entries field. A `with_options` block holding no
+  validations is reported under `macros` instead, with its normal call rendering.
+- `macros` is a catch-all for every other class-level call (e.g. `delegate`, `store_accessor`, and
+  any app-specific macro), the same modeling `decorators` and `datagrids` use for their own DSLs.
+- `methods` entries are full signatures (`apply(current_user)`), not bare names -- like `helpers`
+  and `decorators`. A multi-line parameter list is collapsed onto one line, and a no-parameter
+  method has no trailing `()`. Methods are public instance methods (visibility tracked through
+  both the bare `private`/`protected`/`public` switch and the `private def foo; end` form) plus
+  singleton class methods (`def self.foo`), which are collected regardless of visibility.
+- Former files follow two filename conventions across real apps -- `_former.rb` and `_form.rb` --
+  plus a handful of bare-named files (mostly under `app/formers/concerns`), so both suffixes are
+  tried, in that order, before the name as given. `app/formers/concerns` is listed like any other
+  former file rather than skipped -- nothing owns that directory the way `app/controllers/concerns`
+  is owned by the `concerns` command. Only the former's own file is parsed -- declarations
+  inherited from a superclass are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

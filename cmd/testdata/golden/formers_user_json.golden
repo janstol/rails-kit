@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "command": "formers",
+  "data": {
+    "class_name": "UserFormer",
+    "kind": "class",
+    "rel_path": "app/formers/user_former.rb",
+    "concerns": [
+      "ActiveModel::Model"
+    ],
+    "constants": [
+      "DEFAULT_ROLE = \"member\""
+    ],
+    "attributes": [
+      "attr_accessor :name, :email"
+    ],
+    "validations": [
+      "validates :name, presence: true",
+      "validates :email, presence: true, format: { with: /@/ }",
+      "validate :email_not_blacklisted",
+      "with_options if: -\u003e { role == \"admin\" }",
+      "validates :department, presence: true",
+      "validates :approval_code, presence: true"
+    ],
+    "macros": [
+      "delegate :to_model, to: :user"
+    ],
+    "methods": [
+      "save",
+      "apply(current_user)",
+      "build_default"
+    ]
+  }
+}

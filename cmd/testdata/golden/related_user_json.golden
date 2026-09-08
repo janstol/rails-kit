@@ -36,6 +36,12 @@
         ]
       },
       {
+        "label": "Former",
+        "files": [
+          "app/formers/user_former.rb"
+        ]
+      },
+      {
         "label": "Service",
         "files": [
           "app/services/user_export_service.rb"

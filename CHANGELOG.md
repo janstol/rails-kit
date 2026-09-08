@@ -20,6 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   other decorator file rather than skipped, since nothing owns that directory the way
   `app/controllers/concerns` is owned by the `concerns` command. The detail view is AST-backed and
   single-file only.
+- `rails-kit formers [name]` lists form objects, or shows one former's included concerns,
+  class-level constants, attributes, validations, other class-level DSL calls (surfaced as
+  macros, e.g. `delegate`), and methods. Attributes and validations get their own sections rather
+  than being folded into macros, since they're the dominant signal in a former. A `with_options
+  do ... end` block wrapping validations is expanded inline, rather than silently dropped. Like
+  `helpers` and `decorators`, each method renders as its full parameter signature rather than a
+  bare name. Former files follow two filename conventions across real apps (`_former.rb` and
+  `_form.rb`) plus a handful of bare-named files, so both suffixes are tried before the name as
+  given. `app/formers/concerns` is listed like any other former file rather than skipped, since
+  nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns`
+  command. The detail view is AST-backed and single-file only.
 
 ### Changed
 

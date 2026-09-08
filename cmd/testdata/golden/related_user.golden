@@ -8,6 +8,8 @@ Decorator:
   app/decorators/user_decorator.rb
 Mailer:
   app/mailers/user_mailer.rb
+Former:
+  app/formers/user_former.rb
 Service:
   app/services/user_export_service.rb
 Fixtures:

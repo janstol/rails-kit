@@ -270,6 +270,33 @@ decorator's own declarations are shown, not ones inherited from a superclass -- 
 says where to look next. Recoverable Ruby syntax errors produce line-specific warnings on stderr
 while successfully recovered fields remain on stdout, including in JSON mode.
 
+## `formers`
+
+```sh
+rails-kit formers
+rails-kit formers user
+rails-kit formers admin/report
+rails-kit formers Admin::ReportFormer --json
+```
+
+Summarizes a form object's included concerns, class-level constants, attributes, validations,
+other class-level DSL calls (surfaced as macros), and methods. Attributes (`attr_accessor`/
+`attr_reader`/`attr_writer`) and validations (`validate`/`validates`/`validates_*`) get their own
+sections rather than being folded into the macros catch-all, since they're the dominant signal in
+a former. A `with_options do ... end` block wrapping validations is expanded inline: the
+`with_options` call becomes a group header under `validations`, followed by each nested
+validation, indented one level deeper. A `with_options` block holding no validations is treated
+like any other class-level call and reported as a macro instead. Like `helpers` and `decorators`,
+each method renders as its full signature, not a bare name. Former files follow two filename
+conventions across real apps -- `_former.rb` and `_form.rb` -- plus a handful of bare-named files
+(mostly under `app/formers/concerns`), so both suffixes are tried before the name as given.
+`app/formers/concerns` is listed like any other former file rather than skipped, since nothing
+owns that directory the way `app/controllers/concerns` is owned by the `concerns` command.
+Parsing is static, AST-backed by Prism, single-file only: a former's own declarations are shown,
+not ones inherited from a superclass -- `parent_class` says where to look next. Recoverable Ruby
+syntax errors produce line-specific warnings on stderr while successfully recovered fields remain
+on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -281,6 +308,6 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
 time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
-`datagrids`, `helpers`, and `decorators` complete their respective names — all
-read from the current Rails project. `routes` and other flag-only commands
-are unaffected.
+`datagrids`, `helpers`, `decorators`, and `formers` complete their respective
+names — all read from the current Rails project. `routes` and other
+flag-only commands are unaffected.

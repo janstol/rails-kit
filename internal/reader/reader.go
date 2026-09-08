@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -32,6 +33,10 @@ type Kind struct {
 	// Suffix is the conventional filename suffix, e.g. "_job". Empty means
 	// no universal suffix -- names are matched exactly as given (services).
 	Suffix string
+	// AltSuffixes holds additional filename suffix conventions checked after
+	// Suffix, in order, e.g. formers' "_form" alongside its "_former" Suffix.
+	// Empty for readers with a single settled convention.
+	AltSuffixes []string
 	// ErrAmbiguous is the caller's own sentinel error, so its errors.Is
 	// relationship (via IsAmbiguousError) keeps working unchanged. Resolve
 	// wraps it with %w.
@@ -92,19 +97,20 @@ func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
 		return "", fmt.Errorf("%s path %s: not a directory", k.Plural, dir)
 	}
 
-	// Prefer the conventional suffixed file. Fall back to the name exactly
+	// Prefer the conventional suffixed file, then each alt suffix in order
+	// (formers' "_form" alongside "_former"). Fall back to the name exactly
 	// as given -- a handful of real apps keep .rb files directly under the
 	// domain directory that don't follow that convention, and ListNames
 	// surfaces those names unmodified. When Suffix is empty (services),
 	// there is only the exact-name candidate.
 	candidates := []string{normalizedName + ".rb"}
 	if k.Suffix != "" {
-		suffixed := normalizedName
-		if !strings.HasSuffix(suffixed, k.Suffix) {
-			suffixed += k.Suffix
-		}
+		suffixed := appendSuffix(normalizedName, k.Suffix)
 		candidates = []string{suffixed + ".rb"}
-		if suffixed != normalizedName {
+		for _, alt := range k.AltSuffixes {
+			candidates = append(candidates, appendSuffix(normalizedName, alt)+".rb")
+		}
+		if suffixed != normalizedName || len(k.AltSuffixes) > 0 {
 			candidates = append(candidates, normalizedName+".rb")
 		}
 	}
@@ -133,6 +139,14 @@ func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s file not found for '%s'", k.Noun, input)
+}
+
+// appendSuffix appends suffix to name unless name already ends with it.
+func appendSuffix(name, suffix string) string {
+	if strings.HasSuffix(name, suffix) {
+		return name
+	}
+	return name + suffix
 }
 
 // findFile looks for target (a dir-relative path) under dir. If target has no
@@ -204,9 +218,7 @@ func (k Kind) ListNames(railsRoot, dirPath string, skipDirs ...string) ([]string
 			rel, relErr := filepath.Rel(dir, path)
 			if relErr == nil {
 				name := strings.TrimSuffix(filepath.ToSlash(rel), ".rb")
-				if k.Suffix != "" {
-					name = strings.TrimSuffix(name, k.Suffix)
-				}
+				name = k.stripSuffix(name)
 				names = append(names, name)
 			}
 		}
@@ -216,19 +228,41 @@ func (k Kind) ListNames(railsRoot, dirPath string, skipDirs ...string) ([]string
 		return nil, err
 	}
 	sort.Strings(names)
+	// Two files that reduce to the same short name under different
+	// conventions (e.g. a "_former" and a "_form" file for the same
+	// resource) list once rather than twice.
+	names = slices.Compact(names)
 	return names, nil
 }
 
-// StyleEntry colors the leading macro keyword of a "  macro ..." entry line
-// produced by Parse, leaving the rest of the line untouched. Lines whose
-// first token is not a known macro (bare names like a method), or Kinds with
-// a nil IsMacro, pass through unchanged.
+// stripSuffix removes the first suffix that matches name -- Suffix, then
+// each AltSuffixes entry in order -- or returns name unchanged if none match.
+func (k Kind) stripSuffix(name string) string {
+	if k.Suffix != "" && strings.HasSuffix(name, k.Suffix) {
+		return strings.TrimSuffix(name, k.Suffix)
+	}
+	for _, alt := range k.AltSuffixes {
+		if strings.HasSuffix(name, alt) {
+			return strings.TrimSuffix(name, alt)
+		}
+	}
+	return name
+}
+
+// StyleEntry colors the leading macro keyword of an indented "  macro ..."
+// entry line produced by Parse, leaving the rest of the line untouched. The
+// indent width is not fixed at two spaces: a former's nested `with_options`
+// children render four spaces deep, so the leading whitespace is trimmed to
+// find the token and re-emitted as-is rather than assumed. Lines with no
+// leading indent (unindented entries), lines whose first token is not a known
+// macro (bare names like a method), or Kinds with a nil IsMacro, pass through
+// unchanged.
 func (k Kind) StyleEntry(entry string, st term.Styler) string {
-	const indent = "  "
-	if !strings.HasPrefix(entry, indent) {
+	rest := strings.TrimLeft(entry, " ")
+	indent := entry[:len(entry)-len(rest)]
+	if indent == "" {
 		return entry
 	}
-	rest := entry[len(indent):]
 	tok := rest
 	if idx := strings.IndexByte(rest, ' '); idx >= 0 {
 		tok = rest[:idx]

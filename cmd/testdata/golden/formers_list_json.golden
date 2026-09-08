@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "command": "formers",
+  "data": {
+    "formers": [
+      "admin/report",
+      "concerns/validatable",
+      "session",
+      "user"
+    ]
+  }
+}

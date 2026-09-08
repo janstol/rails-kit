@@ -12,6 +12,7 @@ import (
 	"github.com/janstol/rails-kit/internal/datagrids"
 	"github.com/janstol/rails-kit/internal/decorators"
 	"github.com/janstol/rails-kit/internal/fixtures"
+	"github.com/janstol/rails-kit/internal/formers"
 	"github.com/janstol/rails-kit/internal/gem"
 	"github.com/janstol/rails-kit/internal/helpers"
 	"github.com/janstol/rails-kit/internal/jobs"
@@ -106,6 +107,16 @@ func listDecoratorNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeDecoratorNames = completeWithConfig(listDecoratorNames)
+
+func listFormerNames(root string, cfg config.Config, _ string) []string {
+	names, err := formers.ListNames(root, cfg.FormersPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeFormerNames = completeWithConfig(listFormerNames)
 
 func listDatagridNames(root string, cfg config.Config, _ string) []string {
 	names, err := datagrids.ListNames(root, cfg.DatagridsPath)

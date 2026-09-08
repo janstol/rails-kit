@@ -24,6 +24,17 @@ func suffixedKind() reader.Kind {
 	}
 }
 
+func altSuffixKind() reader.Kind {
+	return reader.Kind{
+		Noun:         "former",
+		Plural:       "formers",
+		Suffix:       "_former",
+		AltSuffixes:  []string{"_form"},
+		ErrAmbiguous: errAmbiguousTestName,
+		IsMacro:      func(tok string) bool { return tok == "validates" },
+	}
+}
+
 func noSuffixKind() reader.Kind {
 	return reader.Kind{
 		Noun:         "service",
@@ -107,6 +118,35 @@ func TestResolve_BasenameAnywhereInTree(t *testing.T) {
 	}
 	if !strings.HasSuffix(filepath.ToSlash(path), "app/jobs/admin/export_job.rb") {
 		t.Errorf("path = %s, want app/jobs/admin/export_job.rb suffix", path)
+	}
+}
+
+func TestResolve_AltSuffixTriedAfterPrimarySuffix(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/formers/session_form.rb")
+
+	k := altSuffixKind()
+	path, err := k.Resolve(root, "app/formers", "session")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(path), "app/formers/session_form.rb") {
+		t.Errorf("path = %s, want app/formers/session_form.rb suffix", path)
+	}
+}
+
+func TestResolve_PrimarySuffixPreferredOverAltSuffix(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/formers/user_former.rb")
+	writeFile(t, root, "app/formers/user_form.rb")
+
+	k := altSuffixKind()
+	path, err := k.Resolve(root, "app/formers", "user")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(path), "app/formers/user_former.rb") {
+		t.Errorf("path = %s, want app/formers/user_former.rb (Suffix candidate tried before AltSuffixes)", path)
 	}
 }
 
@@ -200,6 +240,39 @@ func TestListNames_StripsSuffix(t *testing.T) {
 	}
 }
 
+func TestListNames_StripsAltSuffixWhenPrimaryDoesNotMatch(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/formers/user_former.rb")
+	writeFile(t, root, "app/formers/session_form.rb")
+	writeFile(t, root, "app/formers/concerns/validatable.rb")
+
+	k := altSuffixKind()
+	names, err := k.ListNames(root, "app/formers")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"concerns/validatable", "session", "user"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("got %v, want %v", names, want)
+	}
+}
+
+func TestListNames_DedupesWhenBothSuffixConventionsReduceToSameName(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/formers/user_former.rb")
+	writeFile(t, root, "app/formers/user_form.rb")
+
+	k := altSuffixKind()
+	names, err := k.ListNames(root, "app/formers")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"user"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("got %v, want %v (both files reduce to the same short name once)", names, want)
+	}
+}
+
 func TestListNames_EmptySuffixLeavesNamesVerbatim(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "app/services/user_export_service.rb")
@@ -282,6 +355,18 @@ func TestStyleEntry(t *testing.T) {
 		entry := "retry_on StandardError"
 		if got := k.StyleEntry(entry, st); got != entry {
 			t.Errorf("got %q, want unchanged %q", got, entry)
+		}
+	})
+
+	t.Run("deeper-indented nested entry keeps macro accent", func(t *testing.T) {
+		// A former's with_options children render four spaces deep rather
+		// than the usual two -- StyleEntry must not assume a fixed indent
+		// width to find the token.
+		k := altSuffixKind()
+		got := k.StyleEntry("    validates :city", st)
+		want := "    " + st.Cyan("validates") + " :city"
+		if got != want {
+			t.Errorf("got %q, want %q", got, want)
 		}
 	})
 }

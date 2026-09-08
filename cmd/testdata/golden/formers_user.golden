@@ -1,0 +1,28 @@
+UserFormer (app/formers/user_former.rb)
+========================================
+
+Constants:
+  DEFAULT_ROLE = "member"
+
+Concerns:
+  ActiveModel::Model
+
+Attributes:
+  attr_accessor :name, :email
+
+Validations:
+  validates :name, presence: true
+  validates :email, presence: true, format: { with: /@/ }
+  validate :email_not_blacklisted
+  with_options if: -> { role == "admin" }
+    validates :department, presence: true
+    validates :approval_code, presence: true
+
+Macros:
+  delegate :to_model, to: :user
+
+Methods:
+  save
+  apply(current_user)
+  build_default
+
