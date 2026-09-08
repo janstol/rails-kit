@@ -7,7 +7,7 @@ model: haiku
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses an embedded in-process Prism parser (pure-Go WASM) without loading the Rails application or requiring Ruby to be installed. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`, `presenters`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -26,6 +26,7 @@ model: haiku
 - `helpers` (no args) → `{ helpers: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, methods? }` -- `methods` entries are full signatures (`user_avatar(user)`), not bare names
 - `decorators` (no args) → `{ decorators: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`
 - `formers` (no args) → `{ formers: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, attributes?, validations?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`/`decorators`; a `with_options` block wrapping validations is flattened into `validations` as consecutive entries
+- `presenters` (no args) → `{ presenters: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, attributes?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`/`decorators`/`formers`
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -51,6 +52,7 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect a view helper's methods and their signatures | `rails-kit helpers` |
 | Inspect a decorator's parent class, concerns, macros, and method signatures | `rails-kit decorators` |
 | Inspect a form object's attributes, validations, macros, and method signatures | `rails-kit formers` |
+| Inspect a presenter's parent class, concerns, attributes, macros, and method signatures | `rails-kit presenters` |
 
 ---
 
@@ -373,3 +375,18 @@ rails-kit formers Admin::ReportFormer --json
 ```
 
 Parsing is static, AST-backed by Prism, single-file only: a former's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit presenters
+
+Summarizes a presenter's parent class, included concerns, class-level constants, attributes, other class-level DSL calls (surfaced as macros), and methods. Attributes (`attr_accessor`/`attr_reader`/`attr_writer`) get their own section rather than being folded into macros -- a presenter's `attr_reader` line says what it wraps, which is the thing you actually want when you open one. `delegate` and anything else fall through to `Macros`. Like `helpers`, `decorators`, and `formers`, each method renders as its full parameter signature, not just the name. `app/presenters/concerns` is listed like any other presenter file rather than skipped.
+
+```bash
+rails-kit presenters
+rails-kit presenters user
+rails-kit presenters users/work/overall
+rails-kit presenters Users::Work::OverallPresenter --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a presenter's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.

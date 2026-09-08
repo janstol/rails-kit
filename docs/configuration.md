@@ -13,6 +13,7 @@ decorators_path: app/decorators
 jobs_path: app/jobs
 mailers_path: app/mailers
 formers_path: app/formers
+presenters_path: app/presenters
 services_path: app/services
 helpers_path: app/helpers
 datagrids_path: app/datagrids

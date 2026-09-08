@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "command": "presenters",
+  "data": {
+    "class_name": "UserPresenter",
+    "kind": "class",
+    "parent_class": "BasePresenter",
+    "rel_path": "app/presenters/user_presenter.rb",
+    "concerns": [
+      "Rails.application.routes.url_helpers"
+    ],
+    "constants": [
+      "DEFAULT_AVATAR = \"avatar.png\""
+    ],
+    "attributes": [
+      "attr_reader :user, :view_context, :current_admin"
+    ],
+    "macros": [
+      "delegate :to_model, to: :user"
+    ],
+    "methods": [
+      "full_name",
+      "formatted_created_at(format: :short)",
+      "build_default"
+    ]
+  }
+}

@@ -62,6 +62,7 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit helpers [name]` | Summarize a Rails view helper's concerns, constants, and method signatures |
 | `rails-kit decorators [name]` | Summarize a Rails decorator's parent class, concerns, macros, and method signatures |
 | `rails-kit formers [name]` | Summarize a Rails form object's attributes, validations, macros, and method signatures |
+| `rails-kit presenters [name]` | Summarize a Rails presenter's parent class, concerns, constants, attributes, macros, and method signatures |
 | `rails-kit skill install\|uninstall` | Manage the bundled Claude Code or Codex skill |
 | `rails-kit completion bash\|zsh\|fish` | Generate shell completions |
 | `rails-kit version` | Print version information |

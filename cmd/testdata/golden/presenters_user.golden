@@ -1,0 +1,20 @@
+UserPresenter < BasePresenter (app/presenters/user_presenter.rb)
+========================================
+
+Constants:
+  DEFAULT_AVATAR = "avatar.png"
+
+Concerns:
+  Rails.application.routes.url_helpers
+
+Attributes:
+  attr_reader :user, :view_context, :current_admin
+
+Macros:
+  delegate :to_model, to: :user
+
+Methods:
+  full_name
+  formatted_created_at(format: :short)
+  build_default
+

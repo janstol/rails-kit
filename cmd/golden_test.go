@@ -109,6 +109,11 @@ func TestGolden(t *testing.T) {
 		{name: "formers_list_json", cmd: formersCmd, json: true},
 		{name: "formers_user", cmd: formersCmd, args: []string{"user"}},
 		{name: "formers_user_json", cmd: formersCmd, args: []string{"user"}, json: true},
+
+		{name: "presenters_list", cmd: presentersCmd},
+		{name: "presenters_list_json", cmd: presentersCmd, json: true},
+		{name: "presenters_user", cmd: presentersCmd, args: []string{"user"}},
+		{name: "presenters_user_json", cmd: presentersCmd, args: []string{"user"}, json: true},
 	}
 
 	for _, tc := range cases {

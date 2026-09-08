@@ -6,6 +6,8 @@ Helper:
   app/helpers/users_helper.rb
 Decorator:
   app/decorators/user_decorator.rb
+Presenter:
+  app/presenters/user_presenter.rb
 Mailer:
   app/mailers/user_mailer.rb
 Former:

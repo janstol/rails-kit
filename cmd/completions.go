@@ -19,6 +19,7 @@ import (
 	"github.com/janstol/rails-kit/internal/locales"
 	"github.com/janstol/rails-kit/internal/mailers"
 	"github.com/janstol/rails-kit/internal/model"
+	"github.com/janstol/rails-kit/internal/presenters"
 	"github.com/janstol/rails-kit/internal/schema"
 	"github.com/janstol/rails-kit/internal/services"
 )
@@ -117,6 +118,16 @@ func listFormerNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completeFormerNames = completeWithConfig(listFormerNames)
+
+func listPresenterNames(root string, cfg config.Config, _ string) []string {
+	names, err := presenters.ListNames(root, cfg.PresentersPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completePresenterNames = completeWithConfig(listPresenterNames)
 
 func listDatagridNames(root string, cfg config.Config, _ string) []string {
 	names, err := datagrids.ListNames(root, cfg.DatagridsPath)

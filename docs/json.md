@@ -418,6 +418,41 @@ Detail mode returns the full former object directly under `data`:
   is owned by the `concerns` command. Only the former's own file is parsed -- declarations
   inherited from a superclass are not resolved; `parent_class` names it.
 
+### `presenters`
+
+List mode:
+
+```json
+{ "presenters": ["user", "users/work/overall"] }
+```
+
+Detail mode returns the full presenter object directly under `data`:
+
+```json
+{ "class_name": "UserPresenter", "kind": "class", "parent_class": "BasePresenter", "rel_path": "app/presenters/user_presenter.rb", "concerns": [...], "constants": [...], "attributes": [...], "macros": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; a module-style presenter (e.g. a file under
+  `app/presenters/concerns`) has `kind: "module"` and no `parent_class`.
+- `constants` entries are `NAME = value`, with the value's whitespace collapsed.
+- `attributes` entries are `attr_accessor`/`attr_reader`/`attr_writer` calls rendered whole (e.g.
+  `attr_reader :user, :view_context, :current_admin`), broken out of the macros catch-all -- a
+  presenter's `attr_reader` line says what it wraps, which is the thing you actually want when you
+  open one.
+- `macros` is a catch-all for every other class-level call (e.g. `delegate`, and any app-specific
+  macro), the same modeling `decorators` and `formers` use for their own DSLs.
+- `methods` entries are full signatures (`formatted_created_at(format: :short)`), not bare names --
+  like `helpers`, `decorators`, and `formers`. A multi-line parameter list is collapsed onto one
+  line, and a no-parameter method has no trailing `()`. Methods are public instance methods
+  (visibility tracked through both the bare `private`/`protected`/`public` switch and the
+  `private def foo; end` form) plus singleton class methods (`def self.foo`), which are collected
+  regardless of visibility.
+- `app/presenters/concerns` is listed like any other presenter file rather than skipped --
+  nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns`
+  command. Only the presenter's own file is parsed -- declarations inherited from a superclass
+  are not resolved; `parent_class` names it.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

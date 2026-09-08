@@ -116,6 +116,9 @@ func resolvePathModelName(root string, cfg config.Config, input string, p *plura
 		{prefix: cfg.DecoratorsPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_decorator.rb", p)
 		}},
+		{prefix: cfg.PresentersPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_presenter.rb", p)
+		}},
 		{prefix: cfg.JobsPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_job.rb", p)
 		}},
@@ -307,6 +310,7 @@ func PathPrefixes(cfg config.Config) []string {
 		cfg.ControllersPath,
 		cfg.ViewsPath,
 		cfg.DecoratorsPath,
+		cfg.PresentersPath,
 		cfg.JobsPath,
 		cfg.MailersPath,
 		cfg.FormersPath,

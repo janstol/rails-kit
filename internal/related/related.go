@@ -50,6 +50,9 @@ func Find(railsRoot string, cfg config.Config, name, plural string) ([]Category,
 		{"Decorator", func() ([]string, error) {
 			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.DecoratorsPath), name+"_decorator.rb"))
 		}},
+		{"Presenter", func() ([]string, error) {
+			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.PresentersPath), name+"_presenter.rb"))
+		}},
 		{"Job", func() ([]string, error) {
 			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.JobsPath), name+"_job.rb"))
 		}},
@@ -293,6 +296,7 @@ var defaultRailsPrefixes = []string{
 	"app/controllers/",
 	"app/views/",
 	"app/decorators/",
+	"app/presenters/",
 	"app/jobs/",
 	"app/mailers/",
 	"app/formers/",
@@ -345,7 +349,7 @@ func NormalizeNameWithPrefixes(input string, extra []string) string {
 	}
 
 	base := filepath.Base(name)
-	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_former", "_helper", "_datagrid", "_service", "_job", "_mailer"} {
+	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_presenter", "_former", "_helper", "_datagrid", "_service", "_job", "_mailer"} {
 		if strings.HasSuffix(base, suffix) {
 			base = strings.TrimSuffix(base, suffix)
 			break

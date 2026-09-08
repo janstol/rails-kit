@@ -297,6 +297,28 @@ not ones inherited from a superclass -- `parent_class` says where to look next. 
 syntax errors produce line-specific warnings on stderr while successfully recovered fields remain
 on stdout, including in JSON mode.
 
+## `presenters`
+
+```sh
+rails-kit presenters
+rails-kit presenters user
+rails-kit presenters users/work/overall
+rails-kit presenters Users::Work::OverallPresenter --json
+```
+
+Summarizes a presenter's parent class, included concerns, class-level constants, attributes,
+other class-level DSL calls (surfaced as macros), and methods. Attributes (`attr_accessor`/
+`attr_reader`/`attr_writer`) get their own section rather than being folded into the macros
+catch-all -- a presenter's `attr_reader` line says what it wraps, which is the thing you actually
+want when you open one. `delegate` and anything else fall through to macros. Like `helpers`,
+`decorators`, and `formers`, each method renders as its full signature, not a bare name.
+`app/presenters/concerns` is listed like any other presenter file rather than skipped, since
+nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns` command.
+Parsing is static, AST-backed by Prism, single-file only: a presenter's own declarations are
+shown, not ones inherited from a superclass -- `parent_class` says where to look next. Recoverable
+Ruby syntax errors produce line-specific warnings on stderr while successfully recovered fields
+remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -308,6 +330,6 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
 time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
-`datagrids`, `helpers`, `decorators`, and `formers` complete their respective
+`datagrids`, `helpers`, `decorators`, `formers`, and `presenters` complete their respective
 names — all read from the current Rails project. `routes` and other
 flag-only commands are unaffected.

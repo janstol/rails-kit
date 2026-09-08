@@ -31,6 +31,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   given. `app/formers/concerns` is listed like any other former file rather than skipped, since
   nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns`
   command. The detail view is AST-backed and single-file only.
+- `rails-kit presenters [name]` lists presenters, or shows one presenter's parent class, included
+  concerns, class-level constants, attributes, other class-level DSL calls (surfaced as macros,
+  e.g. `delegate`), and methods. Attributes (`attr_accessor`/`attr_reader`/`attr_writer`) get
+  their own section rather than being folded into macros -- a presenter's `attr_reader` line says
+  what it wraps, which is the thing you actually want when you open one. Like `helpers`,
+  `decorators`, and `formers`, each method renders as its full parameter signature rather than a
+  bare name. `app/presenters/concerns` is listed like any other presenter file rather than
+  skipped, since nothing owns that directory the way `app/controllers/concerns` is owned by the
+  `concerns` command. `related` reports a `Presenter` category alongside `Decorator`. The detail
+  view is AST-backed and single-file only.
 
 ### Changed
 

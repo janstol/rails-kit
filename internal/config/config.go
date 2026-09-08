@@ -20,6 +20,7 @@ type Config struct {
 	ViewsPath              string            `yaml:"views_path"`
 	DecoratorsPath         string            `yaml:"decorators_path"`
 	FormersPath            string            `yaml:"formers_path"`
+	PresentersPath         string            `yaml:"presenters_path"`
 	ServicesPath           string            `yaml:"services_path"`
 	HelpersPath            string            `yaml:"helpers_path"`
 	DatagridsPath          string            `yaml:"datagrids_path"`
@@ -53,6 +54,7 @@ func Defaults() Config {
 		ViewsPath:              "app/views",
 		DecoratorsPath:         "app/decorators",
 		FormersPath:            "app/formers",
+		PresentersPath:         "app/presenters",
 		ServicesPath:           "app/services",
 		HelpersPath:            "app/helpers",
 		DatagridsPath:          "app/datagrids",
@@ -116,6 +118,9 @@ func Load(railsRoot string) (Config, error) {
 	}
 	if cfg.FormersPath == "" {
 		cfg.FormersPath = "app/formers"
+	}
+	if cfg.PresentersPath == "" {
+		cfg.PresentersPath = "app/presenters"
 	}
 	if cfg.ServicesPath == "" {
 		cfg.ServicesPath = "app/services"

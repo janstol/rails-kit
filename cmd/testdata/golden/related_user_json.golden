@@ -30,6 +30,12 @@
         ]
       },
       {
+        "label": "Presenter",
+        "files": [
+          "app/presenters/user_presenter.rb"
+        ]
+      },
+      {
         "label": "Mailer",
         "files": [
           "app/mailers/user_mailer.rb"
