@@ -171,7 +171,7 @@ func (w *modelWalker) handleInclude(args []parser.Node) bool {
 	if len(args) == 0 {
 		return false
 	}
-	name := constantName(w.src, args[0])
+	name := astutil.ConstantName(w.src, args[0])
 	if name == "" {
 		name = firstSourceToken(prism.Slice(w.src, args[0].GetLocation()))
 	}
@@ -396,15 +396,6 @@ func flattenCallRest(source string) string {
 		b.WriteString(strings.TrimSpace(line))
 	}
 	return b.String()
-}
-
-func constantName(src []byte, node parser.Node) string {
-	switch node.(type) {
-	case *parser.ConstantReadNode, *parser.ConstantPathNode:
-		return strings.TrimSpace(prism.Slice(src, node.GetLocation()))
-	default:
-		return ""
-	}
 }
 
 func legacyConstantPath(source string) bool {
