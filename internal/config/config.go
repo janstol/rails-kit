@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -94,90 +95,15 @@ func Load(railsRoot string) (Config, error) {
 	if err := dec.Decode(&cfg); err != nil && err != io.EOF {
 		return cfg, err
 	}
-	// Fill defaults for any empty fields
-	if cfg.SchemaPath == "" {
-		cfg.SchemaPath = "db/schema.rb"
-	}
-	if cfg.FixturesPath == "" {
-		cfg.FixturesPath = "test/fixtures"
-	}
-	if cfg.LocalesPath == "" {
-		cfg.LocalesPath = "config/locales"
-	}
-	if cfg.ModelsPath == "" {
-		cfg.ModelsPath = "app/models"
-	}
-	if cfg.ControllersPath == "" {
-		cfg.ControllersPath = "app/controllers"
-	}
-	if cfg.ViewsPath == "" {
-		cfg.ViewsPath = "app/views"
-	}
-	if cfg.DecoratorsPath == "" {
-		cfg.DecoratorsPath = "app/decorators"
-	}
-	if cfg.FormersPath == "" {
-		cfg.FormersPath = "app/formers"
-	}
-	if cfg.PresentersPath == "" {
-		cfg.PresentersPath = "app/presenters"
-	}
-	if cfg.ServicesPath == "" {
-		cfg.ServicesPath = "app/services"
-	}
-	if cfg.HelpersPath == "" {
-		cfg.HelpersPath = "app/helpers"
-	}
-	if cfg.DatagridsPath == "" {
-		cfg.DatagridsPath = "app/datagrids"
-	}
-	if cfg.JobsPath == "" {
-		cfg.JobsPath = "app/jobs"
-	}
-	if cfg.MailersPath == "" {
-		cfg.MailersPath = "app/mailers"
-	}
-	if cfg.TestModelsPath == "" {
-		cfg.TestModelsPath = "test/models"
-	}
-	if cfg.TestControllersPath == "" {
-		cfg.TestControllersPath = "test/controllers"
-	}
-	if cfg.SpecModelsPath == "" {
-		cfg.SpecModelsPath = "spec/models"
-	}
-	if cfg.SpecControllersPath == "" {
-		cfg.SpecControllersPath = "spec/controllers"
-	}
-	if cfg.SpecFixturesPath == "" {
-		cfg.SpecFixturesPath = "spec/fixtures"
-	}
-	if cfg.SpecRequestsPath == "" {
-		cfg.SpecRequestsPath = "spec/requests"
-	}
-	if cfg.SpecSystemPath == "" {
-		cfg.SpecSystemPath = "spec/system"
-	}
-	if cfg.SpecHelpersPath == "" {
-		cfg.SpecHelpersPath = "spec/helpers"
-	}
-	if cfg.SpecJobsPath == "" {
-		cfg.SpecJobsPath = "spec/jobs"
-	}
-	if cfg.SpecMailersPath == "" {
-		cfg.SpecMailersPath = "spec/mailers"
-	}
-	if cfg.SpecServicesPath == "" {
-		cfg.SpecServicesPath = "spec/services"
-	}
-	if cfg.GemfileLockPath == "" {
-		cfg.GemfileLockPath = "Gemfile.lock"
-	}
-	if cfg.ModelConcernsPath == "" {
-		cfg.ModelConcernsPath = "app/models/concerns"
-	}
-	if cfg.ControllerConcernsPath == "" {
-		cfg.ControllerConcernsPath = "app/controllers/concerns"
+	// Fill defaults for any field the file set to an explicit empty string.
+	// yaml.v3 leaves absent keys untouched, so this only matters for `key: ""`.
+	defaults := reflect.ValueOf(Defaults())
+	v := reflect.ValueOf(&cfg).Elem()
+	for i := range v.NumField() {
+		f := v.Field(i)
+		if f.Kind() == reflect.String && f.String() == "" {
+			f.SetString(defaults.Field(i).String())
+		}
 	}
 	return cfg, nil
 }
