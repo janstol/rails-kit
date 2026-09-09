@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testGemfileLock = `GIT
@@ -35,8 +37,8 @@ BUNDLED WITH
 func setupGemRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "Gemfile.lock"), testGemfileLock)
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "Gemfile.lock"), testGemfileLock)
 	return root
 }
 
@@ -147,9 +149,9 @@ func TestGemCommandNotFound(t *testing.T) {
 func TestGemCommandCustomLockPath(t *testing.T) {
 	root := t.TempDir()
 	external := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "gemfile_lock_path: "+filepath.Join(external, "Gemfile.lock")+"\n")
-	mustWriteCmdFile(t, filepath.Join(external, "Gemfile.lock"), testGemfileLock)
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "gemfile_lock_path: "+filepath.Join(external, "Gemfile.lock")+"\n")
+	testutil.WriteFile(t, filepath.Join(external, "Gemfile.lock"), testGemfileLock)
 
 	out, errOut, err := runCmdForTest(t, gemCmd, root, []string{})
 	if err != nil {
@@ -162,7 +164,7 @@ func TestGemCommandCustomLockPath(t *testing.T) {
 
 func TestGemCommandFileNotFound(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 	// No Gemfile.lock created
 
 	_, _, err := runCmdForTest(t, gemCmd, root, []string{})

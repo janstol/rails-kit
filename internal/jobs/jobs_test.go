@@ -9,6 +9,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/jobs"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -37,7 +38,7 @@ func TestParse_SyncUser(t *testing.T) {
 		t.Errorf("DiscardOn = %#v, want %#v", s.DiscardOn, want)
 	}
 
-	if !containsSubstr(s.Concerns, "Retryable") {
+	if !testutil.ContainsSubstr(s.Concerns, "Retryable") {
 		t.Errorf("expected Retryable concern, got %v", s.Concerns)
 	}
 
@@ -241,15 +242,6 @@ func TestParse_OnlyOutermostClass(t *testing.T) {
 	if want := []string{"  perform"}; !reflect.DeepEqual(s.Methods, want) {
 		t.Fatalf("Methods leaked nested class methods: %#v", s.Methods)
 	}
-}
-
-func containsSubstr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseTempJob(t *testing.T, relPath, content string) *jobs.Summary {

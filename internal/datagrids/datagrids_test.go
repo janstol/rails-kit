@@ -9,6 +9,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/datagrids"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -280,7 +281,7 @@ func TestFormat(t *testing.T) {
 func TestParse_ReturnsPartialSummaryWithParseDiagnostics(t *testing.T) {
 	s := parseTempDatagrid(t, "broken_datagrid.rb", "class Broken < BaseDatagrid\n  filter :name\n  def assets(\nend\n")
 
-	if s.ParentClass != "BaseDatagrid" || !containsSubstr(s.Filters, "filter :name") {
+	if s.ParentClass != "BaseDatagrid" || !testutil.ContainsSubstr(s.Filters, "filter :name") {
 		t.Fatalf("partial summary = %#v", s)
 	}
 	if len(s.ParseErrors) == 0 {
@@ -312,15 +313,6 @@ func TestParse_OnlyOutermostClass(t *testing.T) {
 	if len(s.Methods) != 0 {
 		t.Fatalf("Methods leaked nested class methods: %#v", s.Methods)
 	}
-}
-
-func containsSubstr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseTempDatagrid(t *testing.T, relPath, content string) *datagrids.Summary {

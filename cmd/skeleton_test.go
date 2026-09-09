@@ -10,12 +10,13 @@ import (
 
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/prism"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 func TestSkeletonCommandShowsServiceSkeleton(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), `class UserExportService
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), `class UserExportService
   DEFAULT_LIMIT = 100
   include Searchable
 
@@ -38,8 +39,8 @@ end
 
 func TestSkeletonCommandResolvesModelNameAsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User < ApplicationRecord\n  has_many :posts\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User < ApplicationRecord\n  has_many :posts\nend\n")
 
 	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"user"})
 	if err != nil {
@@ -66,8 +67,8 @@ func TestSkeletonCommandResolvesModelNameAsJSON(t *testing.T) {
 
 func TestSkeletonCommandRejectsNonRubyFile(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "README.md"), "# Test\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "README.md"), "# Test\n")
 
 	_, _, err := runCmdForTest(t, skeletonCmd, root, []string{"README.md"})
 	if err == nil {
@@ -81,8 +82,8 @@ func TestSkeletonCommandRejectsNonRubyFile(t *testing.T) {
 func TestSkeletonCommandRejectsOutsideRoot(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(outside, "service.rb"), "class Service\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(outside, "service.rb"), "class Service\nend\n")
 
 	_, _, err := runCmdForTest(t, skeletonCmd, root, []string{filepath.Join(outside, "service.rb")})
 	if err == nil {
@@ -95,10 +96,10 @@ func TestSkeletonCommandRejectsOutsideRoot(t *testing.T) {
 
 func TestResolveSkeletonPathsExpandsSortsAndDeduplicates(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
 	if err := os.Symlink(
 		filepath.Join(root, "app", "services", "alpha.rb"),
 		filepath.Join(root, "app", "services", "alpha_alias.rb"),
@@ -131,13 +132,13 @@ func TestResolveSkeletonPathsExpandsSortsAndDeduplicates(t *testing.T) {
 
 func TestResolveSkeletonPathsRejectsInvalidInputs(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "valid.rb"), "class Valid\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "valid.rb"), "class Valid\nend\n")
 	if err := os.MkdirAll(filepath.Join(root, "app", "services", "directory.rb"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(outside, "outside.rb"), "class Outside\nend\n")
+	testutil.WriteFile(t, filepath.Join(outside, "outside.rb"), "class Outside\nend\n")
 	if err := os.Symlink(
 		filepath.Join(outside, "outside.rb"),
 		filepath.Join(root, "app", "services", "outside.rb"),
@@ -167,11 +168,11 @@ func TestResolveSkeletonPathsRejectsInvalidInputs(t *testing.T) {
 
 func TestResolveSkeletonDirectoryRecursesInLexicalOrder(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "beta.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "alpha.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "notes.txt"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "beta.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "alpha.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "notes.txt"), "")
 
 	inputs, err := resolveSkeletonPaths(root, config.Defaults(), []string{
 		"app/services",
@@ -196,11 +197,11 @@ func TestResolveSkeletonDirectoryRecursesInLexicalOrder(t *testing.T) {
 
 func TestResolveSkeletonDirectoryAppliesExcludes(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "old_generated.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "generated", "one.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "generated", "nested", "two.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "old_generated.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "generated", "one.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "generated", "nested", "two.rb"), "")
 
 	inputs, err := resolveSkeletonPathsWithExcludes(
 		root,
@@ -252,8 +253,8 @@ func TestSkeletonExcludeMatching(t *testing.T) {
 
 func TestResolveSkeletonPathsRejectsInvalidExcludes(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
 	tests := []string{"", "/app/services/**", "../outside/**", "app/services/[bad"}
 	for _, pattern := range tests {
 		t.Run(pattern, func(t *testing.T) {
@@ -273,10 +274,10 @@ func TestResolveSkeletonPathsRejectsInvalidExcludes(t *testing.T) {
 func TestResolveSkeletonDirectorySymlinks(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "shared", "hidden.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(outside, "outside.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "keep.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "shared", "hidden.rb"), "")
+	testutil.WriteFile(t, filepath.Join(outside, "outside.rb"), "")
 	if err := os.Symlink(
 		filepath.Join(root, "app", "shared"),
 		filepath.Join(root, "app", "services", "linked_directory"),
@@ -304,10 +305,10 @@ func TestResolveSkeletonDirectorySymlinks(t *testing.T) {
 
 func TestResolveSkeletonDirectoryFileLimit(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 	for i := 0; i <= maxSkeletonFiles; i++ {
 		name := fmt.Sprintf("%03d.rb", i)
-		mustWriteCmdFile(t, filepath.Join(root, "bulk", name), "")
+		testutil.WriteFile(t, filepath.Join(root, "bulk", name), "")
 	}
 
 	_, err := resolveSkeletonPaths(root, config.Defaults(), []string{"bulk"})
@@ -330,9 +331,9 @@ func TestResolveSkeletonDirectoryFileLimit(t *testing.T) {
 
 func TestSkeletonCommandParsesMultipleFilesInADirectory(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
 
 	out, errOut, err := runCmdForTestJSON(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
@@ -352,9 +353,9 @@ func TestSkeletonCommandParsesMultipleFilesInADirectory(t *testing.T) {
 
 func TestSkeletonCommandFormatsMultipleTextSections(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "alpha.rb"), "class Alpha\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "zeta.rb"), "class Zeta\nend\n")
 
 	out, errOut, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services"})
 	if err != nil {
@@ -374,9 +375,9 @@ func TestSkeletonCommandFormatsMultipleTextSections(t *testing.T) {
 
 func TestSkeletonCommandSingleMatchGlobStaysAnArrayJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "sync_job.rb"), "class SyncJob\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "jobs", "ignored_job.rb"), "class IgnoredJob\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "jobs", "sync_job.rb"), "class SyncJob\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "jobs", "ignored_job.rb"), "class IgnoredJob\nend\n")
 	prevExcludes := skeletonExcludes
 	skeletonExcludes = []string{"app/jobs/ignored*"}
 	t.Cleanup(func() { skeletonExcludes = prevExcludes })
@@ -400,8 +401,8 @@ func TestSkeletonCommandSingleMatchGlobStaysAnArrayJSON(t *testing.T) {
 
 func TestSkeletonCommandInvalidBatchFailsBeforeParsing(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "valid.rb"), "class Valid\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "valid.rb"), "class Valid\nend\n")
 
 	out, _, err := runCmdForTest(t, skeletonCmd, root, []string{"app/services/valid.rb", "app/jobs/*.rb"})
 	if err == nil || !strings.Contains(err.Error(), "matched no files") {

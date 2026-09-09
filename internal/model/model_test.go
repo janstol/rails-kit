@@ -10,6 +10,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/model"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -29,64 +30,64 @@ func TestParse_User(t *testing.T) {
 	}
 
 	// Concerns
-	if !containsSubstr(s.Concerns, "Searchable") {
+	if !testutil.ContainsSubstr(s.Concerns, "Searchable") {
 		t.Errorf("expected Searchable concern, got %v", s.Concerns)
 	}
 
 	// Associations
-	if !containsSubstr(s.Assocs, "has_many :posts") {
+	if !testutil.ContainsSubstr(s.Assocs, "has_many :posts") {
 		t.Errorf("expected has_many :posts, got %v", s.Assocs)
 	}
-	if !containsSubstr(s.Assocs, "dependent: destroy") {
+	if !testutil.ContainsSubstr(s.Assocs, "dependent: destroy") {
 		t.Errorf("expected dependent: destroy, got %v", s.Assocs)
 	}
-	if !containsSubstr(s.Assocs, "through: posts") {
+	if !testutil.ContainsSubstr(s.Assocs, "through: posts") {
 		t.Errorf("expected through: posts, got %v", s.Assocs)
 	}
-	if !containsSubstr(s.Assocs, "class_name: Post") {
+	if !testutil.ContainsSubstr(s.Assocs, "class_name: Post") {
 		t.Errorf("expected class_name: Post, got %v", s.Assocs)
 	}
 
 	// Validations
-	if !containsSubstr(s.Valids, "validates :email") {
+	if !testutil.ContainsSubstr(s.Valids, "validates :email") {
 		t.Errorf("expected validates :email, got %v", s.Valids)
 	}
-	if !containsSubstr(s.Valids, "presence") {
+	if !testutil.ContainsSubstr(s.Valids, "presence") {
 		t.Errorf("expected presence validation, got %v", s.Valids)
 	}
-	if !containsSubstr(s.Valids, "format") {
+	if !testutil.ContainsSubstr(s.Valids, "format") {
 		t.Errorf("expected format validation, got %v", s.Valids)
 	}
 
 	// Scopes
-	if !containsSubstr(s.Scopes, "active") {
+	if !testutil.ContainsSubstr(s.Scopes, "active") {
 		t.Errorf("expected active scope, got %v", s.Scopes)
 	}
-	if !containsSubstr(s.Scopes, "by_name(") {
+	if !testutil.ContainsSubstr(s.Scopes, "by_name(") {
 		t.Errorf("expected by_name scope with args, got %v", s.Scopes)
 	}
 
 	// Callbacks
-	if !containsSubstr(s.Callbacks, "before_validation") {
+	if !testutil.ContainsSubstr(s.Callbacks, "before_validation") {
 		t.Errorf("expected before_validation callback, got %v", s.Callbacks)
 	}
-	if !containsSubstr(s.Callbacks, "after_commit") {
+	if !testutil.ContainsSubstr(s.Callbacks, "after_commit") {
 		t.Errorf("expected after_commit callback, got %v", s.Callbacks)
 	}
-	if !containsSubstr(s.Callbacks, "after_touch") {
+	if !testutil.ContainsSubstr(s.Callbacks, "after_touch") {
 		t.Errorf("expected after_touch callback, got %v", s.Callbacks)
 	}
-	if !containsSubstr(s.Callbacks, "after_create_commit") {
+	if !testutil.ContainsSubstr(s.Callbacks, "after_create_commit") {
 		t.Errorf("expected after_create_commit callback, got %v", s.Callbacks)
 	}
 
 	// Enums
-	if !containsSubstr(s.Enums, "role") {
+	if !testutil.ContainsSubstr(s.Enums, "role") {
 		t.Errorf("expected role enum, got %v", s.Enums)
 	}
 
 	// Delegates
-	if !containsSubstr(s.Delegates, "delegate") {
+	if !testutil.ContainsSubstr(s.Delegates, "delegate") {
 		t.Errorf("expected delegate, got %v", s.Delegates)
 	}
 }
@@ -100,7 +101,7 @@ func TestParse_Post(t *testing.T) {
 	if s.ClassName != "Post" {
 		t.Errorf("ClassName = %q, want Post", s.ClassName)
 	}
-	if !containsSubstr(s.Assocs, "belongs_to :user") {
+	if !testutil.ContainsSubstr(s.Assocs, "belongs_to :user") {
 		t.Errorf("expected belongs_to :user, got %v", s.Assocs)
 	}
 }
@@ -296,13 +297,13 @@ func TestParse_CustomTableNameAndValidationOptions(t *testing.T) {
 	if s.TableName != "legacy_reports" {
 		t.Fatalf("TableName = %q, want legacy_reports", s.TableName)
 	}
-	if !containsSubstr(s.Assocs, "optional: true") {
+	if !testutil.ContainsSubstr(s.Assocs, "optional: true") {
 		t.Fatalf("expected optional association, got %v", s.Assocs)
 	}
-	if !containsSubstr(s.Assocs, "inverse_of: reports") {
+	if !testutil.ContainsSubstr(s.Assocs, "inverse_of: reports") {
 		t.Fatalf("expected inverse_of association option, got %v", s.Assocs)
 	}
-	if !containsSubstr(s.Valids, "allow_nil") || !containsSubstr(s.Valids, "on: create") {
+	if !testutil.ContainsSubstr(s.Valids, "allow_nil") || !testutil.ContainsSubstr(s.Valids, "on: create") {
 		t.Fatalf("expected validation modifiers, got %v", s.Valids)
 	}
 }
@@ -387,7 +388,7 @@ func TestParse_ReturnsPartialSummaryWithParseDiagnostics(t *testing.T) {
 	content := "class Broken < ApplicationRecord\n  validates :name, presence: true\n  def call(\nend\n"
 	s := parseTempModel(t, "broken.rb", content)
 
-	if s.ParentClass != "ApplicationRecord" || !containsSubstr(s.Valids, "validates :name, presence") {
+	if s.ParentClass != "ApplicationRecord" || !testutil.ContainsSubstr(s.Valids, "validates :name, presence") {
 		t.Fatalf("partial summary = %#v", s)
 	}
 	if len(s.ParseErrors) == 0 {
@@ -701,15 +702,6 @@ func TestListNames_MissingModelsDir(t *testing.T) {
 	if names != nil {
 		t.Fatalf("expected nil names, got %v", names)
 	}
-}
-
-func containsSubstr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseTempModel(t *testing.T, relPath, content string) *model.Summary {

@@ -14,9 +14,9 @@ import (
 
 func TestRoutesCommandIgnoresInvalidRailsKitConfig(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, ".rails-kit.yml"), ":\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), ":\n")
 
 	binDir := t.TempDir()
 	testutil.WriteFakeBundle(t, binDir, "Prefix Verb URI Pattern Controller#Action\nusers GET /users users#index\n")
@@ -95,8 +95,8 @@ func TestRoutesFlagsMutuallyExclusive(t *testing.T) {
 
 func TestRoutesCommandJSONOutputParsesBlankPrefixRows(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), "")
 
 	binDir := t.TempDir()
 	testutil.WriteFakeBundle(t, binDir, "Prefix  Verb  URI Pattern  Controller#Action\nroot  GET  /  home#index\nPATCH/PUT  /users/:id  users#update\nnew_user  GET  /users/new  users#new\nGET  /users/:id  users#show\n")
@@ -132,8 +132,8 @@ func TestRoutesCommandJSONOutputParsesBlankPrefixRows(t *testing.T) {
 
 func TestRoutesCommandJSONOutputFailsForNonTabularOutput(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"))
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), "")
 
 	binDir := t.TempDir()
 	testutil.WriteFakeBundle(t, binDir, "Booting app...\nroutes unavailable\n")
@@ -156,8 +156,8 @@ func TestRoutesCommandJSONOutputFailsForNonTabularOutput(t *testing.T) {
 
 func TestRoutesStaticCommand(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   root to: "posts#index"
   resources :posts, only: [:index, :show]
@@ -193,8 +193,8 @@ end
 
 func TestRoutesStaticLiteralRedirectJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   get "old", to: redirect("/new", status: 307), as: :legacy
 end
@@ -226,8 +226,8 @@ end
 
 func TestRoutesStaticMatchJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   match "events", to: "events#create", via: [:post, :options], as: :events
   match "fallback", to: "fallback#show", via: :all
@@ -262,8 +262,8 @@ end
 
 func TestRoutesStaticPathConstraintJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   get "items/:id", to: "items#show", constraints: { id: /[0-9]+/ }
 end
@@ -294,8 +294,8 @@ end
 
 func TestRoutesStaticMountJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   mount Generic::Engine, at: "/engine"
 end
@@ -328,8 +328,8 @@ end
 
 func TestRoutesStaticConditionalMountReceiverJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   mount GenericServer.server, at: "/socket" if socket_enabled?
 end
@@ -361,8 +361,8 @@ end
 
 func TestRoutesStaticScopeJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   scope path: :api, module: :v1, as: :api do
     get "items", to: "items#index"
@@ -396,8 +396,8 @@ end
 
 func TestRoutesStaticControllerBlockJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   controller :items do
     get "show"
@@ -431,8 +431,8 @@ end
 
 func TestRoutesStaticMultilineVerbJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   get "/items/:id",
       to: "items#show",
@@ -466,8 +466,8 @@ end
 
 func TestRoutesStaticInlineNamespaceJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   namespace(:admin) { get "status", to: "status#show" }
 end
@@ -499,8 +499,8 @@ end
 
 func TestRoutesStaticResourcePrefixesMatchRailsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   resources :users
 end
@@ -544,8 +544,8 @@ end
 
 func TestRoutesStaticFiltersAndFormatsTable(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   resources :posts, only: [:index]
   resources :comments, only: [:index]
@@ -572,8 +572,8 @@ end
 
 func TestRoutesStaticWarningsStayOnStderr(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   resources :posts, only: :index
   mount app_for(:generic), at: "/engine"
@@ -603,14 +603,14 @@ end
 
 func TestRoutesStaticDrawWarningUsesDrawnFilePath(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   draw :extra
 end
 `)
 	drawnPath := filepath.Join(root, "config", "routes", "extra.rb")
-	mustWriteRoutesFile(t, drawnPath, `
+	testutil.WriteFile(t, drawnPath, `
 mount app_for(:generic), at: "/engine"
 `)
 
@@ -638,9 +638,9 @@ mount app_for(:generic), at: "/engine"
 
 func TestRoutesStaticConcernWarningsStayOnStderr(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 	routesPath := filepath.Join(root, "config", "routes.rb")
-	mustWriteRoutesFile(t, routesPath, `
+	testutil.WriteFile(t, routesPath, `
 Rails.application.routes.draw do
   concern :mountable do
     mount app_for(:generic), at: "/engine"
@@ -711,8 +711,8 @@ func TestRoutesWatchIntervalFloor(t *testing.T) {
 
 func TestRoutesWatchNonTTYRendersOnceThenExits(t *testing.T) {
 	root := t.TempDir()
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "application.rb"))
-	mustWriteRoutesFile(t, filepath.Join(root, "config", "routes.rb"), `
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), `
 Rails.application.routes.draw do
   resources :posts, only: [:index]
 end
@@ -748,19 +748,5 @@ end
 	}
 	if strings.Contains(errOut, "\x1b[") {
 		t.Fatalf("expected no ANSI escapes in non-TTY stderr, got: %q", errOut)
-	}
-}
-
-func mustWriteRoutesFile(t *testing.T, path string, content ...string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	body := ""
-	if len(content) > 0 {
-		body = content[0]
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
 	}
 }

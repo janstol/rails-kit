@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const searchableRB = `module Searchable
@@ -56,10 +58,10 @@ end
 func setupConcernsRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), searchableRB)
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "concerns", "auditable.rb"), auditableRB)
-	mustWriteCmdFile(t, filepath.Join(root, "app", "controllers", "concerns", "authenticatable.rb"), authenticatableRB)
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), searchableRB)
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "concerns", "auditable.rb"), auditableRB)
+	testutil.WriteFile(t, filepath.Join(root, "app", "controllers", "concerns", "authenticatable.rb"), authenticatableRB)
 	return root
 }
 
@@ -173,7 +175,7 @@ func TestConcernsCommandNotFound(t *testing.T) {
 
 func TestConcernsCommandEmptyDirs(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 
 	out, errOut, err := runCmdForTest(t, concernsCmd, root, []string{})
 	if err != nil {
@@ -186,8 +188,8 @@ func TestConcernsCommandEmptyDirs(t *testing.T) {
 
 func TestConcernsCommandOnlyModelConcerns(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), searchableRB)
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), searchableRB)
 
 	out, errOut, err := runCmdForTest(t, concernsCmd, root, []string{})
 	if err != nil {
@@ -204,9 +206,9 @@ func TestConcernsCommandOnlyModelConcerns(t *testing.T) {
 func TestConcernsCommandSupportsAbsolutePaths(t *testing.T) {
 	root := t.TempDir()
 	concernsDir := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "model_concerns_path: "+concernsDir+"\n")
-	mustWriteCmdFile(t, filepath.Join(concernsDir, "taggable.rb"), "module Taggable\n  extend ActiveSupport::Concern\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "model_concerns_path: "+concernsDir+"\n")
+	testutil.WriteFile(t, filepath.Join(concernsDir, "taggable.rb"), "module Taggable\n  extend ActiveSupport::Concern\nend\n")
 
 	out, errOut, err := runCmdForTest(t, concernsCmd, root, []string{})
 	if err != nil {

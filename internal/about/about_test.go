@@ -2,7 +2,6 @@ package about
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -126,11 +125,5 @@ func makeProject(t *testing.T) string {
 
 func writeFile(t *testing.T, root, relative, content string) {
 	t.Helper()
-	path := filepath.Join(root, relative)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFile(t, filepath.Join(root, relative), content)
 }

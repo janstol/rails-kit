@@ -381,7 +381,7 @@ func TestCacheValidAfterRoutesDirRemoved(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteRoutesTestFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
+	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
 
 	restorePath := stubBundle(t, sampleRoutes)
 	defer restorePath()
@@ -403,7 +403,7 @@ func TestRun(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteRoutesTestFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
+	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
 
 	restorePath := stubBundle(t, sampleRoutes)
 	defer restorePath()
@@ -436,7 +436,7 @@ func TestRefresh(t *testing.T) {
 
 func TestCacheReturnsFreshOutputWhenTmpDirCreationFails(t *testing.T) {
 	dir := t.TempDir()
-	mustWriteRoutesTestFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
+	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
 
 	tmpPath := filepath.Join(dir, "tmp")
 	if err := os.WriteFile(tmpPath, []byte("not a directory"), 0o644); err != nil {
@@ -474,7 +474,7 @@ func TestCacheReturnsFreshOutputWhenCacheFileWriteFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mustWriteRoutesTestFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
+	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
 
 	restorePath := stubBundle(t, sampleRoutes)
 	defer restorePath()
@@ -591,16 +591,6 @@ func TestParseTableReturnsErrorWithoutHeader(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "standard tabular format") {
 		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func mustWriteRoutesTestFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
 	}
 }
 

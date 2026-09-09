@@ -9,6 +9,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/mailers"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -30,14 +31,14 @@ func TestParse_User(t *testing.T) {
 		t.Errorf("Layout = %q, want \"mailer\"", s.Layout)
 	}
 
-	if !containsSubstr(s.Default, `from: "noreply@example.com"`) {
+	if !testutil.ContainsSubstr(s.Default, `from: "noreply@example.com"`) {
 		t.Errorf("expected default from:, got %v", s.Default)
 	}
-	if !containsSubstr(s.Default, `reply_to: "support@example.com"`) {
+	if !testutil.ContainsSubstr(s.Default, `reply_to: "support@example.com"`) {
 		t.Errorf("expected default reply_to:, got %v", s.Default)
 	}
 
-	if !containsSubstr(s.Concerns, "HeaderFooter") {
+	if !testutil.ContainsSubstr(s.Concerns, "HeaderFooter") {
 		t.Errorf("expected HeaderFooter concern, got %v", s.Concerns)
 	}
 
@@ -52,13 +53,13 @@ func TestParse_User(t *testing.T) {
 		}
 	}
 
-	if !containsSubstr(s.Attachments, `attachments["invoice.pdf"]`) {
+	if !testutil.ContainsSubstr(s.Attachments, `attachments["invoice.pdf"]`) {
 		t.Errorf("expected regular attachment, got %v", s.Attachments)
 	}
-	if !containsSubstr(s.Attachments, `attachments.inline["logo.png"]`) {
+	if !testutil.ContainsSubstr(s.Attachments, `attachments.inline["logo.png"]`) {
 		t.Errorf("expected inline attachment, got %v", s.Attachments)
 	}
-	if !containsSubstr(s.Attachments, `attachments["secret.txt"]`) {
+	if !testutil.ContainsSubstr(s.Attachments, `attachments["secret.txt"]`) {
 		t.Errorf("expected attachment from private method, got %v", s.Attachments)
 	}
 }
@@ -78,7 +79,7 @@ func TestParse_NamespacedAdminNotification(t *testing.T) {
 	if want := []string{"  shipment_notification"}; !reflect.DeepEqual(s.Methods, want) {
 		t.Errorf("Methods = %#v, want %#v", s.Methods, want)
 	}
-	if !containsSubstr(s.Default, `to: "admin@example.com"`) {
+	if !testutil.ContainsSubstr(s.Default, `to: "admin@example.com"`) {
 		t.Errorf("expected default to:, got %v", s.Default)
 	}
 }
@@ -219,7 +220,7 @@ func TestFormat(t *testing.T) {
 func TestParse_ReturnsPartialSummaryWithParseDiagnostics(t *testing.T) {
 	s := parseTempMailer(t, "broken_mailer.rb", "class Broken < ApplicationMailer\n  default from: \"x\"\n  def index(\nend\n")
 
-	if s.ParentClass != "ApplicationMailer" || !containsSubstr(s.Default, `from: "x"`) {
+	if s.ParentClass != "ApplicationMailer" || !testutil.ContainsSubstr(s.Default, `from: "x"`) {
 		t.Fatalf("partial summary = %#v", s)
 	}
 	if len(s.ParseErrors) == 0 {
@@ -249,15 +250,6 @@ func TestParse_OnlyOutermostClass(t *testing.T) {
 	if want := []string{"  index"}; !reflect.DeepEqual(s.Methods, want) {
 		t.Fatalf("Methods leaked nested class methods: %#v", s.Methods)
 	}
-}
-
-func containsSubstr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseTempMailer(t *testing.T, relPath, content string) *mailers.Summary {

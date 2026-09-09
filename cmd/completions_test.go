@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/janstol/rails-kit/internal/testutil"
 	"github.com/spf13/cobra"
 )
 
@@ -94,13 +95,13 @@ func writeCompletionFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "post.rb"), "class Post\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "admin", "dashboard.rb"), "class Admin::Dashboard\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "post.rb"), "class Post\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "dashboard.rb"), "class Admin::Dashboard\nend\n")
 
-	mustWriteCmdFile(t, filepath.Join(root, "db", "schema.rb"), strings.Join([]string{
+	testutil.WriteFile(t, filepath.Join(root, "db", "schema.rb"), strings.Join([]string{
 		`ActiveRecord::Schema[7.2].define(version: 2024_01_01_000001) do`,
 		`  create_table "users", force: :cascade do |t|`,
 		`  end`,
@@ -110,7 +111,7 @@ func writeCompletionFixture(t *testing.T) string {
 		"",
 	}, "\n"))
 
-	mustWriteCmdFile(t, filepath.Join(root, "config", "locales", "en.yml"), strings.Join([]string{
+	testutil.WriteFile(t, filepath.Join(root, "config", "locales", "en.yml"), strings.Join([]string{
 		`en:`,
 		`  views:`,
 		`    users: "Users"`,
@@ -123,13 +124,13 @@ func writeCompletionFixture(t *testing.T) string {
 		"",
 	}, "\n"))
 
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), "module Searchable\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "controllers", "concerns", "authenticatable.rb"), "module Authenticatable\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "concerns", "searchable.rb"), "module Searchable\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "controllers", "concerns", "authenticatable.rb"), "module Authenticatable\nend\n")
 
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  name: Alice\n")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "posts.yml"), "one:\n  title: Hello\n")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  name: Alice\n")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "posts.yml"), "one:\n  title: Hello\n")
 
-	mustWriteCmdFile(t, filepath.Join(root, "Gemfile.lock"), strings.Join([]string{
+	testutil.WriteFile(t, filepath.Join(root, "Gemfile.lock"), strings.Join([]string{
 		`GEM`,
 		`  remote: https://rubygems.org/`,
 		`  specs:`,
@@ -230,8 +231,8 @@ func TestCompleteGemNames(t *testing.T) {
 
 func TestCompleteServiceNames(t *testing.T) {
 	root := writeCompletionFixture(t)
-	mustWriteCmdFile(t, filepath.Join(root, "app/services/user_export_service.rb"), "class UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app/services/admin/billing_service.rb"), "class Admin::BillingService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app/services/user_export_service.rb"), "class UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app/services/admin/billing_service.rb"), "class Admin::BillingService\nend\n")
 
 	candidates, directive, out, errOut := runCompletionForTest(t, servicesCmd, root, nil, "")
 	if out != "" || errOut != "" {

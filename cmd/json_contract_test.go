@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/janstol/rails-kit/internal/testutil"
 	"github.com/spf13/cobra"
 )
 
@@ -152,7 +153,7 @@ func assertJSONErrorEnvelope(t *testing.T, stdout, stderr string, exitCode int, 
 
 func TestJSONErrorEnvelopeMissingModel(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 
 	stdout, stderr, exitCode := runTopLevelForTest(t, []string{"--root", root, "--json", "model", "nope"})
 	assertJSONErrorEnvelope(t, stdout, stderr, exitCode, "model", codeNotFound)
@@ -160,8 +161,8 @@ func TestJSONErrorEnvelopeMissingModel(t *testing.T) {
 
 func TestJSONErrorEnvelopeMissingGem(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "Gemfile.lock"), testGemfileLock)
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "Gemfile.lock"), testGemfileLock)
 
 	stdout, stderr, exitCode := runTopLevelForTest(t, []string{"--root", root, "--json", "gem", "nonexistent_xyz"})
 	assertJSONErrorEnvelope(t, stdout, stderr, exitCode, "gem", codeNotFound)

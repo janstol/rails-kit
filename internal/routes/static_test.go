@@ -8,6 +8,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/pluralize"
 	"github.com/janstol/rails-kit/internal/routes"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 func writeRoutesFile(t *testing.T, content string) string {
@@ -262,7 +263,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"), `
 namespace(:api) do
   get "detail", to: "reports#detail"
 end
@@ -425,7 +426,7 @@ end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
 	drawnPath := filepath.Join(routesDir, "extra.rb")
-	mustWriteStaticRouteFile(t, drawnPath, `get "/dynamic",
+	testutil.WriteFile(t, drawnPath, `get "/dynamic",
   to: target_for(:item)
 get "/detail",
   to: "reports#detail",
@@ -673,7 +674,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `mount Generic::Engine => "/engine"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"), `mount Generic::Engine => "/engine"`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1166,7 +1167,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `resources :reports, only: :create`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"), `resources :reports, only: :create`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1405,7 +1406,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"),
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"),
 		`get "reports/:slug", to: "reports#show", constraints: { slug: /[a-z-]+/ }`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
@@ -1567,7 +1568,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `get "reports", to: "reports#index"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"), `get "reports", to: "reports#index"`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1644,7 +1645,7 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "extra.rb"), `get "detail"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "extra.rb"), `get "detail"`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1745,9 +1746,9 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "users.rb"), `get "users", to: "users#index"`)
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "reports.rb"), `get "reports", to: "reports#index"`)
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "health.rb"), `get "health", to: "health#show"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "users.rb"), `get "users", to: "users#index"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "reports.rb"), `get "reports", to: "reports#index"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "health.rb"), `get "health", to: "health#show"`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1776,7 +1777,7 @@ Rails.application.routes.draw do
   end
 end
 `)
-	mustWriteStaticRouteFile(t, filepath.Join(filepath.Dir(path), "routes", "comments.rb"), `
+	testutil.WriteFile(t, filepath.Join(filepath.Dir(path), "routes", "comments.rb"), `
 resources :comments, only: :index
 `)
 
@@ -1804,9 +1805,9 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "shared.rb"), `get "shared", to: "shared#show"`)
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "nested.rb"), `draw(:leaf)`)
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "leaf.rb"), `get "leaf", to: "leaf#show"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "shared.rb"), `get "shared", to: "shared#show"`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "nested.rb"), `draw(:leaf)`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "leaf.rb"), `get "leaf", to: "leaf#show"`)
 
 	result, err := routes.ParseStaticDetailed(path, pluralize.Default())
 	if err != nil {
@@ -1834,9 +1835,9 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "cycle.rb"), `draw :cycle`)
+	testutil.WriteFile(t, filepath.Join(routesDir, "cycle.rb"), `draw :cycle`)
 	unsupportedPath := filepath.Join(routesDir, "unsupported.rb")
-	mustWriteStaticRouteFile(t, unsupportedPath, `
+	testutil.WriteFile(t, unsupportedPath, `
 mount engine_for(:generic), at: "/engine"
 `)
 
@@ -1873,7 +1874,7 @@ Rails.application.routes.draw do
 end
 `)
 	outside := filepath.Join(filepath.Dir(path), "outside.rb")
-	mustWriteStaticRouteFile(t, outside, `get "outside"`)
+	testutil.WriteFile(t, outside, `get "outside"`)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
 	if err := os.MkdirAll(routesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -1969,12 +1970,12 @@ Rails.application.routes.draw do
 end
 `)
 	routesDir := filepath.Join(filepath.Dir(path), "routes")
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "definitions.rb"), `
+	testutil.WriteFile(t, filepath.Join(routesDir, "definitions.rb"), `
 concern :reportable do
   resources :reports, only: :index
 end
 `)
-	mustWriteStaticRouteFile(t, filepath.Join(routesDir, "usage.rb"), `
+	testutil.WriteFile(t, filepath.Join(routesDir, "usage.rb"), `
 namespace :admin do
   concerns :reportable
 end
@@ -2108,15 +2109,5 @@ concern :broken do
 		result.Warnings[0].Line != 2 ||
 		!strings.Contains(result.Warnings[0].Message, "unterminated") {
 		t.Fatalf("unexpected result: %#v", result)
-	}
-}
-
-func mustWriteStaticRouteFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/controllers"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -30,27 +31,27 @@ func TestParse_Users(t *testing.T) {
 		t.Errorf("Layout = %q, want \"users\"", s.Layout)
 	}
 
-	if !containsSubstr(s.Filters, "before_action :authenticate_user!") {
+	if !testutil.ContainsSubstr(s.Filters, "before_action :authenticate_user!") {
 		t.Errorf("expected before_action :authenticate_user!, got %v", s.Filters)
 	}
-	if !containsSubstr(s.Filters, "only: [:show, :edit, :update, :destroy]") {
+	if !testutil.ContainsSubstr(s.Filters, "only: [:show, :edit, :update, :destroy]") {
 		t.Errorf("expected only: option, got %v", s.Filters)
 	}
-	if !containsSubstr(s.Filters, "skip_before_action :authenticate_user!, only: [:index], if: :public_action?") {
+	if !testutil.ContainsSubstr(s.Filters, "skip_before_action :authenticate_user!, only: [:index], if: :public_action?") {
 		t.Errorf("expected skip_before_action with if:, got %v", s.Filters)
 	}
-	if !containsSubstr(s.Filters, "around_action :measure_time") {
+	if !testutil.ContainsSubstr(s.Filters, "around_action :measure_time") {
 		t.Errorf("expected around_action, got %v", s.Filters)
 	}
 
-	if !containsSubstr(s.RescueFrom, "rescue_from ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid, with: :handle_not_found") {
+	if !testutil.ContainsSubstr(s.RescueFrom, "rescue_from ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid, with: :handle_not_found") {
 		t.Errorf("expected rescue_from with with:, got %v", s.RescueFrom)
 	}
-	if !containsSubstr(s.RescueFrom, "rescue_from StandardError (block)") {
+	if !testutil.ContainsSubstr(s.RescueFrom, "rescue_from StandardError (block)") {
 		t.Errorf("expected block-form rescue_from, got %v", s.RescueFrom)
 	}
 
-	if !containsSubstr(s.HelperMethods, "user_display_name") {
+	if !testutil.ContainsSubstr(s.HelperMethods, "user_display_name") {
 		t.Errorf("expected helper_method user_display_name, got %v", s.HelperMethods)
 	}
 
@@ -80,13 +81,13 @@ func TestParse_Application(t *testing.T) {
 	if s.ParentClass != "ActionController::Base" {
 		t.Errorf("ParentClass = %q, want ActionController::Base", s.ParentClass)
 	}
-	if !containsSubstr(s.Concerns, "Authenticatable") {
+	if !testutil.ContainsSubstr(s.Concerns, "Authenticatable") {
 		t.Errorf("expected Authenticatable concern, got %v", s.Concerns)
 	}
-	if !containsSubstr(s.HelperMethods, "current_user") || !containsSubstr(s.HelperMethods, "current_account") {
+	if !testutil.ContainsSubstr(s.HelperMethods, "current_user") || !testutil.ContainsSubstr(s.HelperMethods, "current_account") {
 		t.Errorf("expected current_user and current_account helpers, got %v", s.HelperMethods)
 	}
-	if !containsSubstr(s.RescueFrom, "with: :render_not_found") {
+	if !testutil.ContainsSubstr(s.RescueFrom, "with: :render_not_found") {
 		t.Errorf("expected rescue_from with:, got %v", s.RescueFrom)
 	}
 	if len(s.Actions) != 0 {
@@ -244,7 +245,7 @@ func TestFormat(t *testing.T) {
 func TestParse_ReturnsPartialSummaryWithParseDiagnostics(t *testing.T) {
 	s := parseTempController(t, "broken_controller.rb", "class Broken < ApplicationController\n  before_action :set_x\n  def index(\nend\n")
 
-	if s.ParentClass != "ApplicationController" || !containsSubstr(s.Filters, "before_action :set_x") {
+	if s.ParentClass != "ApplicationController" || !testutil.ContainsSubstr(s.Filters, "before_action :set_x") {
 		t.Fatalf("partial summary = %#v", s)
 	}
 	if len(s.ParseErrors) == 0 {
@@ -327,15 +328,6 @@ func TestParse_SingletonClassDefsAreNotActions(t *testing.T) {
 	if want := []string{"  index"}; !reflect.DeepEqual(s.Actions, want) {
 		t.Fatalf("Actions = %#v, want %#v (class << self def leaked in as an action)", s.Actions, want)
 	}
-}
-
-func containsSubstr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func parseTempController(t *testing.T, relPath, content string) *controllers.Summary {

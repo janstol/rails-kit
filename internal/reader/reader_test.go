@@ -2,7 +2,6 @@ package reader_test
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/reader"
 	"github.com/janstol/rails-kit/internal/term"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 var errAmbiguousTestName = errors.New("ambiguous test name")
@@ -50,12 +50,7 @@ func noSuffixKind() reader.Kind {
 func writeFile(t *testing.T, root, rel string) string {
 	t.Helper()
 	full := filepath.Join(root, filepath.FromSlash(rel))
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		t.Fatalf("setup MkdirAll: %v", err)
-	}
-	if err := os.WriteFile(full, []byte("class Placeholder\nend\n"), 0o644); err != nil {
-		t.Fatalf("setup WriteFile: %v", err)
-	}
+	testutil.WriteFile(t, full, "class Placeholder\nend\n")
 	return full
 }
 

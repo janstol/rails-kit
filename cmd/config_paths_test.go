@@ -8,15 +8,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/janstol/rails-kit/internal/testutil"
 	"github.com/spf13/cobra"
 )
 
 func TestSchemaCommandSupportsAbsoluteSchemaPath(t *testing.T) {
 	root := t.TempDir()
 	external := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "schema_path: "+filepath.Join(external, "schema.rb")+"\n")
-	mustWriteCmdFile(t, filepath.Join(external, "schema.rb"), strings.Join([]string{
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "schema_path: "+filepath.Join(external, "schema.rb")+"\n")
+	testutil.WriteFile(t, filepath.Join(external, "schema.rb"), strings.Join([]string{
 		`ActiveRecord::Schema[7.2].define(version: 2024_01_01_000001) do`,
 		`  create_table "users", force: :cascade do |t|`,
 		`  end`,
@@ -35,8 +36,8 @@ func TestSchemaCommandSupportsAbsoluteSchemaPath(t *testing.T) {
 
 func TestFixturesCommandSupportsNamespacedIrregularFixture(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "admin", "people.yml"), "alice:\n  name: Alice\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "admin", "people.yml"), "alice:\n  name: Alice\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"admin/person"})
 	if err != nil {
@@ -53,9 +54,9 @@ func TestFixturesCommandSupportsNamespacedIrregularFixture(t *testing.T) {
 func TestFixturesCommandSupportsAbsoluteFixturesPath(t *testing.T) {
 	root := t.TempDir()
 	fixturesDir := filepath.Join(t.TempDir(), "fixtures")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "fixtures_path: "+fixturesDir+"\n")
-	mustWriteCmdFile(t, filepath.Join(fixturesDir, "users.yml"), "alice:\n  name: Alice\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "fixtures_path: "+fixturesDir+"\n")
+	testutil.WriteFile(t, filepath.Join(fixturesDir, "users.yml"), "alice:\n  name: Alice\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err != nil {
@@ -68,8 +69,8 @@ func TestFixturesCommandSupportsAbsoluteFixturesPath(t *testing.T) {
 
 func TestFixturesCommandFailsForMissingConfiguredDir(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "fixtures_path: missing/fixtures\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "fixtures_path: missing/fixtures\n")
 
 	_, _, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err == nil {
@@ -82,8 +83,8 @@ func TestFixturesCommandFailsForMissingConfiguredDir(t *testing.T) {
 
 func TestFixturesCommandOmitsMetadataAndNormalizesERB(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "_fixture:\n  ignore: true\n_hidden_but_real:\n  name: Hidden User\nalice:\n  name: '<%= ENV[\"USER\"] %>'\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "_fixture:\n  ignore: true\n_hidden_but_real:\n  name: Hidden User\nalice:\n  name: '<%= ENV[\"USER\"] %>'\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err != nil {
@@ -102,8 +103,8 @@ func TestFixturesCommandOmitsMetadataAndNormalizesERB(t *testing.T) {
 
 func TestFixturesCommandRejectsStructuralERB(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "<% 2.times do |n| %>\nuser_<%= n %>:\n  email: user_<%= n %>@example.com\n<% end %>\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "<% 2.times do |n| %>\nuser_<%= n %>:\n  email: user_<%= n %>@example.com\n<% end %>\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err == nil {
@@ -122,8 +123,8 @@ func TestFixturesCommandRejectsStructuralERB(t *testing.T) {
 
 func TestFixturesCommandSupportsBlockScalarERB(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  bio: |\n    Hello\n    <%= ENV[\"USER\"] %>\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  bio: |\n    Hello\n    <%= ENV[\"USER\"] %>\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err != nil {
@@ -136,8 +137,8 @@ func TestFixturesCommandSupportsBlockScalarERB(t *testing.T) {
 
 func TestFixturesCommandSupportsListItemERB(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  tags:\n    - <%= ENV[\"USER\"] %>\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  tags:\n    - <%= ENV[\"USER\"] %>\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err != nil {
@@ -150,8 +151,8 @@ func TestFixturesCommandSupportsListItemERB(t *testing.T) {
 
 func TestFixturesCommandRejectsMixedControlFlowERB(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  <% if ENV[\"SHOW_EMAIL\"] %>email: <%= ENV[\"SHOW_EMAIL\"] %><% end %>\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  <% if ENV[\"SHOW_EMAIL\"] %>email: <%= ENV[\"SHOW_EMAIL\"] %><% end %>\n")
 
 	out, errOut, err := runCmdForTest(t, fixturesCmd, root, []string{"user"})
 	if err == nil {
@@ -170,9 +171,9 @@ func TestFixturesCommandRejectsMixedControlFlowERB(t *testing.T) {
 
 func TestFixturesCommandListsFilesAsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  name: Alice\n")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "admin", "dashboards.yml"), "main:\n  name: Main\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "alice:\n  name: Alice\n")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "admin", "dashboards.yml"), "main:\n  name: Main\n")
 
 	out, errOut, err := runCmdForTestJSON(t, fixturesCmd, root, []string{})
 	if err != nil {
@@ -190,8 +191,8 @@ func TestFixturesCommandListsFilesAsJSON(t *testing.T) {
 
 func TestFixturesCommandShowsEntriesAsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "_fixture:\n  ignore: true\nalice:\n  name: '<%= ENV[\"USER\"] %>'\n  tags:\n    - admin\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "test", "fixtures", "users.yml"), "_fixture:\n  ignore: true\nalice:\n  name: '<%= ENV[\"USER\"] %>'\n  tags:\n    - admin\n")
 
 	out, errOut, err := runCmdForTestJSON(t, fixturesCmd, root, []string{"user"})
 	if err != nil {
@@ -221,9 +222,9 @@ func TestFixturesCommandShowsEntriesAsJSON(t *testing.T) {
 func TestLocalesCommandSupportsAbsoluteLocalesPath(t *testing.T) {
 	root := t.TempDir()
 	external := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "locales_path: "+filepath.Join(external, "locales")+"\n")
-	mustWriteCmdFile(t, filepath.Join(external, "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "locales_path: "+filepath.Join(external, "locales")+"\n")
+	testutil.WriteFile(t, filepath.Join(external, "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n")
 
 	out, errOut, err := runCmdForTest(t, localesCmd, root, []string{"en.views.users"})
 	if err != nil {
@@ -239,8 +240,8 @@ func TestLocalesCommandSupportsAbsoluteLocalesPath(t *testing.T) {
 
 func TestLocalesCommandListsScopesAsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n  admin:\n    dashboards:\n      title: Dashboards\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n  admin:\n    dashboards:\n      title: Dashboards\n")
 
 	out, errOut, err := runCmdForTestJSON(t, localesCmd, root, []string{})
 	if err != nil {
@@ -258,8 +259,8 @@ func TestLocalesCommandListsScopesAsJSON(t *testing.T) {
 
 func TestLocalesCommandShowsScopeAsJSON(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n      labels:\n        - first\n        - second\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      title: Users\n      labels:\n        - first\n        - second\n")
 
 	out, errOut, err := runCmdForTestJSON(t, localesCmd, root, []string{"en.views.users"})
 	if err != nil {
@@ -285,8 +286,8 @@ func TestLocalesCommandShowsScopeAsJSON(t *testing.T) {
 
 func TestLocalesCommandFailsForMissingConfiguredDir(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "locales_path: missing/locales\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "locales_path: missing/locales\n")
 
 	_, _, err := runCmdForTest(t, localesCmd, root, []string{})
 	if err == nil {
@@ -299,8 +300,8 @@ func TestLocalesCommandFailsForMissingConfiguredDir(t *testing.T) {
 
 func TestLocalesCommandPrintsYamlLikeArrays(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      labels:\n        - first\n        - second\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "locales", "en.yml"), "en:\n  views:\n    users:\n      labels:\n        - first\n        - second\n")
 
 	out, errOut, err := runCmdForTest(t, localesCmd, root, []string{"en.views.users"})
 	if err != nil {
@@ -321,9 +322,9 @@ func TestLocalesCommandPrintsYamlLikeArrays(t *testing.T) {
 func TestModelCommandSupportsAbsoluteModelsPath(t *testing.T) {
 	root := t.TempDir()
 	modelsDir := filepath.Join(t.TempDir(), "models")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "models_path: "+modelsDir+"\n")
-	mustWriteCmdFile(t, filepath.Join(modelsDir, "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "models_path: "+modelsDir+"\n")
+	testutil.WriteFile(t, filepath.Join(modelsDir, "user.rb"), "class User\nend\n")
 
 	out, errOut, err := runCmdForTest(t, modelCmd, root, []string{"user"})
 	if err != nil {
@@ -336,8 +337,8 @@ func TestModelCommandSupportsAbsoluteModelsPath(t *testing.T) {
 
 func TestModelCommandJSONIncludesParentClassAndTableName(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "report.rb"), strings.Join([]string{
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "report.rb"), strings.Join([]string{
 		"class Report < ApplicationRecord",
 		`  self.table_name = "legacy_reports"`,
 		"end",
@@ -363,8 +364,8 @@ func TestModelCommandJSONIncludesParentClassAndTableName(t *testing.T) {
 func TestModelCommandReturnsPartialJSONAndWarnsOnParseErrors(t *testing.T) {
 	root := t.TempDir()
 	modelPath := filepath.Join(root, "app", "models", "broken.rb")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, modelPath, "class Broken < ApplicationRecord\n  validates :name, presence: true\n  def call(\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, modelPath, "class Broken < ApplicationRecord\n  validates :name, presence: true\n  def call(\nend\n")
 
 	out, errOut, err := runCmdForTestJSON(t, modelCmd, root, []string{"broken"})
 	if err != nil {
@@ -392,10 +393,10 @@ func TestRelatedCommandSupportsAbsoluteConfiguredPaths(t *testing.T) {
 	root := t.TempDir()
 	modelsDir := filepath.Join(t.TempDir(), "models")
 	fixturesDir := filepath.Join(t.TempDir(), "fixtures")
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "models_path: "+modelsDir+"\nfixtures_path: "+fixturesDir+"\n")
-	mustWriteCmdFile(t, filepath.Join(modelsDir, "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(fixturesDir, "users.yml"), "alice:\n  name: Alice\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "models_path: "+modelsDir+"\nfixtures_path: "+fixturesDir+"\n")
+	testutil.WriteFile(t, filepath.Join(modelsDir, "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(fixturesDir, "users.yml"), "alice:\n  name: Alice\n")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"user"})
 	if err != nil {
@@ -411,10 +412,10 @@ func TestRelatedCommandSupportsAbsoluteConfiguredPaths(t *testing.T) {
 
 func TestRelatedCommandSupportsConfiguredServicePath(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, ".rails-kit.yml"), "services_path: app/workflows\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "workflows", "user_export_service.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, ".rails-kit.yml"), "services_path: app/workflows\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "workflows", "user_export_service.rb"), "")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"app/workflows/user_export_service.rb"})
 	if err != nil {
@@ -430,12 +431,12 @@ func TestRelatedCommandSupportsConfiguredServicePath(t *testing.T) {
 
 func TestRelatedCommandExcludesNamespacedMatchesForRootModel(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "controllers", "users_controller.rb"), "class UsersController\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "controllers", "admin", "users_controller.rb"), "class Admin::UsersController\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "views", "users", "index.html.erb"), "root\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "views", "admin", "users", "index.html.erb"), "admin\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "controllers", "users_controller.rb"), "class UsersController\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "controllers", "admin", "users_controller.rb"), "class Admin::UsersController\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "views", "users", "index.html.erb"), "root\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "views", "admin", "users", "index.html.erb"), "admin\n")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"user"})
 	if err != nil {
@@ -457,9 +458,9 @@ func TestRelatedCommandExcludesNamespacedMatchesForRootModel(t *testing.T) {
 
 func TestRelatedCommandSupportsViewPath(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "admin", "billing", "invoice.rb"), "class Admin::Billing::Invoice\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "views", "admin", "billing", "invoices", "shared", "_form.html.erb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "billing", "invoice.rb"), "class Admin::Billing::Invoice\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "views", "admin", "billing", "invoices", "shared", "_form.html.erb"), "")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"app/views/admin/billing/invoices/shared/_form.html.erb"})
 	if err != nil {
@@ -475,12 +476,12 @@ func TestRelatedCommandSupportsViewPath(t *testing.T) {
 
 func TestRelatedCommandSupportsServiceAndFormerPaths(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "admin", "user.rb"), "class Admin::User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "reports", "user_export_service.rb"), "class Admin::Reports::UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "admin", "reports", "user_former.rb"), "class Admin::Reports::UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "user.rb"), "class Admin::User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "reports", "user_export_service.rb"), "class Admin::Reports::UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "admin", "reports", "user_former.rb"), "class Admin::Reports::UserFormer\nend\n")
 
 	for _, arg := range []string{"app/services/admin/user_export_service.rb", "app/formers/admin/user_former.rb"} {
 		out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{arg})
@@ -501,12 +502,12 @@ func TestRelatedCommandSupportsServiceAndFormerPaths(t *testing.T) {
 
 func TestRelatedCommandExcludesNamespacedServicesAndFormersForRootModel(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), "class UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "user_former.rb"), "class UserFormer\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "user_export_service.rb"), "class UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "user_former.rb"), "class UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"user"})
 	if err != nil {
@@ -528,12 +529,12 @@ func TestRelatedCommandExcludesNamespacedServicesAndFormersForRootModel(t *testi
 
 func TestRelatedCommandExcludesDeeperNamespaceServicesAndFormers(t *testing.T) {
 	root := t.TempDir()
-	mustWriteCmdFile(t, filepath.Join(root, "config", "application.rb"), "")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "models", "admin", "user.rb"), "class Admin::User\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "services", "admin", "reports", "user_export_service.rb"), "class Admin::Reports::UserExportService\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
-	mustWriteCmdFile(t, filepath.Join(root, "app", "formers", "admin", "reports", "user_former.rb"), "class Admin::Reports::UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "user.rb"), "class Admin::User\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "user_export_service.rb"), "class Admin::UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "services", "admin", "reports", "user_export_service.rb"), "class Admin::Reports::UserExportService\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "admin", "user_former.rb"), "class Admin::UserFormer\nend\n")
+	testutil.WriteFile(t, filepath.Join(root, "app", "formers", "admin", "reports", "user_former.rb"), "class Admin::Reports::UserFormer\nend\n")
 
 	out, errOut, err := runCmdForTest(t, relatedCmd, root, []string{"admin/user"})
 	if err != nil {
@@ -651,14 +652,4 @@ func runCmdForTestJSON(t *testing.T, c *cobra.Command, root string, args []strin
 	})
 
 	return runCmdForTest(t, c, root, args)
-}
-
-func mustWriteCmdFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
 }

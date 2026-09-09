@@ -4,11 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/related"
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 const testdataRoot = "../../testdata"
@@ -77,11 +77,11 @@ func TestFindNamespacedController(t *testing.T) {
 	if len(controllerFiles) != 1 {
 		t.Fatalf("expected 1 controller, got %v", controllerFiles)
 	}
-	if !containsStr(controllerFiles, "admin") {
+	if !testutil.ContainsSubstr(controllerFiles, "admin") {
 		t.Errorf("expected admin controller, got %v", controllerFiles)
 	}
 	for _, f := range controllerFiles {
-		if containsStr([]string{f}, "reports") {
+		if testutil.ContainsSubstr([]string{f}, "reports") {
 			t.Errorf("reports controller should not appear, got %v", controllerFiles)
 		}
 	}
@@ -118,10 +118,10 @@ func TestFindRootModelExcludesNamespacedControllers(t *testing.T) {
 	if len(controllerFiles) != 1 {
 		t.Fatalf("expected 1 controller, got %v", controllerFiles)
 	}
-	if !containsStr(controllerFiles, "app/controllers/users_controller.rb") {
+	if !testutil.ContainsSubstr(controllerFiles, "app/controllers/users_controller.rb") {
 		t.Fatalf("expected root controller, got %v", controllerFiles)
 	}
-	if containsStr(controllerFiles, "admin/users_controller.rb") {
+	if testutil.ContainsSubstr(controllerFiles, "admin/users_controller.rb") {
 		t.Fatalf("did not expect admin controller, got %v", controllerFiles)
 	}
 }
@@ -157,10 +157,10 @@ func TestFindRootModelExcludesNamespacedViews(t *testing.T) {
 	if len(viewFiles) != 1 {
 		t.Fatalf("expected 1 view file, got %v", viewFiles)
 	}
-	if !containsStr(viewFiles, "app/views/users/index.html.erb") {
+	if !testutil.ContainsSubstr(viewFiles, "app/views/users/index.html.erb") {
 		t.Fatalf("expected root views, got %v", viewFiles)
 	}
-	if containsStr(viewFiles, "admin/users/index.html.erb") {
+	if testutil.ContainsSubstr(viewFiles, "admin/users/index.html.erb") {
 		t.Fatalf("did not expect namespaced views, got %v", viewFiles)
 	}
 }
@@ -196,10 +196,10 @@ func TestFindNamespacedModelExcludesRootViews(t *testing.T) {
 	if len(viewFiles) != 1 {
 		t.Fatalf("expected 1 namespaced view file, got %v", viewFiles)
 	}
-	if !containsStr(viewFiles, "app/views/admin/users/index.html.erb") {
+	if !testutil.ContainsSubstr(viewFiles, "app/views/admin/users/index.html.erb") {
 		t.Fatalf("expected admin views, got %v", viewFiles)
 	}
-	if containsStr(viewFiles, "app/views/users/index.html.erb") {
+	if testutil.ContainsSubstr(viewFiles, "app/views/users/index.html.erb") {
 		t.Fatalf("did not expect root views, got %v", viewFiles)
 	}
 }
@@ -232,7 +232,7 @@ func TestFindNamespacedService(t *testing.T) {
 	if len(serviceFiles) != 1 {
 		t.Fatalf("expected 1 service, got %v", serviceFiles)
 	}
-	if !containsStr(serviceFiles, "admin") {
+	if !testutil.ContainsSubstr(serviceFiles, "admin") {
 		t.Errorf("expected admin service, got %v", serviceFiles)
 	}
 }
@@ -265,16 +265,16 @@ func TestFindRootModelExcludesNamespacedServicesAndFormers(t *testing.T) {
 	for _, c := range cats {
 		found[c.Label] = c.Files
 	}
-	if !containsStr(found["Service"], "app/services/user_export_service.rb") {
+	if !testutil.ContainsSubstr(found["Service"], "app/services/user_export_service.rb") {
 		t.Fatalf("expected root service, got %v", found["Service"])
 	}
-	if containsStr(found["Service"], "app/services/admin/user_export_service.rb") {
+	if testutil.ContainsSubstr(found["Service"], "app/services/admin/user_export_service.rb") {
 		t.Fatalf("did not expect namespaced service, got %v", found["Service"])
 	}
-	if !containsStr(found["Former"], "app/formers/user_former.rb") {
+	if !testutil.ContainsSubstr(found["Former"], "app/formers/user_former.rb") {
 		t.Fatalf("expected root former, got %v", found["Former"])
 	}
-	if containsStr(found["Former"], "app/formers/admin/user_former.rb") {
+	if testutil.ContainsSubstr(found["Former"], "app/formers/admin/user_former.rb") {
 		t.Fatalf("did not expect namespaced former, got %v", found["Former"])
 	}
 }
@@ -307,16 +307,16 @@ func TestFindNamespacedModelExcludesDeeperNamespaceServicesAndFormers(t *testing
 	for _, c := range cats {
 		found[c.Label] = c.Files
 	}
-	if !containsStr(found["Service"], "app/services/admin/user_export_service.rb") {
+	if !testutil.ContainsSubstr(found["Service"], "app/services/admin/user_export_service.rb") {
 		t.Fatalf("expected exact namespace service, got %v", found["Service"])
 	}
-	if containsStr(found["Service"], "app/services/admin/reports/user_export_service.rb") {
+	if testutil.ContainsSubstr(found["Service"], "app/services/admin/reports/user_export_service.rb") {
 		t.Fatalf("did not expect deeper namespace service, got %v", found["Service"])
 	}
-	if !containsStr(found["Former"], "app/formers/admin/user_former.rb") {
+	if !testutil.ContainsSubstr(found["Former"], "app/formers/admin/user_former.rb") {
 		t.Fatalf("expected exact namespace former, got %v", found["Former"])
 	}
-	if containsStr(found["Former"], "app/formers/admin/reports/user_former.rb") {
+	if testutil.ContainsSubstr(found["Former"], "app/formers/admin/reports/user_former.rb") {
 		t.Fatalf("did not expect deeper namespace former, got %v", found["Former"])
 	}
 }
@@ -346,18 +346,9 @@ func TestFindNamespacedDatagrid(t *testing.T) {
 	if len(datagridFiles) != 1 {
 		t.Fatalf("expected 1 datagrid, got %v", datagridFiles)
 	}
-	if !containsStr(datagridFiles, "admin/dashboards_datagrid.rb") {
+	if !testutil.ContainsSubstr(datagridFiles, "admin/dashboards_datagrid.rb") {
 		t.Fatalf("unexpected datagrid files: %v", datagridFiles)
 	}
-}
-
-func containsStr(slice []string, substr string) bool {
-	for _, s := range slice {
-		if strings.Contains(s, substr) {
-			return true
-		}
-	}
-	return false
 }
 
 func TestFindDeepNestedService(t *testing.T) {
@@ -388,7 +379,7 @@ func TestFindDeepNestedService(t *testing.T) {
 	if len(serviceFiles) != 1 {
 		t.Fatalf("expected 1 service, got %v", serviceFiles)
 	}
-	if !containsStr(serviceFiles, "admin/billing/invoice_export_service.rb") {
+	if !testutil.ContainsSubstr(serviceFiles, "admin/billing/invoice_export_service.rb") {
 		t.Errorf("expected admin/billing service, got %v", serviceFiles)
 	}
 }
@@ -542,10 +533,10 @@ func TestFindAbsoluteConfiguredPaths(t *testing.T) {
 	for _, cat := range cats {
 		found[cat.Label] = cat.Files
 	}
-	if !containsStr(found["Model"], filepath.ToSlash(modelFile)) {
+	if !testutil.ContainsSubstr(found["Model"], filepath.ToSlash(modelFile)) {
 		t.Fatalf("expected model path in %v", found["Model"])
 	}
-	if !containsStr(found["Fixtures"], filepath.ToSlash(fixtureFile)) {
+	if !testutil.ContainsSubstr(found["Fixtures"], filepath.ToSlash(fixtureFile)) {
 		t.Fatalf("expected fixture path in %v", found["Fixtures"])
 	}
 }
@@ -624,10 +615,10 @@ func TestFindServiceInModelNamedSubdir(t *testing.T) {
 	if len(serviceFiles) != 2 {
 		t.Fatalf("expected 2 services (flat + subdir), got %v", serviceFiles)
 	}
-	if !containsStr(serviceFiles, "app/services/user/export_service.rb") {
+	if !testutil.ContainsSubstr(serviceFiles, "app/services/user/export_service.rb") {
 		t.Errorf("expected user/export_service.rb in services, got %v", serviceFiles)
 	}
-	if !containsStr(serviceFiles, "app/services/user_export_service.rb") {
+	if !testutil.ContainsSubstr(serviceFiles, "app/services/user_export_service.rb") {
 		t.Errorf("expected user_export_service.rb in services, got %v", serviceFiles)
 	}
 }
@@ -660,10 +651,10 @@ func TestFindNamespacedServiceExcludesCompoundNames(t *testing.T) {
 			serviceFiles = c.Files
 		}
 	}
-	if containsStr(serviceFiles, "app/services/admin/super_user_service.rb") {
+	if testutil.ContainsSubstr(serviceFiles, "app/services/admin/super_user_service.rb") {
 		t.Errorf("super_user_service.rb should not match for admin/user, got %v", serviceFiles)
 	}
-	if !containsStr(serviceFiles, "app/services/admin/user_export_service.rb") {
+	if !testutil.ContainsSubstr(serviceFiles, "app/services/admin/user_export_service.rb") {
 		t.Errorf("expected user_export_service.rb in services, got %v", serviceFiles)
 	}
 }
@@ -821,7 +812,7 @@ func TestFindJob(t *testing.T) {
 	if len(jobFiles) != 1 {
 		t.Fatalf("expected 1 job file, got %v", jobFiles)
 	}
-	if !containsStr(jobFiles, "app/jobs/user_job.rb") {
+	if !testutil.ContainsSubstr(jobFiles, "app/jobs/user_job.rb") {
 		t.Errorf("expected user job, got %v", jobFiles)
 	}
 }
@@ -855,7 +846,7 @@ func TestFindMailer(t *testing.T) {
 	if len(mailerFiles) != 1 {
 		t.Fatalf("expected 1 mailer file, got %v", mailerFiles)
 	}
-	if !containsStr(mailerFiles, "app/mailers/user_mailer.rb") {
+	if !testutil.ContainsSubstr(mailerFiles, "app/mailers/user_mailer.rb") {
 		t.Errorf("expected user mailer, got %v", mailerFiles)
 	}
 }
@@ -890,7 +881,7 @@ func TestFindJobNamespaceIsolation(t *testing.T) {
 	if len(jobFiles) != 1 {
 		t.Fatalf("expected only root job, got %v", jobFiles)
 	}
-	if containsStr(jobFiles, "admin") {
+	if testutil.ContainsSubstr(jobFiles, "admin") {
 		t.Errorf("did not expect namespaced job, got %v", jobFiles)
 	}
 }

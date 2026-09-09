@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/janstol/rails-kit/internal/testutil"
 )
 
 func TestSkillDir_LocalUsesRailsRoot(t *testing.T) {
@@ -13,7 +15,7 @@ func TestSkillDir_LocalUsesRailsRoot(t *testing.T) {
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mustWriteSkillFile(t, filepath.Join(root, "config", "application.rb"))
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 
 	prevRootFlag := rootFlag
 	prevWD, err := os.Getwd()
@@ -108,7 +110,7 @@ func TestSkillDir_ValidatedLocalRequiresRailsRoot(t *testing.T) {
 
 func TestSkillDir_ValidatedLocalUsesExplicitRailsRoot(t *testing.T) {
 	root := t.TempDir()
-	mustWriteSkillFile(t, filepath.Join(root, "config", "application.rb"))
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
 
 	prevRootFlag := rootFlag
 	rootFlag = root
@@ -214,8 +216,8 @@ func TestUninstallSkill_RemovesOnlyTargetDirectory(t *testing.T) {
 	parent := t.TempDir()
 	target := filepath.Join(parent, "rails-kit")
 	other := filepath.Join(parent, "other")
-	mustWriteSkillFile(t, filepath.Join(target, "SKILL.md"))
-	mustWriteSkillFile(t, filepath.Join(other, "SKILL.md"))
+	testutil.WriteFile(t, filepath.Join(target, "SKILL.md"), "")
+	testutil.WriteFile(t, filepath.Join(other, "SKILL.md"), "")
 
 	if err := uninstallSkill(target); err != nil {
 		t.Fatal(err)
@@ -228,15 +230,5 @@ func TestUninstallSkill_RemovesOnlyTargetDirectory(t *testing.T) {
 	}
 	if err := uninstallSkill(target); err != nil {
 		t.Fatalf("missing installation should be non-fatal: %v", err)
-	}
-}
-
-func mustWriteSkillFile(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(""), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
 	}
 }
