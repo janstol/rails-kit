@@ -14,6 +14,10 @@ mise exec -- just bench
 mise exec -- just lint
 ```
 
+CI runs the same startup budget check (`TestStartupBudget`) on every push and PR, in its own
+`startup-budget` job, but non-blocking — the job logs the numbers and stays green even if a budget
+is exceeded. `just bench` locally is still the place to actually act on a regression it flags.
+
 ## Golden files
 
 `cmd/golden_test.go` pins the whole stdout (and, when non-empty, stderr) of `schema`,

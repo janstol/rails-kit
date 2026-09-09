@@ -50,3 +50,26 @@ jobs:
         with:
           go-version-file: go.mod
           go-package: ./...
+
+  startup-budget:
+    name: Startup budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build binary
+        run: go build -o "$RUNNER_TEMP/rails-kit" .
+
+      # Advisory on purpose: the absolute ceilings in cmd/startup_test.go are
+      # sized for an M1 Pro and have never been measured on a shared runner.
+      # The step logs median and delta-over-floor for every case; once those
+      # numbers are known, drop continue-on-error to make this a real gate.
+      - name: Startup budget
+        continue-on-error: true
+        env:
+          RAILS_KIT_BENCH_BIN: ${{ runner.temp }}/rails-kit
+        run: go test ./cmd/ -run TestStartupBudget -v -count=1
