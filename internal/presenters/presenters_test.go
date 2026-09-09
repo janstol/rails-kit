@@ -285,6 +285,17 @@ func TestFormat(t *testing.T) {
 			t.Errorf("expected attr_reader entry to keep its color accent: %s", out)
 		}
 	})
+
+	t.Run("module", func(t *testing.T) {
+		s := parseTempPresenter(t, "concerns/formattable.rb", "module Concerns::Formattable\n  def format_price\n  end\nend\n")
+		out := presenters.Format(s, term.Styler{})
+		if !strings.Contains(out, "module Concerns::Formattable (") {
+			t.Error("missing module header in output")
+		}
+		if strings.Contains(out, " < ") {
+			t.Errorf("module output should not show a parent class: %s", out)
+		}
+	})
 }
 
 func parseTempPresenter(t *testing.T, relPath, content string) *presenters.Summary {

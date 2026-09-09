@@ -88,12 +88,8 @@ func ListNames(railsRoot, presentersPath string) ([]string, error) {
 // Format renders the summary as a human-readable string. st controls terminal
 // color accents; the zero value renders identically to the uncolored output.
 func Format(s *Summary, st term.Styler) string {
-	h := reader.Header{Title: s.ClassName, Parent: s.ParentClass, RelPath: s.RelPath}
-	if s.Kind == "module" {
-		h = reader.Header{Title: "module " + s.ClassName, RelPath: s.RelPath}
-	}
 	return kind.Format(
-		h,
+		reader.ClassOrModuleHeader(s.Kind, s.ClassName, s.ParentClass, s.RelPath),
 		[]reader.Section{
 			{Label: "Constants", Entries: s.Constants},
 			{Label: "Concerns", Entries: s.Concerns},

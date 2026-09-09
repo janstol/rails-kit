@@ -13,6 +13,20 @@ type Header struct {
 	RelPath string
 }
 
+// ClassOrModuleHeader builds the title line for a reader whose files may hold
+// either a class or a module. A class renders as `Name < Parent`; a module
+// renders as `module Name` with no parent, since a Ruby module has no
+// superclass. Dropping Parent in the module branch is the load-bearing part
+// and the reason this lives here rather than per reader -- a module-capable
+// reader that forgot it would render `module Foo < Bar`, which is not valid
+// Ruby. kind is the caller's Summary.Kind, "class" or "module".
+func ClassOrModuleHeader(kind, className, parentClass, relPath string) Header {
+	if kind == "module" {
+		return Header{Title: "module " + className, RelPath: relPath}
+	}
+	return Header{Title: className, Parent: parentClass, RelPath: relPath}
+}
+
 // Section is one rendered block. Exactly one of Value/Entries is set; a
 // Section with neither renders nothing. Value is rendered verbatim (indented,
 // unstyled); Entries each go through Kind.StyleEntry. If both are set, Value

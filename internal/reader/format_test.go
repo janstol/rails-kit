@@ -27,11 +27,60 @@ func TestFormat_HeaderWithoutParent(t *testing.T) {
 func TestFormat_ModuleStyleHeader(t *testing.T) {
 	// services renders "module Foo" as the whole Title with no Parent, even
 	// when ParentClass would otherwise be set -- the caller decides this by
-	// what it puts in Header, not Format.
+	// what it puts in Header, not Format. See TestClassOrModuleHeader for the
+	// helper that makes that decision for the readers that need it.
 	k := reader.Kind{}
 	out := k.Format(reader.Header{Title: "module Foo", RelPath: "app/services/foo.rb"}, nil, term.Styler{})
 	if !strings.HasPrefix(out, "module Foo (app/services/foo.rb)\n") {
 		t.Errorf("unexpected module-style header:\n%s", out)
+	}
+}
+
+func TestClassOrModuleHeader(t *testing.T) {
+	tests := []struct {
+		name   string
+		kind   string
+		parent string
+		want   reader.Header
+	}{
+		{
+			name:   "class with parent",
+			kind:   "class",
+			parent: "ApplicationService",
+			want:   reader.Header{Title: "Foo", Parent: "ApplicationService", RelPath: "app/services/foo.rb"},
+		},
+		{
+			name:   "class without parent",
+			kind:   "class",
+			parent: "",
+			want:   reader.Header{Title: "Foo", Parent: "", RelPath: "app/services/foo.rb"},
+		},
+		{
+			// The load-bearing case: a module has no superclass, so even
+			// when the caller passes a non-empty parentClass, it must not
+			// end up in the Header -- otherwise Format would render the
+			// invalid `module Foo < Bar`.
+			name:   "module with parentClass supplied is dropped",
+			kind:   "module",
+			parent: "ApplicationService",
+			want:   reader.Header{Title: "module Foo", Parent: "", RelPath: "app/services/foo.rb"},
+		},
+		{
+			name:   "module without parent",
+			kind:   "module",
+			parent: "",
+			want:   reader.Header{Title: "module Foo", Parent: "", RelPath: "app/services/foo.rb"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := reader.ClassOrModuleHeader(tt.kind, "Foo", tt.parent, "app/services/foo.rb")
+			if got != tt.want {
+				t.Errorf("ClassOrModuleHeader(%q, %q, %q, %q) = %+v, want %+v",
+					tt.kind, "Foo", tt.parent, "app/services/foo.rb", got, tt.want)
+			}
+		})
 	}
 }
 
