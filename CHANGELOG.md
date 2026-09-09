@@ -91,6 +91,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   reported consistently and distinguishably from an instance method -- previously both forms were
   silently conflated as plain instance methods. A def, call, or constant nested inside an
   `if`/`unless`/`begin` remains out of scope, unchanged from before.
+- `related` now accepts an `app/helpers/…` path as input, resolving it back to its model the same
+  way it already resolves `spec/helpers/…_helper_spec.rb`. Previously the mapping only worked in
+  the other direction (model to helper); `app/helpers/users_helper.rb` reported "unsupported
+  related path" instead of resolving to `user`.
 
 ## [0.5.0] - 2026-08-04
 

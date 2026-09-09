@@ -295,6 +295,7 @@ var defaultRailsPrefixes = []string{
 	"app/models/",
 	"app/controllers/",
 	"app/views/",
+	"app/helpers/",
 	"app/decorators/",
 	"app/presenters/",
 	"app/jobs/",

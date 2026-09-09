@@ -725,6 +725,7 @@ func TestNormalizeName(t *testing.T) {
 		{"spec/requests/users_spec.rb", "users"},
 		{"spec/system/users_spec.rb", "users"},
 		{"spec/helpers/users_helper_spec.rb", "users"},
+		{"app/helpers/users_helper.rb", "users"},
 		{"spec/jobs/user_job_spec.rb", "user"},
 		{"spec/mailers/user_mailer_spec.rb", "user"},
 		{"spec/services/user_service_spec.rb", "user"},
