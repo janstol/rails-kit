@@ -29,6 +29,11 @@ type Config struct {
 	MailersPath            string            `yaml:"mailers_path"`
 	TestModelsPath         string            `yaml:"test_models_path"`
 	TestControllersPath    string            `yaml:"test_controllers_path"`
+	TestSystemPath         string            `yaml:"test_system_path"`
+	TestHelpersPath        string            `yaml:"test_helpers_path"`
+	TestJobsPath           string            `yaml:"test_jobs_path"`
+	TestMailersPath        string            `yaml:"test_mailers_path"`
+	TestServicesPath       string            `yaml:"test_services_path"`
 	SpecModelsPath         string            `yaml:"spec_models_path"`
 	SpecControllersPath    string            `yaml:"spec_controllers_path"`
 	SpecFixturesPath       string            `yaml:"spec_fixtures_path"`
@@ -63,6 +68,11 @@ func Defaults() Config {
 		MailersPath:            "app/mailers",
 		TestModelsPath:         "test/models",
 		TestControllersPath:    "test/controllers",
+		TestSystemPath:         "test/system",
+		TestHelpersPath:        "test/helpers",
+		TestJobsPath:           "test/jobs",
+		TestMailersPath:        "test/mailers",
+		TestServicesPath:       "test/services",
 		SpecModelsPath:         "spec/models",
 		SpecControllersPath:    "spec/controllers",
 		SpecFixturesPath:       "spec/fixtures",

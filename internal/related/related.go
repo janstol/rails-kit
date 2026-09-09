@@ -84,6 +84,26 @@ func Find(railsRoot string, cfg config.Config, name, plural string) ([]Category,
 		{"Controller test", func() ([]string, error) {
 			return walkMatchNS(config.ResolvePath(r, cfg.TestControllersPath), namespace, plural+"_controller_test.rb")
 		}},
+		{"System test", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.TestSystemPath), namespace, plural+"_test.rb")
+		}},
+		{"Helper test", func() ([]string, error) {
+			return walkMatchNS(config.ResolvePath(r, cfg.TestHelpersPath), namespace, plural+"_helper_test.rb")
+		}},
+		{"Job test", func() ([]string, error) {
+			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.TestJobsPath), name+"_job_test.rb"))
+		}},
+		{"Mailer test", func() ([]string, error) {
+			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.TestMailersPath), name+"_mailer_test.rb"))
+		}},
+		{"Service test", func() ([]string, error) {
+			root := config.ResolvePath(r, cfg.TestServicesPath)
+			results, err := WalkMatchSegment(root, baseName)
+			if err != nil {
+				return results, err
+			}
+			return filterByNamespaceOrModelDir(root, namespace, baseName, results), nil
+		}},
 		{"Model spec", func() ([]string, error) {
 			return exactGlob(filepath.Join(config.ResolvePath(r, cfg.SpecModelsPath), name+"_spec.rb"))
 		}},
@@ -305,6 +325,11 @@ var defaultRailsPrefixes = []string{
 	"app/datagrids/",
 	"test/models/",
 	"test/controllers/",
+	"test/system/",
+	"test/helpers/",
+	"test/jobs/",
+	"test/mailers/",
+	"test/services/",
 	"test/fixtures/",
 	"spec/models/",
 	"spec/controllers/",
@@ -350,7 +375,17 @@ func NormalizeNameWithPrefixes(input string, extra []string) string {
 	}
 
 	base := filepath.Base(name)
-	for _, suffix := range []string{"_controller_test", "_controller_spec", "_controller", "_test", "_helper_spec", "_job_spec", "_mailer_spec", "_service_spec", "_spec", "_decorator", "_presenter", "_former", "_helper", "_datagrid", "_service", "_job", "_mailer"} {
+	// Ordered longest-compound-first: a compound suffix must precede any
+	// shorter suffix it ends with, or the shorter one wins and truncates wrongly.
+	for _, suffix := range []string{
+		"_controller_test", "_controller_spec",
+		"_helper_test", "_helper_spec",
+		"_job_test", "_job_spec",
+		"_mailer_test", "_mailer_spec",
+		"_service_test", "_service_spec",
+		"_controller", "_test", "_spec",
+		"_decorator", "_presenter", "_former", "_helper", "_datagrid", "_service", "_job", "_mailer",
+	} {
 		if strings.HasSuffix(base, suffix) {
 			base = strings.TrimSuffix(base, suffix)
 			break

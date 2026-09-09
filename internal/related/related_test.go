@@ -431,6 +431,43 @@ func TestFindSpec(t *testing.T) {
 	}
 }
 
+func TestFindTest(t *testing.T) {
+	dir := t.TempDir()
+
+	testFiles := []string{
+		filepath.Join(dir, "test", "models", "user_test.rb"),
+		filepath.Join(dir, "test", "controllers", "users_controller_test.rb"),
+		filepath.Join(dir, "test", "system", "users_test.rb"),
+		filepath.Join(dir, "test", "helpers", "users_helper_test.rb"),
+		filepath.Join(dir, "test", "jobs", "user_job_test.rb"),
+		filepath.Join(dir, "test", "mailers", "user_mailer_test.rb"),
+		filepath.Join(dir, "test", "services", "user_service_test.rb"),
+	}
+	for _, f := range testFiles {
+		if err := os.MkdirAll(filepath.Dir(f), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cats, err := related.Find(dir, defaultRelatedConfig(), "user", "users")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	found := map[string]bool{}
+	for _, c := range cats {
+		found[c.Label] = true
+	}
+	for _, label := range []string{"Model test", "Controller test", "System test", "Helper test", "Job test", "Mailer test", "Service test"} {
+		if !found[label] {
+			t.Errorf("expected %q category", label)
+		}
+	}
+}
+
 func TestWalkMatchSegment(t *testing.T) {
 	dir := t.TempDir()
 
@@ -729,6 +766,15 @@ func TestNormalizeName(t *testing.T) {
 		{"spec/jobs/user_job_spec.rb", "user"},
 		{"spec/mailers/user_mailer_spec.rb", "user"},
 		{"spec/services/user_service_spec.rb", "user"},
+		// Minitest compound suffixes -- users_helper_test is the bare-name
+		// regression the reordering fixes: "_test" used to match first,
+		// leaving "users_helper" instead of stripping the full "_helper_test".
+		{"users_helper_test", "users"},
+		{"test/system/users_test.rb", "users"},
+		{"test/helpers/users_helper_test.rb", "users"},
+		{"test/jobs/user_job_test.rb", "user"},
+		{"test/mailers/user_mailer_test.rb", "user"},
+		{"test/services/user_service_test.rb", "user"},
 		// yaml extension
 		{"users.yaml", "users"},
 		// Multi-level namespace is preserved

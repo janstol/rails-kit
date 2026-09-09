@@ -41,6 +41,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   skipped, since nothing owns that directory the way `app/controllers/concerns` is owned by the
   `concerns` command. `related` reports a `Presenter` category alongside `Decorator`. The detail
   view is AST-backed and single-file only.
+- `related` gains five minitest categories -- `System test`, `Helper test`, `Job test`,
+  `Mailer test`, and `Service test` -- closing the gap where a minitest-only app got
+  meaningfully worse `related` coverage than an RSpec one. Each mirrors its existing RSpec
+  counterpart's mechanism exactly: `System test` and `Helper test` walk `test/system` and
+  `test/helpers` the same way `System spec`/`Helper spec` walk their `spec/` equivalents; `Job
+  test` and `Mailer test` are exact-name lookups under `test/jobs`/`test/mailers`, like their spec
+  counterparts; `Service test` uses the same segment-walk-plus-namespace-filter as `Service spec`.
+  `test/integration` is deliberately not covered -- its files carry arbitrary flow names
+  (`user_flows_test.rb`), not resource names, so a category for it would almost always be empty.
+  Five new config fields back the new paths: `test_system_path` (`test/system`),
+  `test_helpers_path` (`test/helpers`), `test_jobs_path` (`test/jobs`), `test_mailers_path`
+  (`test/mailers`), and `test_services_path` (`test/services`).
 
 ### Changed
 
@@ -95,6 +107,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   way it already resolves `spec/helpers/…_helper_spec.rb`. Previously the mapping only worked in
   the other direction (model to helper); `app/helpers/users_helper.rb` reported "unsupported
   related path" instead of resolving to `user`.
+- `related test/helpers/users_helper_test.rb`, and the other four new minitest paths, no longer
+  report "unsupported related path" -- they resolve to their owning model the same way their
+  `spec/` counterparts already did.
+- `NormalizeNameWithPrefixes`'s suffix-strip list checked `_test`/`_spec` before any
+  `_helper_test`/`_helper_spec`/`_job_test`/etc. compound, so a bare name like
+  `users_helper_test` truncated to `users_helper` instead of `users`. The list is now ordered
+  longest-compound-first, matching the invariant it was supposed to have all along.
 
 ## [0.5.0] - 2026-08-04
 

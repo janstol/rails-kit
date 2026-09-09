@@ -149,17 +149,32 @@ func resolvePathModelName(root string, cfg config.Config, input string, p *plura
 		{prefix: cfg.SpecSystemPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_spec.rb", p)
 		}},
+		{prefix: cfg.TestSystemPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_test.rb", p)
+		}},
 		{prefix: cfg.SpecHelpersPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_helper_spec.rb", p)
+		}},
+		{prefix: cfg.TestHelpersPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_helper_test.rb", p)
 		}},
 		{prefix: cfg.SpecJobsPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_job_spec.rb", p)
 		}},
+		{prefix: cfg.TestJobsPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_job_test.rb", p)
+		}},
 		{prefix: cfg.SpecMailersPath, resolve: func(rel string) []string {
 			return ResourceCandidates(rel, "_mailer_spec.rb", p)
 		}},
+		{prefix: cfg.TestMailersPath, resolve: func(rel string) []string {
+			return ResourceCandidates(rel, "_mailer_test.rb", p)
+		}},
 		{prefix: cfg.SpecServicesPath, resolve: func(rel string) []string {
 			return StemCandidates(rel, "_service_spec.rb", p)
+		}},
+		{prefix: cfg.TestServicesPath, resolve: func(rel string) []string {
+			return StemCandidates(rel, "_service_test.rb", p)
 		}},
 		{prefix: cfg.FixturesPath, resolve: func(rel string) []string {
 			return []string{FixtureModelName(rel, p)}
@@ -322,6 +337,11 @@ func PathPrefixes(cfg config.Config) []string {
 		cfg.DatagridsPath,
 		cfg.TestModelsPath,
 		cfg.TestControllersPath,
+		cfg.TestSystemPath,
+		cfg.TestHelpersPath,
+		cfg.TestJobsPath,
+		cfg.TestMailersPath,
+		cfg.TestServicesPath,
 		cfg.FixturesPath,
 		cfg.SpecModelsPath,
 		cfg.SpecControllersPath,

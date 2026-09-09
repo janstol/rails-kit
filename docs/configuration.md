@@ -19,6 +19,11 @@ helpers_path: app/helpers
 datagrids_path: app/datagrids
 test_models_path: test/models
 test_controllers_path: test/controllers
+test_system_path: test/system
+test_helpers_path: test/helpers
+test_jobs_path: test/jobs
+test_mailers_path: test/mailers
+test_services_path: test/services
 spec_models_path: spec/models
 spec_controllers_path: spec/controllers
 spec_fixtures_path: spec/fixtures

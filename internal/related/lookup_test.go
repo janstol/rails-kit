@@ -460,12 +460,46 @@ func TestResolveLookup_SystemSpecPath(t *testing.T) {
 	}
 }
 
+func TestResolveLookup_SystemTestPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "test", "system", "users_test.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "test/system/users_test.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
 func TestResolveLookup_HelperSpecPath(t *testing.T) {
 	root := t.TempDir()
 	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
 	mustWriteLookupFile(t, filepath.Join(root, "spec", "helpers", "users_helper_spec.rb"), "")
 
 	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "spec/helpers/users_helper_spec.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
+func TestResolveLookup_HelperTestPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "test", "helpers", "users_helper_test.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "test/helpers/users_helper_test.rb", pluralize.Default())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -528,6 +562,23 @@ func TestResolveLookup_JobSpecPath(t *testing.T) {
 	}
 }
 
+func TestResolveLookup_JobTestPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "test", "jobs", "user_job_test.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "test/jobs/user_job_test.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
 func TestResolveLookup_MailerSpecPath(t *testing.T) {
 	root := t.TempDir()
 	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
@@ -545,12 +596,46 @@ func TestResolveLookup_MailerSpecPath(t *testing.T) {
 	}
 }
 
+func TestResolveLookup_MailerTestPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "test", "mailers", "user_mailer_test.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "test/mailers/user_mailer_test.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
 func TestResolveLookup_ServiceSpecPath(t *testing.T) {
 	root := t.TempDir()
 	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
 	mustWriteLookupFile(t, filepath.Join(root, "spec", "services", "user_export_service_spec.rb"), "")
 
 	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "spec/services/user_export_service_spec.rb", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "user" {
+		t.Fatalf("name = %q, want user", name)
+	}
+	if plural != "users" {
+		t.Fatalf("plural = %q, want users", plural)
+	}
+}
+
+func TestResolveLookup_ServiceTestPath(t *testing.T) {
+	root := t.TempDir()
+	mustWriteLookupFile(t, filepath.Join(root, "app", "models", "user.rb"), "class User\nend\n")
+	mustWriteLookupFile(t, filepath.Join(root, "test", "services", "user_export_service_test.rb"), "")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "test/services/user_export_service_test.rb", pluralize.Default())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
