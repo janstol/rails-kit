@@ -59,7 +59,7 @@ rails-kit related app/views/admin/users/show.html.erb
 rails-kit related user --json
 ```
 
-Accepts model names and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, helper, decorator, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
+Accepts model names and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, helper, decorator, presenter, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
 
 ## `fixtures`
 

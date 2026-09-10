@@ -1,6 +1,6 @@
 ---
 name: rails-kit
-description: Use rails-kit CLI to explore Rails codebase -- project metadata, schema, routes, models, skeletons, fixtures, locales, and related files. Use before reading large files.
+description: Use rails-kit CLI to explore Rails codebase -- project metadata, schema, routes, models, controllers, mailers, jobs, services, datagrids, helpers, decorators, formers, presenters, concerns, skeletons, fixtures, locales, and related files. Use before reading large files.
 allowed-tools: Bash(rails-kit *)
 model: haiku
 ---
@@ -103,7 +103,7 @@ Use this to find path helpers, verify controller actions exist, or check what HT
 
 ## rails-kit related
 
-List all files related to a model: model, controller, views, decorator, job, mailer, former, service, datagrid, tests (model, controller, system, helper, job, mailer, service), specs (model, controller, request, system, helper, job, mailer, service), fixtures.
+List all files related to a model: model, controller, views, helper, decorator, presenter, job, mailer, former, service, datagrid, tests (model, controller, system, helper, job, mailer, service), specs (model, controller, request, system, helper, job, mailer, service), fixtures.
 
 ```bash
 rails-kit related user
@@ -113,7 +113,7 @@ rails-kit related app/views/users/show.html.erb
 rails-kit related app/services/user_export_service.rb
 ```
 
-Run this first when starting work on a model to get a complete map of relevant files. Supported path inputs include model, controller, view, decorator, job, mailer, former, service, datagrid, test (model, controller, system, helper, job, mailer, service), spec (model, controller, request, system, helper, job, mailer, service), and fixture paths; each path is resolved back to its owning model first. Matches stay in the exact namespace you asked for, so `rails-kit related user` will not include `admin/users_controller.rb`, `app/views/admin/users/...`, or `app/services/admin/...`.
+Run this first when starting work on a model to get a complete map of relevant files. Supported path inputs include model, controller, view, helper, decorator, presenter, job, mailer, former, service, datagrid, test (model, controller, system, helper, job, mailer, service), spec (model, controller, request, system, helper, job, mailer, service), and fixture paths; each path is resolved back to its owning model first. Matches stay in the exact namespace you asked for, so `rails-kit related user` will not include `admin/users_controller.rb`, `app/views/admin/users/...`, or `app/services/admin/...`.
 
 ---
 
@@ -190,7 +190,7 @@ Accepts multiple model names, Ruby paths, directories, and quoted glob patterns,
 
 ## rails-kit model
 
-Compact structural summary of a model file -- associations, validations, scopes, callbacks, concerns, enums, and delegates. Regex-based, no Rails boot.
+Compact structural summary of a model file -- associations, validations, scopes, callbacks, concerns, enums, and delegates. Parsing is static, AST-backed by Prism, no Rails boot.
 
 ```bash
 rails-kit model user
