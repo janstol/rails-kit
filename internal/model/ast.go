@@ -556,7 +556,7 @@ func legacyValidationFields(source, first string) []string {
 }
 
 func legacyFieldOptionStart(source string) int {
-	for index := 0; index < len(source); index++ {
+	for index := range len(source) {
 		if source[index] != ' ' && source[index] != '\t' {
 			continue
 		}

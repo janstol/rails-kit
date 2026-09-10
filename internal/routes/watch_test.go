@@ -289,7 +289,7 @@ func TestWatchKeepsPollingAfterRenderError(t *testing.T) {
 
 	// Two separate changes should each produce a render (and onErr call)
 	// despite render always returning an error.
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if !triggerRender(t, routesRb, renderCh) {
 			t.Fatalf("expected render #%d after change", i+1)
 		}

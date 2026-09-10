@@ -1,0 +1,46 @@
+version: "2"
+
+# `default: standard` is the five linters golangci-lint enables out of the
+# box (errcheck, govet, ineffassign, staticcheck, unused). Pinned here
+# explicitly so a golangci-lint upgrade can't silently change the enabled
+# set. Linters considered and rejected for this project (nilerr, unparam,
+# revive, goconst, modernize, gosec, forcetypeassert, dupword, noctx) are
+# recorded in BACKLOG.local.md, not here.
+linters:
+  default: standard
+  enable:
+    - asasalint
+    - bidichk
+    - copyloopvar
+    - durationcheck
+    - errname
+    - errorlint
+    - exptostd
+    - gocheckcompilerdirectives
+    - gocritic
+    - godoclint
+    - intrange
+    - makezero
+    - mirror
+    - misspell
+    - nakedret
+    - nilnesserr
+    - nolintlint
+    - predeclared
+    - reassign
+    - unconvert
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+  settings:
+    gocritic:
+      disabled-checks:
+        # `switch call.Name { case "include": ... }` in helpers/ast.go and
+        # services/ast.go mirrors the multi-case switches in the other
+        # reader packages on purpose. Keep the shape.
+        - singleCaseSwitch
+    misspell:
+      locale: US
+    nolintlint:
+      require-explanation: true
+      require-specific: true

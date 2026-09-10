@@ -144,7 +144,7 @@ func ParseStaticDetailed(routesPath string, p *pluralize.Pluralizer) (StaticResu
 	if err != nil {
 		return StaticResult{}, fmt.Errorf("creating prism parser: %w", err)
 	}
-	defer prismParser.Close(ctx) //nolint:errcheck
+	defer prismParser.Close(ctx) //nolint:errcheck // one-shot parser teardown, nothing left to do with a close error
 	sp := staticParser{
 		pluralizer:    p,
 		drawRoot:      drawRoot,

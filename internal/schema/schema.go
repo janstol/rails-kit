@@ -259,7 +259,7 @@ func stripRubyStringsAndComments(line string) string {
 	inDouble := false
 	escaped := false
 
-	for i := 0; i < len(line); i++ {
+	for i := range len(line) {
 		ch := line[i]
 
 		switch {

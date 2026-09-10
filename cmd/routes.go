@@ -153,7 +153,7 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 }
 
 // runRoutesWatch renders routes once, then keeps polling config/routes.rb and
-// config/routes/ for changes until ctx is cancelled or the process receives
+// config/routes/ for changes until ctx is canceled or the process receives
 // an interrupt/terminate signal.
 func runRoutesWatch(cmd *cobra.Command, root string, args []string) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)

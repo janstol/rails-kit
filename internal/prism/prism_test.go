@@ -264,13 +264,13 @@ func TestParseFilesCancelledContextReturnsPromptly(t *testing.T) {
 	elapsed := time.Since(start)
 
 	if err == nil {
-		t.Fatal("expected error for cancelled context")
+		t.Fatal("expected error for canceled context")
 	}
 	// A single cold start alone costs ~150ms; paying it for all 40 queued
 	// files would take several seconds. 1s leaves generous headroom while
 	// still catching a regression to serial cold-start-per-file behavior.
 	if elapsed > time.Second {
-		t.Fatalf("ParseFiles took %v with an already-cancelled context, want well under 1s", elapsed)
+		t.Fatalf("ParseFiles took %v with an already-canceled context, want well under 1s", elapsed)
 	}
 }
 

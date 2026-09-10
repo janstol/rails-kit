@@ -84,7 +84,7 @@ func Fingerprint(routesRb, routesDir string) string {
 // callers should render once themselves before calling Watch. A render error
 // is handed to onErr (if non-nil) and does not stop the loop — a syntax error
 // saved into routes.rb, or a failing Rails boot, is exactly when watch mode
-// needs to survive. Watch returns nil when ctx is cancelled.
+// needs to survive. Watch returns nil when ctx is canceled.
 func Watch(ctx context.Context, routesRb, routesDir string, interval time.Duration,
 	render func() error, onErr func(error)) error {
 	last := Fingerprint(routesRb, routesDir)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -102,7 +103,7 @@ func Load(railsRoot string) (Config, error) {
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
-	if err := dec.Decode(&cfg); err != nil && err != io.EOF {
+	if err := dec.Decode(&cfg); err != nil && !errors.Is(err, io.EOF) {
 		return cfg, err
 	}
 	// Fill defaults for any field the file set to an explicit empty string.

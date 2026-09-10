@@ -35,7 +35,7 @@ func ParseFile(path string) (*Parsed, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating prism parser: %w", err)
 	}
-	defer p.Close(ctx) //nolint:errcheck
+	defer p.Close(ctx) //nolint:errcheck // one-shot parser teardown, nothing left to do with a close error
 
 	result, src, err := p.Parse(ctx, path)
 	if err != nil {

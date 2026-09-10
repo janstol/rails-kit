@@ -25,6 +25,8 @@ mise exec -- just fmt            # format code
 mise exec -- just tidy           # go mod tidy
 ```
 
+The enabled linter set is pinned in `.golangci.yml`, so `just lint` and CI check the same thing.
+
 ## Testing
 
 - Tests live alongside source in each package (`*_test.go`)

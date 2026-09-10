@@ -197,7 +197,7 @@ func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) 
 
 	// All goroutines have returned their instances to the pool, so Close can
 	// drain it. A parse error takes precedence over a close error, since the
-	// close error is most likely a consequence of a cancelled context anyway.
+	// close error is most likely a consequence of a canceled context anyway.
 	closeErr := p.Close(ctx)
 
 	for _, err := range errs {
