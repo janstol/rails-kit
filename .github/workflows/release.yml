@@ -53,7 +53,8 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       # Checkout must happen before setup-homebrew. Both actions configure GitHub
-      # authentication; the reverse order sends duplicate Authorization headers.
+      # authentication; the reverse order sends duplicate Authorization headers
+      # on the checkout's own fetch.
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
         with:
@@ -62,6 +63,17 @@ jobs:
       - name: Normalize cask style
         working-directory: tap
         run: brew style --fix Casks/rails-kit.rb
+
+      # setup-homebrew's `token` input installs a *global* git credential
+      # header (git config --global "http.https://github.com/.extraheader")
+      # that outlives its own step. actions/checkout's tap credential is
+      # scoped via a repo-local includeIf, so once both are present any git
+      # command below sends two Authorization headers and GitHub rejects the
+      # request with "Duplicate header: Authorization" (400). Drop the global
+      # one now that Homebrew's own GitHub calls in the previous step are
+      # done, so the push below is left with only the tap-scoped credential.
+      - name: Remove global git credential set by setup-homebrew
+        run: git config --global --unset-all "http.${GITHUB_SERVER_URL}/.extraheader" || true
 
       - name: Commit and push if changed
         working-directory: tap
