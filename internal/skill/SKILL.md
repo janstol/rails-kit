@@ -1,13 +1,13 @@
 ---
 name: rails-kit
-description: Use rails-kit CLI to explore Rails codebase -- project metadata, schema, routes, models, controllers, mailers, jobs, services, datagrids, helpers, decorators, formers, presenters, concerns, skeletons, fixtures, locales, and related files. Use before reading large files.
+description: Use rails-kit CLI to explore Rails codebase -- project metadata, schema, routes, models, controllers, mailers, jobs, services, datagrids, helpers, decorators, formers, presenters, validators, concerns, skeletons, fixtures, locales, and related files. Use before reading large files.
 allowed-tools: Bash(rails-kit *)
 model: haiku
 ---
 
 `rails-kit` is a compiled Go binary for inspecting a Rails codebase without reading large files. Most commands parse project files directly without loading Rails. `about` is static by default and can opt into runtime inspection. The default `routes` mode boots Rails through Bundler, while `routes --static` provides a fast, pure-Go approximation. The `skeleton` command uses an embedded in-process Prism parser (pure-Go WASM) without loading the Rails application or requiring Ruby to be installed. The binary is installed globally and should be invoked as `rails-kit`, not `bin/rails-kit`. It auto-detects the Rails root by walking up from the current directory. Use these commands before reaching for `cat`, `grep`, or `Read` on schema/routes/locales/fixtures or large Ruby files.
 
-**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`, `presenters`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
+**`--json` flag:** All data commands (`about`, `schema`, `routes`, `related`, `model`, `skeleton`, `fixtures`, `locales`, `gem`, `concerns`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`, `presenters`, `validators`) accept `--json` for machine-readable output, useful for piping or structured processing. Every invocation wraps its payload in an envelope: `{ "schema_version": 1, "command": "...", "data": {...} }` on success, or `{ "schema_version": 1, "command": "...", "error": { "code": "...", "message": "..." } }` on stderr with exit code 1 on failure. `data` is always a JSON object — arrays live under a named key — and its shape depends only on list-vs-detail mode, never on result count. `data` shapes by command:
 - `about` → `{ application?, root, environment, source, versions, database, warnings? }`
 - `schema` → `{ tables: [{ name, definition? }] }` — `definition` (raw DDL text) is present only when tables were named as arguments
 - `routes` → `{ routes: [{ prefix, verb, uri_pattern, controller_action }] }`
@@ -27,6 +27,7 @@ model: haiku
 - `decorators` (no args) → `{ decorators: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`
 - `formers` (no args) → `{ formers: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, attributes?, validations?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`/`decorators`; a `with_options` block wrapping validations is flattened into `validations` as consecutive entries
 - `presenters` (no args) → `{ presenters: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, attributes?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`/`decorators`/`formers`
+- `validators` (no args) → `{ validators: [...] }`; with name → `{ class_name, kind, parent_class?, rel_path, concerns?, constants?, macros?, methods? }` -- `methods` entries are full signatures like `helpers`/`decorators`/`formers`/`presenters`; no separate `attributes` field, `attr_reader`/`attr_accessor`/`attr_writer` fall through to `macros`
 
 Full contract, error codes, and stability policy: `docs/json.md` in the rails-kit repo.
 
@@ -53,6 +54,7 @@ Full contract, error codes, and stability policy: `docs/json.md` in the rails-ki
 | Inspect a decorator's parent class, concerns, macros, and method signatures | `rails-kit decorators` |
 | Inspect a form object's attributes, validations, macros, and method signatures | `rails-kit formers` |
 | Inspect a presenter's parent class, concerns, attributes, macros, and method signatures | `rails-kit presenters` |
+| Inspect a validator's parent class, concerns, constants, macros, and method signatures | `rails-kit validators` |
 
 ---
 
@@ -390,3 +392,18 @@ rails-kit presenters Users::Work::OverallPresenter --json
 ```
 
 Parsing is static, AST-backed by Prism, single-file only: a presenter's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.
+
+---
+
+## rails-kit validators
+
+Summarizes a validator's parent class, included concerns, class-level constants, other class-level DSL calls (surfaced as macros), and methods. Three shapes exist in the wild, distinguished by the header line alone: an `ActiveModel::EachValidator` subclass overriding `validate_each`, an `ActiveModel::Validator` subclass overriding `validate`, and a plain class (or module) that includes `ActiveModel::Validations` and drives itself with `validates`. Like `helpers`, `decorators`, `formers`, and `presenters`, each method renders as its full parameter signature, not just the name -- for a validator that signature is what tells an `EachValidator` apart from a `Validator` at a glance. There is no separate Attributes section like `presenters`: `attr_reader`/`attr_accessor`/`attr_writer` fall through to `Macros` along with `validates` and everything else, since attribute readers are rare in real validators. Constants get their own section, and that's usually where the actual rule lives -- a format regexp or an allowed-value list. `app/validators/concerns` is listed like any other validator file rather than skipped. Validators are not wired into `related`: validator files are named after the rule they enforce (`phone_validator`, `email_format_validator`), not after the model they run against.
+
+```bash
+rails-kit validators
+rails-kit validators email_format
+rails-kit validators admin/access
+rails-kit validators Admin::AccessValidator --json
+```
+
+Parsing is static, AST-backed by Prism, single-file only: a validator's own declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look next.

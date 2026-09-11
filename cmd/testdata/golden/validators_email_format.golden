@@ -1,0 +1,10 @@
+EmailFormatValidator < ActiveModel::EachValidator (app/validators/email_format_validator.rb)
+========================================
+
+Constants:
+  FORMAT = /\A[^@\s]+@[^@\s]+\z/
+
+Methods:
+  validate_each(record, attribute, value)
+  default_message
+

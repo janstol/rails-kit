@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "command": "validators",
+  "data": {
+    "class_name": "EmailFormatValidator",
+    "kind": "class",
+    "parent_class": "ActiveModel::EachValidator",
+    "rel_path": "app/validators/email_format_validator.rb",
+    "constants": [
+      "FORMAT = /\\A[^@\\s]+@[^@\\s]+\\z/"
+    ],
+    "methods": [
+      "validate_each(record, attribute, value)",
+      "default_message"
+    ]
+  }
+}

@@ -456,6 +456,47 @@ Detail mode returns the full presenter object directly under `data`:
   command. Only the presenter's own file is parsed -- declarations inherited from a superclass
   are not resolved; `parent_class` names it.
 
+### `validators`
+
+List mode:
+
+```json
+{ "validators": ["admin/access", "concerns/rule_helpers", "email_format", "record_state"] }
+```
+
+Detail mode returns the full validator object directly under `data`:
+
+```json
+{ "class_name": "EmailFormatValidator", "kind": "class", "parent_class": "ActiveModel::EachValidator", "rel_path": "app/validators/email_format_validator.rb", "concerns": [...], "constants": [...], "macros": [...], "methods": [...] }
+```
+
+- `class_name`, `rel_path`, and `kind` are always present; every other field is `omitempty`.
+- `kind` is `"class"` or `"module"`; a module-style validator (e.g. a file under
+  `app/validators/concerns`) has `kind: "module"` and no `parent_class`.
+- `constants` entries are `NAME = value`, with the value's whitespace collapsed -- this is
+  usually where a validator's actual rule lives, a format regexp or an allowed-value list.
+- There is no dedicated `attributes` field like `presenters`: `attr_accessor`/`attr_reader`/
+  `attr_writer` calls fall through to `macros` along with `validates` and everything else, since
+  attribute readers are rare in real validators and don't carry the same signal a presenter's do.
+- `macros` is a catch-all for every class-level call (e.g. `validates`, `validate`, `delegate`,
+  and any app-specific macro), the same modeling `decorators`, `formers`, and `presenters` use for
+  their own DSLs.
+- `methods` entries are full signatures (`validate_each(record, attribute, value)`), not bare
+  names -- like `helpers`, `decorators`, `formers`, and `presenters`. For a validator the
+  signature is what tells an `ActiveModel::EachValidator` (`validate_each`) apart from an
+  `ActiveModel::Validator` (`validate`) at a glance. A multi-line parameter list is collapsed onto
+  one line, and a no-parameter method has no trailing `()`. Methods are public instance methods
+  (visibility tracked through both the bare `private`/`protected`/`public` switch and the
+  `private def foo; end` form) plus class methods (`def self.foo`, or a def inside a
+  `class << self` block), which are collected regardless of visibility.
+- `app/validators/concerns` is listed like any other validator file rather than skipped --
+  nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns`
+  command. Only the validator's own file is parsed -- declarations inherited from a superclass
+  are not resolved; `parent_class` names it.
+- Validators are not wired into `related`: validator files are named after the rule they enforce
+  (`phone_validator`, `email_format_validator`), not after the model they run against, so there
+  is no name-based link worth drawing.
+
 ### `skeleton`
 
 Always an array under `files`, regardless of how many inputs resolved — this is the shape this

@@ -4,6 +4,28 @@ All notable changes to `rails-kit` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `rails-kit validators [name]` lists validators, or shows one validator's parent class, included
+  concerns, class-level constants, other class-level DSL calls (surfaced as macros, e.g.
+  `validates`), and methods. Three shapes exist in the wild, distinguished by the header line
+  alone: an `ActiveModel::EachValidator` subclass overriding `validate_each`, an
+  `ActiveModel::Validator` subclass overriding `validate`, and a plain class (or module) that
+  includes `ActiveModel::Validations` and drives itself with `validates`. Like `helpers`,
+  `decorators`, `formers`, and `presenters`, each method renders as its full parameter signature
+  rather than a bare name -- for a validator that signature is what tells an `EachValidator`
+  apart from a `Validator` at a glance. Unlike `presenters`, there is no separate Attributes
+  section: `attr_reader`/`attr_accessor`/`attr_writer` fall through to macros, since attribute
+  readers are rare in real validators. Constants get their own section, and that's usually where
+  the actual rule lives -- a format regexp or an allowed-value list. `app/validators/concerns` is
+  listed like any other validator file rather than skipped, since nothing owns that directory the
+  way `app/controllers/concerns` is owned by the `concerns` command. Validators are deliberately
+  not wired into `related`: validator files are named after the rule they enforce
+  (`phone_validator`, `email_format_validator`), not after the model they run against, so there
+  is no name-based link worth drawing. The detail view is AST-backed and single-file only.
+
 ## [0.6.0] - 2026-09-10
 
 ### Added

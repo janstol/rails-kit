@@ -87,6 +87,8 @@ func TestStartupBudget(t *testing.T) {
 		{name: "formers", args: []string{"--root", fixtureRoot, "formers"}, ceiling: startupCeiling, delta: startupDelta},
 		// presenters (no arg) only lists filenames -- same reasoning as the other readers.
 		{name: "presenters", args: []string{"--root", fixtureRoot, "presenters"}, ceiling: startupCeiling, delta: startupDelta},
+		// validators (no arg) only lists filenames -- same reasoning as the other readers.
+		{name: "validators", args: []string{"--root", fixtureRoot, "validators"}, ceiling: startupCeiling, delta: startupDelta},
 		{name: "routes --static", args: []string{"--root", fixtureRoot, "routes", "--static"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "model", args: []string{"--root", fixtureRoot, "model", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "concerns searchable", args: []string{"--root", fixtureRoot, "concerns", "searchable"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
@@ -99,6 +101,7 @@ func TestStartupBudget(t *testing.T) {
 		{name: "decorators user", args: []string{"--root", fixtureRoot, "decorators", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "formers user", args: []string{"--root", fixtureRoot, "formers", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		{name: "presenters user", args: []string{"--root", fixtureRoot, "presenters", "user"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
+		{name: "validators email_format", args: []string{"--root", fixtureRoot, "validators", "email_format"}, ceiling: prismStartupCeiling, delta: prismStartupDelta},
 		// skeleton parses via Prism like model/routes --static; a single-file input
 		// isolates the one-time WASM cold start from batch parse work, which the
 		// BenchmarkParseFiles* benchmarks cover instead.

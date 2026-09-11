@@ -22,6 +22,7 @@ import (
 	"github.com/janstol/rails-kit/internal/presenters"
 	"github.com/janstol/rails-kit/internal/schema"
 	"github.com/janstol/rails-kit/internal/services"
+	"github.com/janstol/rails-kit/internal/validators"
 )
 
 // completeWithConfig adapts a candidate-lister to cobra's completion signature.
@@ -128,6 +129,16 @@ func listPresenterNames(root string, cfg config.Config, _ string) []string {
 }
 
 var completePresenterNames = completeWithConfig(listPresenterNames)
+
+func listValidatorNames(root string, cfg config.Config, _ string) []string {
+	names, err := validators.ListNames(root, cfg.ValidatorsPath)
+	if err != nil {
+		return nil
+	}
+	return names
+}
+
+var completeValidatorNames = completeWithConfig(listValidatorNames)
 
 func listDatagridNames(root string, cfg config.Config, _ string) []string {
 	names, err := datagrids.ListNames(root, cfg.DatagridsPath)

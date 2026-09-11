@@ -14,6 +14,7 @@ jobs_path: app/jobs
 mailers_path: app/mailers
 formers_path: app/formers
 presenters_path: app/presenters
+validators_path: app/validators
 services_path: app/services
 helpers_path: app/helpers
 datagrids_path: app/datagrids

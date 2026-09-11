@@ -319,6 +319,36 @@ shown, not ones inherited from a superclass -- `parent_class` says where to look
 Ruby syntax errors produce line-specific warnings on stderr while successfully recovered fields
 remain on stdout, including in JSON mode.
 
+## `validators`
+
+```sh
+rails-kit validators
+rails-kit validators email_format
+rails-kit validators admin/access
+rails-kit validators Admin::AccessValidator --json
+```
+
+Summarizes a validator's parent class, included concerns, class-level constants, other
+class-level DSL calls (surfaced as macros), and methods. Three shapes exist in the wild,
+distinguished by the header line alone: an `ActiveModel::EachValidator` subclass overriding
+`validate_each`, an `ActiveModel::Validator` subclass overriding `validate`, and a plain class (or
+module) that includes `ActiveModel::Validations` and drives itself with `validates`. Like
+`helpers`, `decorators`, `formers`, and `presenters`, each method renders as its full signature --
+for a validator that signature is what tells an `EachValidator` apart from a `Validator` at a
+glance, not boilerplate to hide. There is no separate Attributes section like `presenters`: an
+`attr_reader`/`attr_accessor`/`attr_writer` line falls through to macros along with `validates`
+and everything else, since attribute readers are rare in real validators and don't carry the same
+signal a presenter's do. Constants get their own section, and that's usually where the actual
+rule lives -- a format regexp or an allowed-value list. `app/validators/concerns` is listed like
+any other validator file rather than skipped, since nothing owns that directory the way
+`app/controllers/concerns` is owned by the `concerns` command. Validators are not wired into
+`related`: validator files are named after the rule they enforce (`phone_validator`,
+`email_format_validator`), not after the model they run against, so there is no name-based link
+worth drawing. Parsing is static, AST-backed by Prism, single-file only: a validator's own
+declarations are shown, not ones inherited from a superclass -- `parent_class` says where to look
+next. Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully
+recovered fields remain on stdout, including in JSON mode.
+
 ## `completion`
 
 ```sh
@@ -330,6 +360,6 @@ rails-kit completion fish > ~/.config/fish/completions/rails-kit.fish
 Completions are dynamic. `model`, `related`, and `skeleton` complete model names;
 `schema` completes table names; `locales` completes dotted scopes one level at a
 time; `concerns`, `fixtures`, `gem`, `controllers`, `mailers`, `jobs`, `services`,
-`datagrids`, `helpers`, `decorators`, `formers`, and `presenters` complete their respective
-names — all read from the current Rails project. `routes` and other
+`datagrids`, `helpers`, `decorators`, `formers`, `presenters`, and `validators` complete their
+respective names — all read from the current Rails project. `routes` and other
 flag-only commands are unaffected.

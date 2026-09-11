@@ -63,13 +63,14 @@ rails-kit --root /path/to/app schema users --json
 | `rails-kit decorators [name]` | Summarize a Rails decorator's parent class, concerns, macros, and method signatures |
 | `rails-kit formers [name]` | Summarize a Rails form object's attributes, validations, macros, and method signatures |
 | `rails-kit presenters [name]` | Summarize a Rails presenter's parent class, concerns, constants, attributes, macros, and method signatures |
+| `rails-kit validators [name]` | Summarize a Rails validator's parent class, concerns, constants, macros, and method signatures |
 | `rails-kit skill install\|uninstall` | Manage the bundled Claude Code or Codex skill |
 | `rails-kit completion bash\|zsh\|fish` | Generate shell completions |
 | `rails-kit version` | Print version information |
 
 See the [command reference](docs/commands.md) for examples, JSON shapes, requirements, and limitations.
 
-`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem, concern, controller, mailer, job, service, datagrid, helper, decorator, former, and presenter names, and locale keys (drilling down one dotted segment at a time for `locales`).
+`rails-kit completion bash|zsh|fish` emits a shell completion script. Once sourced, commands also dynamically complete positional arguments — model names, table names, gem, concern, controller, mailer, job, service, datagrid, helper, decorator, former, presenter, and validator names, and locale keys (drilling down one dotted segment at a time for `locales`).
 
 ## Documentation
 

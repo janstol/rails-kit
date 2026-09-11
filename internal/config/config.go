@@ -23,6 +23,7 @@ type Config struct {
 	DecoratorsPath         string            `yaml:"decorators_path"`
 	FormersPath            string            `yaml:"formers_path"`
 	PresentersPath         string            `yaml:"presenters_path"`
+	ValidatorsPath         string            `yaml:"validators_path"`
 	ServicesPath           string            `yaml:"services_path"`
 	HelpersPath            string            `yaml:"helpers_path"`
 	DatagridsPath          string            `yaml:"datagrids_path"`
@@ -62,6 +63,7 @@ func Defaults() Config {
 		DecoratorsPath:         "app/decorators",
 		FormersPath:            "app/formers",
 		PresentersPath:         "app/presenters",
+		ValidatorsPath:         "app/validators",
 		ServicesPath:           "app/services",
 		HelpersPath:            "app/helpers",
 		DatagridsPath:          "app/datagrids",
