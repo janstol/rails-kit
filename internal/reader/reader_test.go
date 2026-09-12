@@ -218,6 +218,65 @@ func TestResolve_RbInputOutsideDirIsRejected(t *testing.T) {
 	}
 }
 
+func TestResolve_RbInputTraversalViaDirRelativeFallbackIsRejected(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/jobs/sync_user_job.rb")
+	writeFile(t, root, "app/models/user.rb")
+
+	t.Chdir(t.TempDir())
+
+	k := suffixedKind()
+	_, err := k.Resolve(root, "app/jobs", filepath.Join("..", "models", "user.rb"))
+	if err == nil {
+		t.Fatal("expected error for a traversing path that misses the CWD-relative candidate")
+	}
+}
+
+func TestResolve_RbInputRejectedConsistentlyAcrossCWDs(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "app/jobs/sync_user_job.rb")
+	f := writeFile(t, root, "app/models/user.rb")
+
+	jobsDir := filepath.Join(root, "app", "jobs")
+	outside := t.TempDir()
+	rel := filepath.Join("..", "models", "user.rb")
+
+	cases := []struct {
+		name  string
+		cwd   string
+		input string
+	}{
+		{"from jobs dir", jobsDir, rel},
+		{"from rails root", root, rel},
+		{"from outside root", outside, rel},
+		{"absolute path", outside, f},
+	}
+
+	k := suffixedKind()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Chdir(tc.cwd)
+			if _, err := k.Resolve(root, "app/jobs", tc.input); err == nil {
+				t.Fatalf("expected error resolving %q from %q", tc.input, tc.cwd)
+			}
+		})
+	}
+}
+
+func TestResolve_DotDotPrefixedSubdirIsNotTreatedAsEscape(t *testing.T) {
+	root := t.TempDir()
+	f := writeFile(t, root, "app/jobs/..backup/legacy_job.rb")
+
+	k := suffixedKind()
+	path, err := k.Resolve(root, "app/jobs", f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if path != f {
+		t.Errorf("path = %s, want %s", path, f)
+	}
+}
+
 func TestListNames_StripsSuffix(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "app/jobs/sync_user_job.rb")

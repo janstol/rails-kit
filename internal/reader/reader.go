@@ -55,38 +55,7 @@ func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
 	dir := config.ResolvePath(railsRoot, dirPath)
 
 	if strings.HasSuffix(input, ".rb") {
-		path := input
-		if !filepath.IsAbs(path) {
-			abs, err := filepath.Abs(path)
-			if err == nil {
-				path = abs
-			}
-		}
-		if _, err := os.Stat(path); err == nil {
-			rel, err := filepath.Rel(dir, path)
-			if err != nil || strings.HasPrefix(rel, "..") {
-				return "", fmt.Errorf("%s file is outside %s directory: %s", k.Noun, k.Plural, path)
-			}
-			return path, nil
-		}
-		cleanInput := input
-		if !filepath.IsAbs(dirPath) {
-			prefix := filepath.ToSlash(filepath.Clean(dirPath)) + "/"
-			cleanInput = strings.TrimPrefix(filepath.ToSlash(cleanInput), prefix)
-		}
-		path3 := filepath.Join(dir, cleanInput)
-		if _, err := os.Stat(path3); err == nil {
-			return path3, nil
-		}
-		path2 := filepath.Join(railsRoot, input)
-		if _, err := os.Stat(path2); err == nil {
-			rel, err := filepath.Rel(dir, path2)
-			if err != nil || strings.HasPrefix(rel, "..") {
-				return "", fmt.Errorf("%s file is outside %s directory: %s", k.Noun, k.Plural, path2)
-			}
-			return path2, nil
-		}
-		return "", fmt.Errorf("%s file not found: %s", k.Noun, input)
+		return k.resolveRubyPath(railsRoot, dirPath, dir, input)
 	}
 
 	name := astutil.Underscore(input)
@@ -141,6 +110,53 @@ func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s file not found for '%s'", k.Noun, input)
+}
+
+// resolveRubyPath handles the .rb branch of Resolve: input already names a
+// file rather than a resource name. It tries three interpretations of input
+// in order -- the input made absolute against the current working directory,
+// the input joined onto dir after stripping a leading dirPath prefix, and
+// the input joined onto railsRoot -- and validates all three against dir, so
+// the answer no longer depends on the caller's working directory.
+func (k Kind) resolveRubyPath(railsRoot, dirPath, dir, input string) (string, error) {
+	path := input
+	if !filepath.IsAbs(path) {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+	}
+
+	cleanInput := input
+	if !filepath.IsAbs(dirPath) {
+		prefix := filepath.ToSlash(filepath.Clean(dirPath)) + "/"
+		cleanInput = strings.TrimPrefix(filepath.ToSlash(cleanInput), prefix)
+	}
+
+	candidates := []string{path, filepath.Join(dir, cleanInput), filepath.Join(railsRoot, input)}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err != nil {
+			continue
+		}
+		if !withinDir(dir, candidate) {
+			return "", fmt.Errorf("%s file is outside %s directory: %s", k.Noun, k.Plural, candidate)
+		}
+		return candidate, nil
+	}
+	return "", fmt.Errorf("%s file not found: %s", k.Noun, input)
+}
+
+// withinDir reports whether path is dir itself or lies somewhere under it,
+// using path components rather than a raw string prefix -- so a sibling
+// directory whose name happens to start with dir's name (or, symmetrically,
+// a subdirectory of dir whose name starts with "..") isn't mistaken for an
+// escape. Matches the form used by pathOutsideRoot (cmd/skeleton.go) and
+// pathWithin (internal/routes/static.go).
+func withinDir(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // appendSuffix appends suffix to name unless name already ends with it.
