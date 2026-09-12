@@ -80,14 +80,15 @@ func Fingerprint(routesRb, routesDir string) string {
 }
 
 // Watch polls the route sources every interval and calls render whenever the
-// fingerprint changes. The baseline fingerprint is captured at call time, so
-// callers should render once themselves before calling Watch. A render error
-// is handed to onErr (if non-nil) and does not stop the loop — a syntax error
-// saved into routes.rb, or a failing Rails boot, is exactly when watch mode
-// needs to survive. Watch returns nil when ctx is canceled.
-func Watch(ctx context.Context, routesRb, routesDir string, interval time.Duration,
+// fingerprint changes from baseline. The caller must capture baseline with
+// Fingerprint(routesRb, routesDir) before its own initial render, so that an
+// edit landing during that render is not folded into the baseline and lost.
+// A render error is handed to onErr (if non-nil) and does not stop the loop —
+// a syntax error saved into routes.rb, or a failing Rails boot, is exactly
+// when watch mode needs to survive. Watch returns nil when ctx is canceled.
+func Watch(ctx context.Context, routesRb, routesDir, baseline string, interval time.Duration,
 	render func() error, onErr func(error)) error {
-	last := Fingerprint(routesRb, routesDir)
+	last := baseline
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

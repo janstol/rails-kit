@@ -156,24 +156,22 @@ func TestFingerprintWorksWithoutRoutesDir(t *testing.T) {
 	}
 }
 
-// triggerRender changes routesRb's mtime repeatedly (each time to a distinct,
-// strictly-increasing value) until a render is observed on renderCh or the
-// retry budget is exhausted. This avoids a race against Watch's internal
-// goroutine capturing its baseline fingerprint.
+// triggerRender changes routesRb's mtime once and waits for a render to be
+// observed on renderCh. It no longer needs a retry loop: that loop existed
+// only to dodge a race against Watch computing its own baseline fingerprint
+// internally, which the explicit baseline parameter removes.
 func triggerRender(t *testing.T, routesRb string, renderCh <-chan struct{}) bool {
 	t.Helper()
-	for i := 1; i <= 100; i++ {
-		newTime := time.Now().Add(time.Duration(i) * time.Hour)
-		if err := os.Chtimes(routesRb, newTime, newTime); err != nil {
-			t.Fatal(err)
-		}
-		select {
-		case <-renderCh:
-			return true
-		case <-time.After(20 * time.Millisecond):
-		}
+	newTime := time.Now().Add(time.Hour)
+	if err := os.Chtimes(routesRb, newTime, newTime); err != nil {
+		t.Fatal(err)
 	}
-	return false
+	select {
+	case <-renderCh:
+		return true
+	case <-time.After(2 * time.Second):
+		return false
+	}
 }
 
 func TestWatchRendersOnChange(t *testing.T) {
@@ -199,13 +197,68 @@ func TestWatchRendersOnChange(t *testing.T) {
 		return nil
 	}
 
+	baseline := routes.Fingerprint(routesRb, routesDir)
 	watchDone := make(chan error, 1)
 	go func() {
-		watchDone <- routes.Watch(ctx, routesRb, routesDir, 5*time.Millisecond, render, nil)
+		watchDone <- routes.Watch(ctx, routesRb, routesDir, baseline, 5*time.Millisecond, render, nil)
 	}()
 
 	if !triggerRender(t, routesRb, renderCh) {
 		t.Fatal("expected Watch to render after routes.rb changed")
+	}
+
+	cancel()
+	select {
+	case err := <-watchDone:
+		if err != nil {
+			t.Fatalf("Watch returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Watch did not return promptly after context cancellation")
+	}
+}
+
+func TestWatchRendersForChangeDuringInitialRender(t *testing.T) {
+	dir := t.TempDir()
+	routesRb := filepath.Join(dir, "config", "routes.rb")
+	routesDir := filepath.Join(dir, "config", "routes")
+	if err := os.MkdirAll(routesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(routesRb, []byte("# routes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture the baseline the way a caller does, before its own initial
+	// render — then simulate an edit landing during that render.
+	baseline := routes.Fingerprint(routesRb, routesDir)
+
+	newTime := time.Now().Add(time.Hour)
+	if err := os.Chtimes(routesRb, newTime, newTime); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	renderCh := make(chan struct{}, 100)
+	render := func() error {
+		select {
+		case renderCh <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+
+	watchDone := make(chan error, 1)
+	go func() {
+		watchDone <- routes.Watch(ctx, routesRb, routesDir, baseline, 5*time.Millisecond, render, nil)
+	}()
+
+	select {
+	case <-renderCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected Watch to render for the edit that landed before Watch started, since baseline was captured before the edit")
 	}
 
 	cancel()
@@ -232,9 +285,10 @@ func TestWatchReturnsPromptlyOnContextCancel(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	baseline := routes.Fingerprint(routesRb, routesDir)
 	watchDone := make(chan error, 1)
 	go func() {
-		watchDone <- routes.Watch(ctx, routesRb, routesDir, time.Second, func() error { return nil }, nil)
+		watchDone <- routes.Watch(ctx, routesRb, routesDir, baseline, time.Second, func() error { return nil }, nil)
 	}()
 
 	cancel()
@@ -282,9 +336,10 @@ func TestWatchKeepsPollingAfterRenderError(t *testing.T) {
 		mu.Unlock()
 	}
 
+	baseline := routes.Fingerprint(routesRb, routesDir)
 	watchDone := make(chan error, 1)
 	go func() {
-		watchDone <- routes.Watch(ctx, routesRb, routesDir, 5*time.Millisecond, render, onErr)
+		watchDone <- routes.Watch(ctx, routesRb, routesDir, baseline, 5*time.Millisecond, render, onErr)
 	}()
 
 	// Two separate changes should each produce a render (and onErr call)

@@ -434,6 +434,141 @@ func TestRefresh(t *testing.T) {
 	}
 }
 
+func TestCacheSkipsCacheWhenSourcesChangeDuringGeneration(t *testing.T) {
+	dir := t.TempDir()
+	routesRb := filepath.Join(dir, "config", "routes.rb")
+	testutil.WriteFile(t, routesRb, "# routes")
+
+	restorePath := stubBundleEditing(t, routesRb, "# routes changed mid-run", sampleRoutes)
+	defer restorePath()
+
+	stderr := captureStderr(t)
+
+	out, err := routes.Cache(context.Background(), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != sampleRoutes {
+		t.Fatalf("output mismatch:\n%s", out)
+	}
+	if !strings.Contains(stderr(), "route sources changed while rails routes was running; not caching this result") {
+		t.Fatalf("expected not-caching warning, got: %q", stderr())
+	}
+
+	assertNoCacheWritten(t, dir)
+}
+
+func TestRefreshSkipsCacheWhenSourcesChangeDuringGeneration(t *testing.T) {
+	dir := t.TempDir()
+	routesRb := filepath.Join(dir, "config", "routes.rb")
+	testutil.WriteFile(t, routesRb, "# routes")
+
+	restorePath := stubBundleEditing(t, routesRb, "# routes changed mid-run", sampleRoutes)
+	defer restorePath()
+
+	stderr := captureStderr(t)
+
+	out, err := routes.Refresh(context.Background(), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != sampleRoutes {
+		t.Fatalf("output mismatch:\n%s", out)
+	}
+	if !strings.Contains(stderr(), "route sources changed while rails routes was running; not caching this result") {
+		t.Fatalf("expected not-caching warning, got: %q", stderr())
+	}
+
+	assertNoCacheWritten(t, dir)
+}
+
+func TestCacheSkipsCacheWhenRoutesDirFileChangesDuringGeneration(t *testing.T) {
+	dir := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
+	adminRb := filepath.Join(dir, "config", "routes", "admin.rb")
+	testutil.WriteFile(t, adminRb, "# admin")
+
+	restorePath := stubBundleEditing(t, adminRb, "# admin routes changed mid-run", sampleRoutes)
+	defer restorePath()
+
+	stderr := captureStderr(t)
+
+	out, err := routes.Cache(context.Background(), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != sampleRoutes {
+		t.Fatalf("output mismatch:\n%s", out)
+	}
+	if !strings.Contains(stderr(), "route sources changed while rails routes was running; not caching this result") {
+		t.Fatalf("expected not-caching warning, got: %q", stderr())
+	}
+
+	assertNoCacheWritten(t, dir)
+}
+
+func TestCacheRegeneratesAfterSkippedCacheWrite(t *testing.T) {
+	dir := t.TempDir()
+	routesRb := filepath.Join(dir, "config", "routes.rb")
+	testutil.WriteFile(t, routesRb, "# routes")
+
+	restoreEditing := stubBundleEditing(t, routesRb, "# routes changed mid-run", sampleRoutes)
+
+	stderr := captureStderr(t)
+	out, err := routes.Cache(context.Background(), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != sampleRoutes {
+		t.Fatalf("output mismatch:\n%s", out)
+	}
+	if !strings.Contains(stderr(), "not caching this result") {
+		t.Fatalf("expected not-caching warning, got: %q", stderr())
+	}
+	assertNoCacheWritten(t, dir)
+	restoreEditing()
+
+	// A second call, against a stub that no longer edits routesRb and prints
+	// different output, must re-run Bundler (nothing was cached) and return
+	// the new output — the behavior the bug broke.
+	restorePlain := stubBundle(t, sampleRoutesWithNoise)
+	defer restorePlain()
+
+	out, err = routes.Cache(context.Background(), dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != sampleRoutesWithNoise {
+		t.Fatalf("expected regenerated output, got:\n%s", out)
+	}
+
+	cacheFile := filepath.Join(dir, "tmp", "routes_cache.txt")
+	data, err := os.ReadFile(cacheFile)
+	if err != nil {
+		t.Fatalf("expected cache file to be written on the unguarded run: %v", err)
+	}
+	if string(data) != sampleRoutesWithNoise {
+		t.Fatalf("cache content mismatch:\n%s", data)
+	}
+}
+
+// assertNoCacheWritten fails t if a routes cache (or an atomic-write leftover)
+// exists under dir/tmp.
+func assertNoCacheWritten(t *testing.T, dir string) {
+	t.Helper()
+	cacheFile := filepath.Join(dir, "tmp", "routes_cache.txt")
+	if _, err := os.Stat(cacheFile); err == nil {
+		t.Fatal("expected no cache file to be written")
+	}
+	tempFiles, err := filepath.Glob(filepath.Join(dir, "tmp", ".routes_cache.txt.tmp-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tempFiles) != 0 {
+		t.Fatalf("expected no atomic-write leftovers, found: %v", tempFiles)
+	}
+}
+
 func TestCacheReturnsFreshOutputWhenTmpDirCreationFails(t *testing.T) {
 	dir := t.TempDir()
 	testutil.WriteFile(t, filepath.Join(dir, "config", "routes.rb"), "# routes")
@@ -598,6 +733,25 @@ func stubBundle(t *testing.T, output string) func() {
 	t.Helper()
 	binDir := t.TempDir()
 	testutil.WriteFakeBundle(t, binDir, output)
+
+	prevPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+
+	return func() {
+		_ = os.Setenv("PATH", prevPath)
+	}
+}
+
+// stubBundleEditing puts a fake "bundle" on PATH that overwrites target with
+// newContent (which must differ in length from target's current content) and
+// then prints stdout, simulating an edit landing while `bundle exec rails
+// routes` is running.
+func stubBundleEditing(t *testing.T, target, newContent, stdout string) func() {
+	t.Helper()
+	binDir := t.TempDir()
+	testutil.WriteFakeBundleEditing(t, binDir, target, newContent, stdout)
 
 	prevPath := os.Getenv("PATH")
 	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {

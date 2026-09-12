@@ -105,22 +105,43 @@ func writeFileAtomic(path string, data []byte, perm fs.FileMode) (retErr error) 
 	return os.Rename(tmpPath, path)
 }
 
-// Refresh unconditionally runs `bundle exec rails routes` and writes the result to cache.
+// generate runs Rails and publishes a cache only when the route sources are
+// unchanged across the run. Booting Rails takes seconds; an edit landing in
+// that window would otherwise get a cache whose mtime is newer than the edit,
+// which CacheValid reads as fresh.
+func generate(ctx context.Context, railsRoot string, stderr io.Writer) (string, error) {
+	routesRb := filepath.Join(railsRoot, "config", "routes.rb")
+	routesDir := filepath.Join(railsRoot, "config", "routes")
+
+	before := Fingerprint(routesRb, routesDir)
+	out, err := Run(ctx, railsRoot, stderr)
+	if err != nil {
+		return "", err
+	}
+	if Fingerprint(routesRb, routesDir) != before {
+		_, _ = fmt.Fprintln(stderr, "Warning: route sources changed while rails routes was running; not caching this result")
+		return out, nil
+	}
+	writeCacheFiles(railsRoot, out, stderr)
+	return out, nil
+}
+
+// Refresh unconditionally runs `bundle exec rails routes` and writes the
+// result to cache, unless the route sources changed while Rails was running,
+// in which case the output is still returned but no cache is published.
 // If ctx has no deadline, a 60-second timeout is applied automatically.
 // If stderr is nil, os.Stderr is used.
 func Refresh(ctx context.Context, railsRoot string, stderr io.Writer) (string, error) {
 	if stderr == nil {
 		stderr = os.Stderr
 	}
-	out, err := Run(ctx, railsRoot, stderr)
-	if err != nil {
-		return "", err
-	}
-	writeCacheFiles(railsRoot, out, stderr)
-	return out, nil
+	return generate(ctx, railsRoot, stderr)
 }
 
-// Cache reads cached routes output or regenerates it if stale.
+// Cache reads cached routes output or regenerates it if stale. When
+// regenerating, the result is published to cache only if the route sources
+// stayed unchanged for the duration of the run; otherwise the output is
+// still returned but no cache is written.
 // Returns the full routes output as a string.
 // If ctx has no deadline, a 60-second timeout is applied automatically.
 // If stderr is nil, os.Stderr is used.
@@ -140,13 +161,7 @@ func Cache(ctx context.Context, railsRoot string, stderr io.Writer) (string, err
 	if stderr == nil {
 		stderr = os.Stderr
 	}
-	out, err := Run(ctx, railsRoot, stderr)
-	if err != nil {
-		return "", err
-	}
-
-	writeCacheFiles(railsRoot, out, stderr)
-	return out, nil
+	return generate(ctx, railsRoot, stderr)
 }
 
 // findHeaderLine returns the index of the routes header line in lines.

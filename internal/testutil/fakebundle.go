@@ -62,6 +62,58 @@ func writeWindowsBundle(t *testing.T, dir, stdout string) string {
 	return path
 }
 
+// WriteFakeBundleEditing writes an executable stub named "bundle" (or
+// "bundle.bat" on Windows) into dir that overwrites target with newContent
+// and then prints stdout verbatim, for exercising the window between a
+// route source edit and the end of a `rails routes` run. newContent must
+// differ in length from target's original content so a fingerprint based on
+// mtime+size changes regardless of filesystem mtime resolution, keeping
+// tests deterministic rather than timing-dependent. Returns the stub's full
+// path.
+func WriteFakeBundleEditing(t *testing.T, dir, target, newContent, stdout string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return writeWindowsBundleEditing(t, dir, target, newContent, stdout)
+	}
+	return writeUnixBundleEditing(t, dir, target, newContent, stdout)
+}
+
+func writeUnixBundleEditing(t *testing.T, dir, target, newContent, stdout string) string {
+	t.Helper()
+	path := filepath.Join(dir, "bundle")
+	script := "#!/bin/sh\n" +
+		"printf '%s' " + shellQuote(newContent) + " > " + shellQuote(target) + "\n" +
+		"printf '%s' " + shellQuote(stdout) + "\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// writeWindowsBundleEditing stages the new content and the stdout in
+// sibling data files and has bundle.bat copy the former over target with
+// `copy /y ... >nul` (the `>nul` is what keeps copy's own "1 file(s) copied"
+// message off stdout) before streaming the latter with `type`.
+func writeWindowsBundleEditing(t *testing.T, dir, target, newContent, stdout string) string {
+	t.Helper()
+	contentPath := filepath.Join(dir, "bundle_edit_content.dat")
+	if err := os.WriteFile(contentPath, []byte(newContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdoutPath := filepath.Join(dir, "bundle_edit_stdout.dat")
+	if err := os.WriteFile(stdoutPath, []byte(stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "bundle.bat")
+	script := "@echo off\r\n" +
+		"copy /y \"%~dp0bundle_edit_content.dat\" \"" + target + "\" >nul\r\n" +
+		"type \"%~dp0bundle_edit_stdout.dat\"\r\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // WriteFakeBundleSleep writes an executable stub that blocks for
 // approximately d before exiting, for exercising command timeouts. Returns
 // the stub's full path.

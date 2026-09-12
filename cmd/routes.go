@@ -37,7 +37,10 @@ With no arguments, prints all routes (using cache if available).
 With patterns, prints only routes matching any pattern (case-insensitive).
 
 The cache is stored in tmp/routes_cache.txt and is invalidated when
-	config/routes.rb or any file in config/routes/ is modified.
+	config/routes.rb or any file in config/routes/ is modified. If those
+	sources change while rails routes is running, the result is printed but
+	not cached, so the next invocation regenerates instead of serving stale
+	output.
 
 --static parses config/routes.rb directly in pure Go, without booting
 Rails or shelling out to bundler. It's fast and works even when the app
@@ -182,11 +185,12 @@ func runRoutesWatch(ctx context.Context, cmd *cobra.Command, root string, args [
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 	}
 
+	baseline := routes.Fingerprint(routesRb, routesDir)
 	if err := render(); err != nil {
 		onErr(err)
 	}
 
-	return routes.Watch(ctx, routesRb, routesDir, routesWatchInterval, render, onErr)
+	return routes.Watch(ctx, routesRb, routesDir, baseline, routesWatchInterval, render, onErr)
 }
 
 func init() {
