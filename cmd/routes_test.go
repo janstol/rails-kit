@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -748,5 +749,151 @@ end
 	}
 	if strings.Contains(errOut, "\x1b[") {
 		t.Fatalf("expected no ANSI escapes in non-TTY stderr, got: %q", errOut)
+	}
+}
+
+// TestRoutesRunHonorsPassedContext exercises the regression where
+// runRoutes shelled out on cmd.Context() (the root command's context,
+// never canceled by a signal) instead of the ctx passed in by the caller.
+// A fake bundle stands in for the real subprocess: under the bug it runs
+// to completion and the call succeeds; under the fix exec.CommandContext
+// refuses to start it against an already-canceled ctx.
+func TestRoutesRunHonorsPassedContext(t *testing.T) {
+	root := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), "")
+
+	binDir := t.TempDir()
+	testutil.WriteFakeBundle(t, binDir, "Prefix Verb URI Pattern Controller#Action\nusers GET /users users#index\n")
+
+	prevPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prevPath)
+	})
+
+	prevNoCache := routesNoCache
+	prevStatic := routesStatic
+	t.Cleanup(func() {
+		routesNoCache = prevNoCache
+		routesStatic = prevStatic
+	})
+	routesNoCache = true
+	routesStatic = false
+
+	prevCtx := routesCmd.Context()
+	routesCmd.SetContext(context.Background())
+	t.Cleanup(func() { routesCmd.SetContext(prevCtx) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := runRoutes(ctx, routesCmd, root, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected error wrapping context.Canceled, got: %v", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(root, "tmp", "routes_cache.txt")); statErr == nil {
+		t.Fatal("expected no cache file to be written")
+	}
+}
+
+// TestRoutesWatchCancelsInFlightRender exercises the regression where an
+// in-flight render (and its "bundle exec rails routes" subprocess) kept
+// running after the watch context was canceled, because runRoutesWatch's
+// render closure called runRoutes with cmd.Context() rather than the ctx
+// it was handed. With cmd.Context() left live and only the passed ctx
+// canceled, the initial render must fail without ever shelling out.
+func TestRoutesWatchCancelsInFlightRender(t *testing.T) {
+	root := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "routes.rb"), "")
+
+	binDir := t.TempDir()
+	testutil.WriteFakeBundle(t, binDir, "Prefix Verb URI Pattern Controller#Action\nusers GET /users users#index\n")
+
+	prevPath := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+prevPath); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prevPath)
+	})
+
+	prevNoCache := routesNoCache
+	prevStatic := routesStatic
+	prevWatch := routesWatch
+	prevInterval := routesWatchInterval
+	t.Cleanup(func() {
+		routesNoCache = prevNoCache
+		routesStatic = prevStatic
+		routesWatch = prevWatch
+		routesWatchInterval = prevInterval
+	})
+	routesNoCache = true
+	routesStatic = false
+	routesWatch = true
+	routesWatchInterval = 100 * time.Millisecond
+
+	prevCtx := routesCmd.Context()
+	routesCmd.SetContext(context.Background())
+	t.Cleanup(func() { routesCmd.SetContext(prevCtx) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	stdoutR, stdoutW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = stdoutW
+	os.Stderr = stderrW
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+		os.Stderr = oldStderr
+	})
+
+	var stdoutBytes, stderrBytes []byte
+	var stdoutErr, stderrErr error
+	stdoutDone := make(chan struct{})
+	stderrDone := make(chan struct{})
+	go func() {
+		defer close(stdoutDone)
+		stdoutBytes, stdoutErr = io.ReadAll(stdoutR)
+	}()
+	go func() {
+		defer close(stderrDone)
+		stderrBytes, stderrErr = io.ReadAll(stderrR)
+	}()
+
+	watchErr := runRoutesWatch(ctx, routesCmd, root, nil)
+
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+	<-stdoutDone
+	<-stderrDone
+	if stdoutErr != nil {
+		t.Fatal(stdoutErr)
+	}
+	if stderrErr != nil {
+		t.Fatal(stderrErr)
+	}
+
+	if watchErr != nil {
+		t.Fatalf("expected nil error (Watch's contract on a canceled context), got: %v", watchErr)
+	}
+	if !strings.Contains(string(stderrBytes), "context canceled") {
+		t.Fatalf("expected stderr to carry the render error, got: %q", stderrBytes)
+	}
+	if strings.Contains(string(stdoutBytes), "users#index") {
+		t.Fatalf("expected no route rows on stdout (render should have been canceled), got: %q", stdoutBytes)
 	}
 }

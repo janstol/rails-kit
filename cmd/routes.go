@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -81,13 +82,15 @@ reported but does not stop watching. Exit with Ctrl-C.`,
 		}
 
 		if !routesWatch {
-			return runRoutes(cmd, root, args)
+			return runRoutes(cmd.Context(), cmd, root, args)
 		}
-		return runRoutesWatch(cmd, root, args)
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return runRoutesWatch(ctx, cmd, root, args)
 	},
 }
 
-func runRoutes(cmd *cobra.Command, root string, args []string) error {
+func runRoutes(ctx context.Context, cmd *cobra.Command, root string, args []string) error {
 	if routesStatic {
 		routesPath := filepath.Join(root, "config", "routes.rb")
 		result, err := routes.ParseStaticDetailed(routesPath, pluralize.Default())
@@ -115,11 +118,11 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 	var err error
 	switch {
 	case routesNoCache:
-		output, err = routes.Run(cmd.Context(), root, os.Stderr)
+		output, err = routes.Run(ctx, root, os.Stderr)
 	case routesRefresh:
-		output, err = routes.Refresh(cmd.Context(), root, os.Stderr)
+		output, err = routes.Refresh(ctx, root, os.Stderr)
 	default:
-		output, err = routes.Cache(cmd.Context(), root, os.Stderr)
+		output, err = routes.Cache(ctx, root, os.Stderr)
 	}
 	if err != nil {
 		return fmt.Errorf("fetching routes: %w (hint: try --static for an offline, pure-Go approximation)", err)
@@ -153,12 +156,9 @@ func runRoutes(cmd *cobra.Command, root string, args []string) error {
 }
 
 // runRoutesWatch renders routes once, then keeps polling config/routes.rb and
-// config/routes/ for changes until ctx is canceled or the process receives
-// an interrupt/terminate signal.
-func runRoutesWatch(cmd *cobra.Command, root string, args []string) error {
-	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
+// config/routes/ for changes until ctx is canceled. The caller is
+// responsible for wiring ctx to cancel on an interrupt/terminate signal.
+func runRoutesWatch(ctx context.Context, cmd *cobra.Command, root string, args []string) error {
 	routesRb := filepath.Join(root, "config", "routes.rb")
 	routesDir := filepath.Join(root, "config", "routes")
 
@@ -170,7 +170,7 @@ func runRoutesWatch(cmd *cobra.Command, root string, args []string) error {
 		} else if !first {
 			_, _ = fmt.Fprintf(os.Stderr, "-- %s routes changed --\n", time.Now().Format(time.RFC3339))
 		}
-		err := runRoutes(cmd, root, args)
+		err := runRoutes(ctx, cmd, root, args)
 		if tty {
 			_, _ = fmt.Fprintln(os.Stderr, "-- watching config/routes.rb, config/routes/ · Ctrl-C to stop --")
 		}

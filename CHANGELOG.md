@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `routes --watch` now cancels an in-flight `bundle exec rails routes` subprocess on Ctrl-C/SIGTERM instead of only stopping the poll loop. The watch signal context built in `RunE` was never threaded through: the render closure called `runRoutes` with the root command's context, which nothing cancels, so `Run`/`Refresh`/`Cache` and the `exec.CommandContext` child they start outlived the interrupt. The signal context is now passed explicitly into `runRoutes` and `runRoutesWatch`, so both the initial render and every polled reprint run under it and a signal now tears down the whole render path, subprocess included.
 - `locales` now normalizes non-string YAML keys (numbers, booleans, `null`, dates) to their
   string form before merging locale files. yaml.v3 decodes a mapping as `map[interface{}]interface{}`
   the moment even one key isn't a plain string -- an enum keyed by integer (`status: {0:
