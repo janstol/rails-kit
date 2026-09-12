@@ -385,6 +385,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("colored", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/formers/concerns/validatable.rb"
 		s, err := formers.Parse(path, testdataRoot, "app/formers")
 		if err != nil {
@@ -400,6 +401,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("nested with_options entry keeps macro accent", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/formers/user_former.rb"
 		s, err := formers.Parse(path, testdataRoot, "app/formers")
 		if err != nil {

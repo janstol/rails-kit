@@ -324,6 +324,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("module has no parent line", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/validators/concerns/rule_helpers.rb"
 		s, err := validators.Parse(path, testdataRoot, "app/validators")
 		if err != nil {

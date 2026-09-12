@@ -272,6 +272,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("colored", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/presenters/users/work/overall_presenter.rb"
 		s, err := presenters.Parse(path, testdataRoot, "app/presenters")
 		if err != nil {

@@ -98,6 +98,7 @@ func TestStyler_ZeroValueDisabled(t *testing.T) {
 }
 
 func TestStyler_EnabledWraps(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	st := NewStyler(ModeAlways, nonTTYFile(t))
 	if !st.Enabled() {
 		t.Fatal("expected enabled styler")

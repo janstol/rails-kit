@@ -306,6 +306,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("colored", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/decorators/concerns/formatting.rb"
 		s, err := decorators.Parse(path, testdataRoot, "app/decorators")
 		if err != nil {

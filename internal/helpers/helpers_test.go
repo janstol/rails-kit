@@ -380,6 +380,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	t.Run("colored", func(t *testing.T) {
+		t.Setenv("NO_COLOR", "")
 		path := testdataRoot + "/app/helpers/users_helper.rb"
 		s, err := helpers.Parse(path, testdataRoot, "app/helpers")
 		if err != nil {

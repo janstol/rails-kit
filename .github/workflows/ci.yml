@@ -32,6 +32,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: go test -race ./...
 
+      # Guards against a colored test that forgets t.Setenv("NO_COLOR", ""):
+      # runners never set NO_COLOR, so such a test passes CI and fails only
+      # on a developer machine that has it exported.
+      - name: Test with NO_COLOR set
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          NO_COLOR: "1"
+        run: go test ./...
+
       - name: Benchmark smoke test
         if: matrix.os == 'ubuntu-latest'
         run: go test -bench=. -benchtime=1x -run=^$ ./...
