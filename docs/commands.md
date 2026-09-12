@@ -81,6 +81,8 @@ rails-kit locales en.activerecord.models --json
 
 With no scope, lists navigable nested map scopes. With a scope, returns the subtree or leaf value. Composite values use a YAML-like multiline format in human output.
 
+Non-string YAML keys (numbers, booleans, `null`, dates) are addressed by their text form, so `locales en.status.404` works.
+
 ## `model`
 
 ```sh

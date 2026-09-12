@@ -83,12 +83,21 @@ func loadAll(localesDir string, allFiles []string) ([]map[string]interface{}, er
 				errs[i] = fmt.Errorf("reading %s: %w", rel, err)
 				return
 			}
-			var p map[string]interface{}
-			if err := yaml.Unmarshal(data, &p); err != nil {
+			var raw interface{}
+			if err := yaml.Unmarshal(data, &raw); err != nil {
 				errs[i] = fmt.Errorf("parsing %s: %w", rel, err)
 				return
 			}
-			parsed[i] = p
+			normalized := normalizeValue(raw)
+			switch v := normalized.(type) {
+			case nil:
+				// Empty file, comments-only, bare "---", or explicit null:
+				// leave parsed[i] nil, same as an all-zero-value entry today.
+			case map[string]interface{}:
+				parsed[i] = v
+			default:
+				errs[i] = fmt.Errorf("parsing %s: expected a mapping at the top level, got %T", rel, v)
+			}
 		}(i, path, rel)
 	}
 	wg.Wait()

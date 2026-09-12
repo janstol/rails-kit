@@ -149,7 +149,8 @@ Detail mode:
 ```
 
 `value` mirrors whatever the locale tree holds at that scope — an object, a string, or another
-nested structure. No fixed schema beyond "valid JSON."
+nested structure. No fixed schema beyond "valid JSON." `value` is always string-keyed, whatever
+the YAML source used.
 
 ### `gem`
 

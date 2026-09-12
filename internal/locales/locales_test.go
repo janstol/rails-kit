@@ -306,6 +306,291 @@ func TestLoadMalformedYAML(t *testing.T) {
 	}
 }
 
+func TestLoad_NumericKeyDeepMerge(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  status:",
+		"    404: Not Found",
+		"    500: Server Error",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "z.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  status:",
+		"    503: Service Unavailable",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := locales.Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	status, err := locales.Navigate(merged, "en.status")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := status.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", status)
+	}
+	for key, want := range map[string]string{
+		"404": "Not Found",
+		"500": "Server Error",
+		"503": "Service Unavailable",
+	} {
+		if m[key] != want {
+			t.Errorf("status[%q] = %v, want %q", key, m[key], want)
+		}
+	}
+}
+
+func TestNavigate_NumericKey(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "en.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  status:",
+		"    404:",
+		"      title: Not Found",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := locales.Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	node, err := locales.Navigate(merged, "en.status.404")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := node.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", node)
+	}
+	if m["title"] != "Not Found" {
+		t.Errorf("title = %v, want 'Not Found'", m["title"])
+	}
+}
+
+func TestListScopes_NumericKeyScope(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "en.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  status:",
+		"    404:",
+		"      title: Not Found",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := locales.Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	scopes := locales.ListScopes(merged)
+	found := map[string]bool{}
+	for _, s := range scopes {
+		found[s] = true
+	}
+	if !found["en.status"] {
+		t.Error("expected en.status scope")
+	}
+	if !found["en.status.404"] {
+		t.Error("expected en.status.404 scope")
+	}
+}
+
+func TestNavigate_KeyRendering(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "en.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  labels:",
+		"    true: Yes",
+		"    false: No",
+		"    ~: Unset",
+		"    3.14: Pi",
+		"    2026-01-01: New Year",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := locales.Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	node, err := locales.Navigate(merged, "en.labels")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := node.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", node)
+	}
+	for key, want := range map[string]string{
+		"true":       "Yes",
+		"false":      "No",
+		"null":       "Unset",
+		"3.14":       "Pi",
+		"2026-01-01": "New Year",
+	} {
+		if m[key] != want {
+			t.Errorf("labels[%q] = %v, want %q", key, m[key], want)
+		}
+	}
+}
+
+func TestLoad_KeyCollisionStringWins(t *testing.T) {
+	// "True" (unquoted, resolves to the bool true) and "true" (quoted, a
+	// plain string) both render as the "true" key after normalization.
+	// They're spelled differently in the source ("True" vs "true"), so
+	// yaml.v3's own duplicate-key check -- which compares raw scalar text,
+	// not resolved value -- doesn't reject the file; the collision only
+	// appears after normalizeKey.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "en.yml"), []byte(strings.Join([]string{
+		"en:",
+		"  labels:",
+		"    True: Numeric",
+		`    "true": String`,
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range 20 {
+		merged, err := locales.Load(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		node, err := locales.Navigate(merged, "en.labels")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		m, ok := node.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map, got %T", node)
+		}
+		if m["true"] != "String" {
+			t.Fatalf("run %d: labels[true] = %v, want String (the string-authored key must win)", i, m["true"])
+		}
+	}
+}
+
+func TestLoad_TopLevelShapes(t *testing.T) {
+	t.Run("sequence root errors", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "bad.yml"), []byte("- one\n- two\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := locales.Load(dir)
+		if err == nil {
+			t.Fatal("expected error for sequence root")
+		}
+		if !strings.Contains(err.Error(), "parsing") {
+			t.Errorf("expected 'parsing' in error, got: %v", err)
+		}
+	})
+
+	t.Run("scalar root errors", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "bad.yml"), []byte("just a string\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := locales.Load(dir)
+		if err == nil {
+			t.Fatal("expected error for scalar root")
+		}
+		if !strings.Contains(err.Error(), "parsing") {
+			t.Errorf("expected 'parsing' in error, got: %v", err)
+		}
+	})
+
+	t.Run("empty file loads clean", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "empty.yml"), []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		merged, err := locales.Load(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(merged) != 0 {
+			t.Fatalf("expected empty map, got %d keys", len(merged))
+		}
+	})
+
+	t.Run("comments-only file loads clean", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "comments.yml"), []byte("# just a comment\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		merged, err := locales.Load(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(merged) != 0 {
+			t.Fatalf("expected empty map, got %d keys", len(merged))
+		}
+	})
+}
+
+func TestLoad_AnchorsAliasesAndMergeKeys(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "en.yml"), []byte(strings.Join([]string{
+		"defaults: &defaults",
+		"  greeting: Hello",
+		"about_title: &about_title About Us",
+		"en:",
+		"  home:",
+		"    <<: *defaults",
+		"    title: Home",
+		"  about:",
+		"    title: *about_title",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := locales.Load(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	home, err := locales.Navigate(merged, "en.home")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	homeMap, ok := home.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", home)
+	}
+	if homeMap["greeting"] != "Hello" {
+		t.Errorf("greeting = %v, want Hello (merge key << should resolve)", homeMap["greeting"])
+	}
+	if homeMap["title"] != "Home" {
+		t.Errorf("title = %v, want Home", homeMap["title"])
+	}
+
+	about, err := locales.Navigate(merged, "en.about")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	aboutMap, ok := about.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", about)
+	}
+	if aboutMap["title"] != "About Us" {
+		t.Errorf("title = %v, want About Us (alias should resolve)", aboutMap["title"])
+	}
+}
+
 func TestLoadUnreadableFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod has no read-blocking semantics on Windows")

@@ -147,7 +147,7 @@ rails-kit locales en.activerecord.attributes.user  # show User attribute labels
 rails-kit locales en.time.formats          # show time format strings
 ```
 
-Keys are sorted alphabetically (differs from YAML insertion order). Arrays and nested composite values are shown in YAML-like multiline output.
+Keys are sorted alphabetically (differs from YAML insertion order). Arrays and nested composite values are shown in YAML-like multiline output. Non-string YAML keys (numbers, booleans, `null`, dates) are addressed by their text form, so `locales en.status.404` works.
 
 **Typical workflow when adding I18n keys:**
 1. `rails-kit locales` -- see what scopes exist

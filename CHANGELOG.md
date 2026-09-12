@@ -26,6 +26,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (`phone_validator`, `email_format_validator`), not after the model they run against, so there
   is no name-based link worth drawing. The detail view is AST-backed and single-file only.
 
+### Fixed
+
+- `locales` now normalizes non-string YAML keys (numbers, booleans, `null`, dates) to their
+  string form before merging locale files. yaml.v3 decodes a mapping as `map[interface{}]interface{}`
+  the moment even one key isn't a plain string -- an enum keyed by integer (`status: {0:
+  draft, 1: published}`), an HTTP status page (`404:`), or a boolean label (`true: Yes`) all
+  qualify -- and every consumer in the package only recognized `map[string]interface{}`. That
+  mismatch meant a later file's version of such a subtree silently replaced the earlier one
+  instead of merging, `locales en.status.404` failed with a misleading "key '404' is not a
+  map", the subtree was invisible to scope listing, and it printed as a raw Go map instead of a
+  tree. `--json` failed outright for some key types (booleans and `null`; integer keys happened
+  to work) with `json: unsupported value: jsontext: object member name must be a string`.
+
 ## [0.6.0] - 2026-09-10
 
 ### Added

@@ -319,6 +319,52 @@ func TestLocalesCommandPrintsYamlLikeArrays(t *testing.T) {
 	}
 }
 
+func TestLocalesCommandNumericKeyScopeMatchesJSON(t *testing.T) {
+	root := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "config", "locales", "en.yml"), strings.Join([]string{
+		"en:",
+		"  status:",
+		"    404:",
+		"      title: Not Found",
+		"    500:",
+		"      title: Server Error",
+		"",
+	}, "\n"))
+
+	out, errOut, err := runCmdForTest(t, localesCmd, root, []string{"en.status"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
+	}
+	for _, fragment := range []string{"404:\n", "title: Not Found", "500:\n", "title: Server Error"} {
+		if !strings.Contains(out, fragment) {
+			t.Fatalf("expected fragment %q in output:\n%s", fragment, out)
+		}
+	}
+
+	jsonOut, errOut, err := runCmdForTestJSON(t, localesCmd, root, []string{"en.status"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr:%s", err, errOut)
+	}
+	var payload struct {
+		Scope string                 `json:"scope"`
+		Value map[string]interface{} `json:"value"`
+	}
+	unwrapJSONEnvelope(t, jsonOut, "locales", &payload)
+	if payload.Scope != "en.status" {
+		t.Fatalf("scope = %q, want en.status", payload.Scope)
+	}
+	for _, key := range []string{"404", "500"} {
+		m, ok := payload.Value[key].(map[string]interface{})
+		if !ok {
+			t.Fatalf("value[%q] = %#v, want a map", key, payload.Value[key])
+		}
+		if _, ok := m["title"]; !ok {
+			t.Fatalf("value[%q] missing 'title'", key)
+		}
+	}
+}
+
 func TestModelCommandSupportsAbsoluteModelsPath(t *testing.T) {
 	root := t.TempDir()
 	modelsDir := filepath.Join(t.TempDir(), "models")
