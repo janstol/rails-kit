@@ -10,6 +10,10 @@ env:
 
 jobs:
   test:
+    # Explicit name so the required-status-check context stays stable across
+    # Go bumps -- the default matrix name embeds the Go version, which silently
+    # broke branch protection when the matrix moved 1.26.x -> 1.27.x.
+    name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -73,12 +77,12 @@ jobs:
       - name: Build binary
         run: go build -o "$RUNNER_TEMP/rails-kit" .
 
-      # Advisory on purpose: the absolute ceilings in cmd/startup_test.go are
-      # sized for an M1 Pro and have never been measured on a shared runner.
-      # The step logs median and delta-over-floor for every case; once those
-      # numbers are known, drop continue-on-error to make this a real gate.
+      # Gate: the ceilings in cmd/startup_test.go were sized for an M1 Pro
+      # and are now validated against four ubuntu-latest runs (see
+      # BACKLOG.local.md, Performance) with 2.2x-7.6x headroom on every case.
+      # The step logs median and delta-over-floor for every case, so a drift
+      # toward the ceiling shows up in the numbers before it trips the gate.
       - name: Startup budget
-        continue-on-error: true
         env:
           RAILS_KIT_BENCH_BIN: ${{ runner.temp }}/rails-kit
         run: go test ./cmd/ -run TestStartupBudget -v -count=1

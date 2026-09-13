@@ -39,7 +39,7 @@ The enabled linter set is pinned in `.golangci.yml`, so `just lint` and CI check
 
 - Run `mise exec -- just test`, `MISE_OFFLINE=1 mise exec -- go test -race ./...`, and `mise exec -- just lint` before submitting
 - CI also runs `govulncheck ./...` and blocks reachable known vulnerabilities
-- CI also runs the startup budget check (`TestStartupBudget`) as an advisory, non-blocking job — see `mise exec -- just bench` to run it locally
+- CI also runs the startup budget check (`TestStartupBudget`) as a blocking job — see `mise exec -- just bench` to run it locally
 - CI runs the test suite on Linux, macOS, and Windows; race detector, benchmarks, and lint run on Linux only
 - Keep PRs focused — one concern per PR
 - Add tests for new behavior
