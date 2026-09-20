@@ -1,3 +1,84 @@
 [tools]
 go = "1.27.1"
 golangci-lint = "2.13.2"
+
+# Run tasks with `mise run <task>`, e.g. `mise run test`.
+# The bare shorthand (`mise test`) also works for every task EXCEPT `fmt` and
+# `install`, which are mise subcommands of their own -- `mise fmt` formats this
+# TOML file and `mise install` installs tools, neither of which runs the task.
+# Always spell those two as `mise run fmt` / `mise run install`.
+
+[tasks.default]
+description = "List available tasks"
+run = "mise tasks"
+
+[tasks.build]
+description = "Build the binary"
+run = """
+set -eu
+version=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+pkg="github.com/janstol/rails-kit/internal/version"
+go build -ldflags "-X $pkg.Version=$version -X $pkg.Commit=$commit -X $pkg.BuildDate=$date" -o rails-kit .
+"""
+
+[tasks.install]
+description = "Build and install to $GOBIN (or $GOPATH/bin, falling back to ~/go/bin)"
+run = """
+set -eu
+version=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+pkg="github.com/janstol/rails-kit/internal/version"
+gobin="${GOBIN:-$(go env GOBIN)}"
+if [ -z "$gobin" ]; then gobin="${GOPATH:-$(go env GOPATH)}/bin"; fi
+mkdir -p "$gobin"
+go build -ldflags "-X $pkg.Version=$version -X $pkg.Commit=$commit -X $pkg.BuildDate=$date" -o "$gobin/rails-kit" .
+"""
+
+[tasks.test]
+description = "Run tests"
+run = "go test ./..."
+
+[tasks.test-verbose]
+description = "Run tests with verbose output"
+run = "go test -v ./..."
+
+[tasks.test-coverage]
+description = "Run tests with coverage report"
+run = [
+  "go test -coverprofile=coverage.out ./...",
+  "go tool cover -func=coverage.out",
+]
+
+[tasks.bench]
+description = "Run benchmarks, including the opt-in startup budget check"
+run = """
+set -eu
+bin=$(mktemp -d)/rails-kit-bench
+go build -o "$bin" .
+export RAILS_KIT_BENCH_BIN="$bin"
+go test -bench=. -benchmem -run=^$ ./...
+go test ./cmd/ -run TestStartupBudget -v
+"""
+
+[tasks.fmt]
+description = "Format code"
+run = "go fmt ./..."
+
+[tasks.lint]
+description = "Run linter"
+run = "golangci-lint run ./..."
+
+[tasks.tidy]
+description = "Tidy go.mod and go.sum"
+run = "go mod tidy"
+
+[tasks.clean]
+description = "Remove built binary"
+run = "rm -f rails-kit"
+
+[tasks.dev]
+description = "Build and run with args"
+run = "go run . $@"

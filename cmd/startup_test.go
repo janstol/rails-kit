@@ -14,7 +14,7 @@ import (
 //
 // go test produces no binary of its own, so this test is gated on
 // RAILS_KIT_BENCH_BIN holding a path to a prebuilt rails-kit binary (see
-// `just bench`). Left unset, it skips — keeping `go test ./...` and
+// `mise run bench`). Left unset, it skips — keeping `go test ./...` and
 // `go test -race ./...` green and non-flaky on shared CI runners.
 //
 // `version` does essentially no work; its wall time is almost entirely
@@ -47,7 +47,7 @@ const (
 func TestStartupBudget(t *testing.T) {
 	bin := os.Getenv("RAILS_KIT_BENCH_BIN")
 	if bin == "" {
-		t.Skip("RAILS_KIT_BENCH_BIN not set; skipping opt-in startup budget check (see `just bench`)")
+		t.Skip("RAILS_KIT_BENCH_BIN not set; skipping opt-in startup budget check (see `mise run bench`)")
 	}
 
 	fixtureRoot, err := filepath.Abs("../testdata")

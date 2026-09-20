@@ -2,21 +2,24 @@
 
 ## Build and test
 
-The development environment uses [mise](https://mise.jdx.dev/). Building from source requires Go and [Just](https://github.com/casey/just).
+The development environment uses [mise](https://mise.jdx.dev/), which pins the Go and golangci-lint versions and defines the build tasks. `mise install` is the only setup step.
 
 ```sh
-mise install
-mise exec -- just build
-mise exec -- just install
-mise exec -- just test
-mise exec -- just test-coverage
-mise exec -- just bench
-mise exec -- just lint
+mise install            # install the pinned toolchain
+mise run build
+mise run install
+mise run test
+mise run test-coverage
+mise run bench
+mise run lint
 ```
 
+`mise tasks` lists every task. Tasks run with the pinned toolchain on PATH, so no `mise exec --` prefix is needed. The bare shorthand (`mise test`) works for every task except `fmt` and `install`, which collide with mise's own subcommands — spell those `mise run fmt` / `mise run install`.
+
 CI runs the same startup budget check (`TestStartupBudget`) on every push and PR, in its own
-`startup-budget` job, but non-blocking — the job logs the numbers and stays green even if a budget
-is exceeded. `just bench` locally is still the place to actually act on a regression it flags.
+`startup-budget` job. Since 2026-09-13 it is a blocking job — it fails the run if a budget is
+exceeded, and logs the median and delta-over-floor for every case either way. `mise run bench`
+locally is where you would act on a regression it flags.
 
 ## Golden files
 

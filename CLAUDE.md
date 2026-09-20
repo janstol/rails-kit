@@ -4,18 +4,21 @@ A CLI tool for exploring Rails codebases — schema, routes, models, fixtures, l
 
 ## Commands
 
-All commands run via `mise exec -- just <target>` (Go version is pinned via mise):
+All commands run as mise tasks, defined in `mise.toml`. The pinned Go and golangci-lint versions are on PATH automatically, so no `mise exec --` prefix is needed:
 
 ```
-just build          # build the binary
-just test           # run tests
-just test-verbose   # run tests with verbose output
-just test-coverage  # run tests with coverage report
-just lint           # run golangci-lint
-just fmt            # format code
-just tidy           # go mod tidy
-just clean          # remove built binary
+mise run build          # build the binary
+mise run test           # run tests
+mise run test-verbose   # run tests with verbose output
+mise run test-coverage  # run tests with coverage report
+mise run bench          # benchmarks + the startup budget check
+mise run lint           # run golangci-lint
+mise run fmt            # format code
+mise run tidy           # go mod tidy
+mise run clean          # remove built binary
 ```
+
+`mise tasks` lists them all. The bare shorthand (`mise test`) works for every task except `fmt` and `install`, which collide with mise's own subcommands — always spell those two as `mise run fmt` / `mise run install`.
 
 ## Project structure
 

@@ -4,6 +4,6 @@
 
 ## Checklist
 
-- [ ] Tests pass (`mise exec -- just test`)
-- [ ] Linter passes (`mise exec -- just lint`)
+- [ ] Tests pass (`mise run test`)
+- [ ] Linter passes (`mise run lint`)
 - [ ] New behavior has test coverage
