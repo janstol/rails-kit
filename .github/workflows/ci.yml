@@ -78,8 +78,8 @@ jobs:
         run: go build -o "$RUNNER_TEMP/rails-kit" .
 
       # Gate: the ceilings in cmd/startup_test.go were sized for an M1 Pro
-      # and are now validated against four ubuntu-latest runs (see
-      # BACKLOG.local.md, Performance) with 2.2x-7.6x headroom on every case.
+      # and are now validated against four ubuntu-latest runs, with 2.2x-7.6x
+      # headroom on every case.
       # The step logs median and delta-over-floor for every case, so a drift
       # toward the ceiling shows up in the numbers before it trips the gate.
       - name: Startup budget

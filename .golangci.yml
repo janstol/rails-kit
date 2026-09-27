@@ -3,9 +3,8 @@ version: "2"
 # `default: standard` is the five linters golangci-lint enables out of the
 # box (errcheck, govet, ineffassign, staticcheck, unused). Pinned here
 # explicitly so a golangci-lint upgrade can't silently change the enabled
-# set. Linters considered and rejected for this project (nilerr, unparam,
-# revive, goconst, modernize, gosec, forcetypeassert, dupword, noctx) are
-# recorded in BACKLOG.local.md, not here.
+# set. Linters considered and rejected for this project: nilerr, unparam,
+# revive, goconst, modernize, gosec, forcetypeassert, dupword, noctx.
 linters:
   default: standard
   enable:
