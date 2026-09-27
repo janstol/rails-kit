@@ -174,7 +174,13 @@ func expandSkeletonInput(root string, cfg config.Config, input string, excludes 
 	if !filepath.IsAbs(pattern) {
 		pattern = filepath.Join(root, pattern)
 	}
-	matches, err := filepath.Glob(pattern)
+	var matches []string
+	var err error
+	if strings.Contains(pattern, "**") {
+		matches, err = expandRecursiveGlob(root, input, pattern)
+	} else {
+		matches, err = filepath.Glob(pattern)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("invalid skeleton glob %q: %w", input, err)
 	}
@@ -190,6 +196,71 @@ func expandSkeletonInput(root string, cfg config.Config, input string, excludes 
 		resolved = append(resolved, skeletonInput{path: path, relPath: relPath})
 	}
 	return resolved, nil
+}
+
+// expandRecursiveGlob matches a pattern containing a `**` segment, which
+// filepath.Glob would treat as a single-level `*`. It walks from the pattern's
+// literal prefix and matches each file with matchSkeletonPath, the same
+// matcher --exclude uses. Matches come back in WalkDir's lexical order.
+func expandRecursiveGlob(root, input, pattern string) ([]string, error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("resolving Rails root: %w", err)
+	}
+	absPattern, err := filepath.Abs(pattern)
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(absRoot, absPattern)
+	if err != nil || pathOutsideRoot(rel) {
+		return nil, fmt.Errorf("pattern is outside Rails root: %s", input)
+	}
+	relPattern := filepath.ToSlash(rel)
+
+	segments := strings.Split(relPattern, "/")
+	for _, segment := range segments {
+		if segment == "**" {
+			continue
+		}
+		if _, err := path.Match(segment, ""); err != nil {
+			return nil, err
+		}
+	}
+	literal := 0
+	for literal < len(segments) && !strings.ContainsAny(segments[literal], "*?[") {
+		literal++
+	}
+	start := filepath.Join(absRoot, filepath.FromSlash(strings.Join(segments[:literal], "/")))
+
+	var matches []string
+	err = filepath.WalkDir(start, func(candidate string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if candidate == start && os.IsNotExist(walkErr) {
+				return nil
+			}
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			if targetInfo, statErr := os.Stat(candidate); statErr == nil && targetInfo.IsDir() {
+				return nil
+			}
+		}
+		candidateRel, relErr := filepath.Rel(absRoot, candidate)
+		if relErr != nil {
+			return relErr
+		}
+		if matchSkeletonPath(relPattern, candidateRel) {
+			matches = append(matches, candidate)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
 
 func skeletonDirectoryCandidate(root, input string) (string, bool, error) {
@@ -380,12 +451,14 @@ func resolveRubyPath(root, input string) (string, string, error) {
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", "", fmt.Errorf("ruby file is outside Rails root: %s", input)
 	}
-	if filepath.Ext(absPath) != ".rb" {
-		return "", "", fmt.Errorf("skeleton only supports Ruby files ending in .rb: %s", input)
-	}
+	// Existence is checked before the extension so a mistyped directory
+	// (app/modelz) reports "not found" rather than a misleading .rb error.
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return "", "", fmt.Errorf("ruby file not found: %s", input)
+		return "", "", fmt.Errorf("file or directory not found: %s", input)
+	}
+	if filepath.Ext(absPath) != ".rb" {
+		return "", "", fmt.Errorf("skeleton only supports Ruby files ending in .rb: %s", input)
 	}
 	if !info.Mode().IsRegular() {
 		return "", "", fmt.Errorf("skeleton only supports regular Ruby files: %s", input)

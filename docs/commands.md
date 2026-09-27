@@ -105,7 +105,7 @@ rails-kit skeleton app/services
 rails-kit skeleton app --exclude 'app/generated/**'
 ```
 
-Produces AST-backed Ruby structure without evaluating code or loading Rails. Inputs can be model names, files, recursive directories, or quoted globs. Multiple inputs are validated and processed in one in-process batch; duplicate files are inspected once.
+Produces AST-backed Ruby structure without evaluating code or loading Rails. Inputs can be model names, files, recursive directories, or quoted globs, where a `**` segment matches any number of directories (`'app/**/*.rb'`). Multiple inputs are validated and processed in one in-process batch; duplicate files are inspected once.
 
 Repeat `--exclude` with Rails-root-relative glob patterns to prune directory discovery. Exclusions do not affect explicitly named files, models, or standalone glob matches. Batches are limited to 500 unique files.
 

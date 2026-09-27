@@ -155,12 +155,51 @@ func TestResolveSkeletonPathsRejectsInvalidInputs(t *testing.T) {
 		{name: "invalid glob", input: "app/services/[.rb", want: "invalid skeleton glob"},
 		{name: "empty directory", input: "app/services/directory.rb", want: "contains no Ruby files"},
 		{name: "escaping symlink", input: "app/services/outside.rb", want: "outside Rails root"},
+		{name: "missing directory", input: "app/servicez", want: "not found: app/servicez"},
+		{name: "missing ruby file", input: "app/services/missing.rb", want: "not found: app/services/missing.rb"},
+		{name: "unmatched recursive glob", input: "app/**/*_job.rb", want: "matched no files"},
+		{name: "invalid recursive glob", input: "app/**/[.rb", want: "invalid skeleton glob"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := resolveSkeletonPaths(root, config.Defaults(), []string{tt.input})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("error = %v, want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+// filepath.Glob treats `**` as a plain `*`, which only spans one directory
+// level, so `app/**/*.rb` used to return a silent subset of the tree.
+func TestResolveSkeletonRecursiveGlobMatchesEveryDepth(t *testing.T) {
+	root := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(root, "config", "application.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "top.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "user.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "role.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "admin", "deep", "audit.rb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "app", "views", "index.html.erb"), "")
+	testutil.WriteFile(t, filepath.Join(root, "lib", "tool.rb"), "")
+
+	want := []string{
+		"app/models/admin/deep/audit.rb",
+		"app/models/admin/role.rb",
+		"app/models/user.rb",
+		"app/top.rb",
+	}
+	for _, input := range []string{"app/**/*.rb", filepath.Join(root, "app", "**", "*.rb")} {
+		t.Run(input, func(t *testing.T) {
+			inputs, err := resolveSkeletonPaths(root, config.Defaults(), []string{input})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := make([]string, len(inputs))
+			for i, in := range inputs {
+				got[i] = in.relPath
+			}
+			if strings.Join(got, "\n") != strings.Join(want, "\n") {
+				t.Fatalf("resolved paths:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 			}
 		})
 	}

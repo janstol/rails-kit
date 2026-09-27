@@ -186,7 +186,7 @@ rails-kit skeleton app --exclude 'app/generated/**' --exclude '**/*_generated.rb
 
 Use this before reading large non-model Ruby files such as services, jobs, mailers, decorators, POROs, and `lib/` files. `rails-kit model` is still the smaller Rails-specific summary for Active Record models.
 
-Accepts multiple model names, Ruby paths, directories, and quoted glob patterns, processing all resolved files in one in-process batch. Directories are recursive; repeatable Rails-root-relative `--exclude` patterns support `**` and apply to directory discovery. Unmatched globs, empty directories, invalid inputs, and batches over 500 unique files fail before output. The Prism parser is embedded in the rails-kit binary through pure-Go WASM, so no Ruby installation is required. The default `routes` mode still requires Ruby, Bundler, and a bootable Rails application.
+Accepts multiple model names, Ruby paths, directories, and quoted glob patterns (a `**` segment matches any number of directories), processing all resolved files in one in-process batch. Directories are recursive; repeatable Rails-root-relative `--exclude` patterns support `**` and apply to directory discovery. Unmatched globs, empty directories, invalid inputs, and batches over 500 unique files fail before output. The Prism parser is embedded in the rails-kit binary through pure-Go WASM, so no Ruby installation is required. The default `routes` mode still requires Ruby, Bundler, and a bootable Rails application.
 
 ---
 
