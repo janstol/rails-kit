@@ -1,6 +1,6 @@
 [tools]
 go = "1.27.1"
-golangci-lint = "2.13.2"
+golangci-lint = "2.14.0"
 
 # Run tasks with `mise run <task>`, e.g. `mise run test`.
 # The bare shorthand (`mise test`) also works for every task EXCEPT `fmt` and
