@@ -59,7 +59,7 @@ rails-kit related app/views/admin/users/show.html.erb
 rails-kit related user --json
 ```
 
-Accepts model names and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, helper, decorator, presenter, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
+Accepts model names (plural names such as `users` fall back to the singular model, as in `model`) and supported Rails file paths, resolves the owning model, and searches configured model, controller, view, helper, decorator, presenter, job, mailer, former, service, datagrid, test, spec, and fixture roots. Results remain within the requested namespace.
 
 ## `fixtures`
 
@@ -83,6 +83,8 @@ With no scope, lists navigable nested map scopes. With a scope, returns the subt
 
 Non-string YAML keys (numbers, booleans, `null`, dates) are addressed by their text form, so `locales en.status.404` works.
 
+A scope always starts with the locale, while keys in code are written without it (`t("views.users.title")`), so look that one up as `en.views.users.title`. A scope given without the prefix fails with a hint naming the prefixed scopes that exist (`did you mean 'en.views.users.title'?`), or the available locales if none do.
+
 ## `model`
 
 ```sh
@@ -93,6 +95,8 @@ rails-kit model user --json
 ```
 
 Summarizes the class, parent, custom table name, concerns, associations, validations, scopes, callbacks, enums, and delegates. Parsing is static, AST-backed by Prism, and intentionally compact. Recoverable Ruby syntax errors produce line-specific warnings on stderr while successfully recovered fields remain on stdout, including in JSON mode.
+
+When no model has the exact name given, a plural name (a table name such as `users` or `order_items`, or `Admin::Dashboards`) falls back to the singular model, using the same inflections as `fixtures`. A model whose own name is plural still resolves to itself, and `.rb` paths are never rewritten.
 
 ## `skeleton`
 
@@ -110,7 +114,7 @@ Produces AST-backed Ruby structure without evaluating code or loading Rails. Inp
 Repeat `--exclude` with Rails-root-relative glob patterns to prune directory discovery. Exclusions do not affect explicitly named files, models, or standalone glob matches. Batches are limited to 500 unique files.
 
 The Prism parser is embedded in the rails-kit binary through pure-Go WASM, so no Ruby installation
-is required.
+is required. The compiled parser is cached in the user cache directory (`~/Library/Caches/rails-kit/wazero` on macOS, `~/.cache/rails-kit/wazero` on Linux, about 1.6 MB), so only the first Prism-backed command after installing or upgrading pays the ~100 ms compile. Deleting that directory is always safe; it is rebuilt on the next run, and rails-kit runs uncached if it can't be written.
 
 ## `gem`
 
