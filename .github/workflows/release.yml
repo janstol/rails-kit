@@ -79,10 +79,10 @@ jobs:
       # Checkout must happen before setup-homebrew. Both actions configure GitHub
       # authentication; the reverse order sends duplicate Authorization headers
       # on the checkout's own fetch.
-      # Pinned to a commit: Homebrew/actions has no releases, and the step
-      # below that removes the global credential depends on how this action
-      # sets it (`git config --global http.<server>/.extraheader`). Recheck
-      # that in setup-homebrew/main.sh before moving the pin.
+      # Pinned to a commit: Homebrew/actions has no releases, and the push
+      # step below depends on how this action sets its credential (globally,
+      # `git config --global http.<server>/.extraheader`). Recheck that in
+      # setup-homebrew/main.sh before moving the pin.
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@c262868c096d909fc278daa87ed9772967331ea3 # main as of 2026-10-30
         with:
@@ -95,16 +95,17 @@ jobs:
       # setup-homebrew's `token` input installs a *global* git credential
       # header (git config --global "http.https://github.com/.extraheader")
       # that outlives its own step. actions/checkout's tap credential is
-      # scoped via a repo-local includeIf, so once both are present any git
-      # command below sends two Authorization headers and GitHub rejects the
-      # request with "Duplicate header: Authorization" (400). Drop the global
-      # one now that Homebrew's own GitHub calls in the previous step are
-      # done, so the push below is left with only the tap-scoped credential.
-      - name: Remove global git credential set by setup-homebrew
-        run: git config --global --unset-all "http.${GITHUB_SERVER_URL}/.extraheader" || true
-
+      # scoped via a repo-local includeIf, so with both present git sends two
+      # Authorization headers and GitHub rejects the push with "Duplicate
+      # header: Authorization" (400). GIT_CONFIG_GLOBAL=/dev/null makes this
+      # step ignore the global config, leaving only the tap credential. Don't
+      # unset the global header instead: setup-homebrew's post step unsets it
+      # itself under `set -e`, and `git config --unset-all` exits 5 when the
+      # key is already gone, which failed the v0.7.0 run after a good push.
       - name: Commit and push if changed
         working-directory: tap
+        env:
+          GIT_CONFIG_GLOBAL: /dev/null
         run: |
           if git diff --quiet -- Casks/rails-kit.rb; then
             echo "No style changes needed; cask is already clean."
