@@ -9,7 +9,28 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Tags are normally cut from a green main, but nothing enforces that, so
+  # gate publishing on the tests passing at the tagged commit itself. The full
+  # OS matrix runs in ci.yml; one OS is enough to stop a broken tag.
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Test
+        run: go test ./...
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,9 +43,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned so a goreleaser release can't change our output between two
+      # tags without a commit here. Bump deliberately and run
+      # `goreleaser release --snapshot --clean --skip=publish` locally first.
       - uses: goreleaser/goreleaser-action@v7
         with:
-          version: latest
+          version: v2.19.0
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,8 +79,12 @@ jobs:
       # Checkout must happen before setup-homebrew. Both actions configure GitHub
       # authentication; the reverse order sends duplicate Authorization headers
       # on the checkout's own fetch.
+      # Pinned to a commit: Homebrew/actions has no releases, and the step
+      # below that removes the global credential depends on how this action
+      # sets it (`git config --global http.<server>/.extraheader`). Recheck
+      # that in setup-homebrew/main.sh before moving the pin.
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
+        uses: Homebrew/actions/setup-homebrew@c262868c096d909fc278daa87ed9772967331ea3 # main as of 2026-10-30
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
