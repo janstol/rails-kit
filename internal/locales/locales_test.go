@@ -87,6 +87,44 @@ func TestNavigate(t *testing.T) {
 			t.Error("expected error for missing scope")
 		}
 	})
+
+	t.Run("scope without locale prefix suggests prefixed scope", func(t *testing.T) {
+		_, err := locales.Navigate(merged, "activerecord.models")
+		if err == nil {
+			t.Fatal("expected error for scope without locale prefix")
+		}
+		want := "scope 'activerecord.models' not found ('activerecord' is not a locale; scopes start with one); did you mean 'en.activerecord.models'?"
+		if err.Error() != want {
+			t.Errorf("got  %q\nwant %q", err.Error(), want)
+		}
+	})
+
+	t.Run("unknown first segment lists locales", func(t *testing.T) {
+		_, err := locales.Navigate(merged, "nonexistent.key")
+		if err == nil {
+			t.Fatal("expected error for unknown first segment")
+		}
+		want := "scope 'nonexistent.key' not found ('nonexistent' is not a locale; available: en)"
+		if err.Error() != want {
+			t.Errorf("got  %q\nwant %q", err.Error(), want)
+		}
+	})
+}
+
+func TestNavigate_MissingPrefixMultipleLocales(t *testing.T) {
+	merged := map[string]interface{}{
+		"cs": map[string]interface{}{"views": map[string]interface{}{"title": "Ahoj"}},
+		"de": map[string]interface{}{"other": "x"},
+		"en": map[string]interface{}{"views": map[string]interface{}{"title": "Hello"}},
+	}
+	_, err := locales.Navigate(merged, "views.title")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	want := "scope 'views.title' not found ('views' is not a locale; scopes start with one); did you mean 'cs.views.title' or 'en.views.title'?"
+	if err.Error() != want {
+		t.Errorf("got  %q\nwant %q", err.Error(), want)
+	}
 }
 
 func TestLoadNestedDir(t *testing.T) {

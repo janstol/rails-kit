@@ -121,18 +121,39 @@ func ListScopes(merged map[string]interface{}) []string {
 func Navigate(merged map[string]interface{}, scope string) (interface{}, error) {
 	keys := strings.Split(scope, ".")
 	var node interface{} = merged
-	for _, key := range keys {
+	for i, key := range keys {
 		m, ok := node.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("scope '%s' not found (key '%s' is not a map)", scope, key)
 		}
 		v, ok := m[key]
 		if !ok {
+			if i == 0 {
+				return nil, missingLocaleError(merged, scope, key)
+			}
 			return nil, fmt.Errorf("scope '%s' not found (missing key '%s')", scope, key)
 		}
 		node = v
 	}
 	return node, nil
+}
+
+// missingLocaleError explains a scope whose first segment is not a top-level
+// locale key, which usually means the locale prefix was left off
+// ("views.users" instead of "en.views.users"). It suggests the prefixed
+// scopes that actually resolve, or lists the available locales.
+func missingLocaleError(merged map[string]interface{}, scope, key string) error {
+	locs := sortedKeys(merged)
+	var matches []string
+	for _, loc := range locs {
+		if _, err := Navigate(merged, loc+"."+scope); err == nil {
+			matches = append(matches, "'"+loc+"."+scope+"'")
+		}
+	}
+	if len(matches) > 0 {
+		return fmt.Errorf("scope '%s' not found ('%s' is not a locale; scopes start with one); did you mean %s?", scope, key, strings.Join(matches, " or "))
+	}
+	return fmt.Errorf("scope '%s' not found ('%s' is not a locale; available: %s)", scope, key, strings.Join(locs, ", "))
 }
 
 // PrintTree writes the value tree to a strings.Builder with 2-space indentation.
