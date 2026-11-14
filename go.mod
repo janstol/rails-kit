@@ -1,6 +1,6 @@
 module github.com/janstol/rails-kit
 
-go 1.27.1
+go 1.27.4
 
 require (
 	github.com/danielgatis/go-ruby-prism v1.3.0
