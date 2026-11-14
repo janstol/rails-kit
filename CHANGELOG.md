@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Not-found errors suggest close names. A lookup by name in `model`, `controllers`, `mailers`, `jobs`, `services`, `datagrids`, `helpers`, `decorators`, `formers`, `presenters`, `validators`, `concerns`, `gem`, `fixtures` or `schema` that finds nothing now ends with a hint such as `; did you mean 'admin/dashboard'?` when existing names are within a few edits (typos, transposed letters, or the right name in another namespace), up to three, nearest first. Concern suggestions keep a `model/` or `controller/` prefix when one was given, and `schema` with several unknown tables hints at each. Paths ending in `.rb` and names with nothing close get the same error as before, and the `--json` error code is still `not_found`.
+
 ## [0.7.0] - 2026-11-14
 
 ### Added

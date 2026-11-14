@@ -232,7 +232,7 @@ func resolveExistingCandidate(root, modelsPath, input string, candidates []strin
 			continue
 		}
 		tried = append(tried, candidate)
-		if _, err := model.Resolve(root, modelsPath, candidate); err == nil {
+		if _, err := model.Find(root, modelsPath, candidate); err == nil {
 			return candidate, nil
 		}
 	}

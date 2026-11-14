@@ -54,7 +54,7 @@ rather than a fabricated taxonomy.
 | Code | Meaning |
 |---|---|
 | `not_a_rails_root` | `--root` or auto-detection did not find a Rails project (`config/application.rb` missing) |
-| `not_found` | A named lookup (model, gem, concern, fixture, locale scope) had no match |
+| `not_found` | A named lookup (model, gem, concern, fixture, locale scope) had no match; the message ends with `did you mean ...?` when close names exist |
 | `invalid_argument` | Conflicting or malformed flags/values (e.g. `--refresh` with `--no-cache`, a bad `--color` value) |
 | `parse_error` | A schema, `Gemfile.lock`, routes, or Ruby/Prism parse failure |
 | `internal` | Fallback for any error not covered above |

@@ -130,6 +130,13 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("not found suggests nearby fixtures", func(t *testing.T) {
+		_, _, err := fixtures.Load(testdataFixtures, "usr", "usrs")
+		if err == nil || !strings.HasSuffix(err.Error(), "; did you mean 'users'?") {
+			t.Errorf("got %v, want a hint for users", err)
+		}
+	})
+
 	t.Run("normalizes valid yaml erb values", func(t *testing.T) {
 		dir := t.TempDir()
 		if err := os.WriteFile(filepath.Join(dir, "users.yml"), []byte("alice:\n  name: '<%= ENV[\"USER\"] %>'\n"), 0o644); err != nil {

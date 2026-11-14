@@ -346,3 +346,12 @@ func parseTempController(t *testing.T, relPath, content string) *controllers.Sum
 	}
 	return s
 }
+
+func TestResolve_NotFoundHintIgnoresSuffix(t *testing.T) {
+	for _, input := range []string{"userz", "userz_controller", "Userz"} {
+		_, err := controllers.Resolve(testdataRoot, "app/controllers", input)
+		if err == nil || !strings.HasSuffix(err.Error(), "; did you mean 'users'?") {
+			t.Errorf("Resolve(%q) = %v, want a hint for users", input, err)
+		}
+	}
+}

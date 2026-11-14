@@ -54,34 +54,39 @@ func Resolve(railsRoot, modelsPath, input string) (string, error) {
 	return kind.Resolve(railsRoot, modelsPath, input)
 }
 
+// Find is Resolve without the "did you mean" hint on a not-found error, for
+// callers that try several names and discard the failures.
+func Find(railsRoot, modelsPath, input string) (string, error) {
+	return kind.Find(railsRoot, modelsPath, input)
+}
+
 // ResolveName is Resolve with a singular fallback for plural names, since
 // people often type the table name ("users", "order_items", "Admin::Users").
 // The name as given always wins, so a model whose name is itself plural
 // ("news", "settings") still resolves to its own file. Paths ending in .rb
 // are never rewritten. If the singular form doesn't resolve either, the
-// original error is returned, unless the singular is ambiguous, which is the
-// more useful thing to report.
+// error is for the name as given (with its "did you mean" hint), unless the
+// singular is ambiguous, which is the more useful thing to report.
 func ResolveName(railsRoot, modelsPath, input string, p *pluralize.Pluralizer) (string, error) {
-	path, err := Resolve(railsRoot, modelsPath, input)
-	if err == nil || IsAmbiguousError(err) || strings.HasSuffix(input, ".rb") {
+	if path, err := Find(railsRoot, modelsPath, input); err == nil || IsAmbiguousError(err) {
 		return path, err
 	}
 
-	name := astutil.Underscore(input)
-	dir, base := "", name
-	if i := strings.LastIndex(name, "/"); i >= 0 {
-		dir, base = name[:i+1], name[i+1:]
-	}
-	singular := p.Singularize(base)
-	if singular == strings.ToLower(base) {
-		return "", err
+	if !strings.HasSuffix(input, ".rb") {
+		name := astutil.Underscore(input)
+		dir, base := "", name
+		if i := strings.LastIndex(name, "/"); i >= 0 {
+			dir, base = name[:i+1], name[i+1:]
+		}
+		if singular := p.Singularize(base); singular != strings.ToLower(base) {
+			if path, err := Find(railsRoot, modelsPath, dir+singular); err == nil || IsAmbiguousError(err) {
+				return path, err
+			}
+		}
 	}
 
-	path, singularErr := Resolve(railsRoot, modelsPath, dir+singular)
-	if singularErr == nil || IsAmbiguousError(singularErr) {
-		return path, singularErr
-	}
-	return "", err
+	// Neither form exists: report the name as given, with Resolve's hint.
+	return Resolve(railsRoot, modelsPath, input)
 }
 
 // ListNames returns sorted snake_case model names (relative to the models

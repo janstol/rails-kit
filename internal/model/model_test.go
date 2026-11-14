@@ -788,3 +788,16 @@ func TestResolveName_SingularFallback(t *testing.T) {
 		}
 	})
 }
+
+func TestResolve_NotFoundSuggestsNearbyNames(t *testing.T) {
+	_, err := model.Resolve(testdataRoot, "app/models", "dashbord")
+	if err == nil || !strings.HasSuffix(err.Error(), "; did you mean 'admin/dashboard'?") {
+		t.Fatalf("got %v, want a hint for admin/dashboard", err)
+	}
+
+	// app/models/concerns/searchable.rb is a concern, not a model.
+	_, err = model.Resolve(testdataRoot, "app/models", "searchabl")
+	if err == nil || strings.Contains(err.Error(), "did you mean") {
+		t.Fatalf("got %v, want a not-found error without a concern suggestion", err)
+	}
+}

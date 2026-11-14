@@ -146,6 +146,15 @@ func TestGemCommandNotFound(t *testing.T) {
 	}
 }
 
+func TestGemCommandNotFoundSuggestsNearbyGems(t *testing.T) {
+	root := setupGemRoot(t)
+
+	_, _, err := runCmdForTest(t, gemCmd, root, []string{"rals"})
+	if err == nil || !strings.HasSuffix(err.Error(), "; did you mean 'rails'?") {
+		t.Errorf("got %v, want a hint for rails", err)
+	}
+}
+
 func TestGemCommandCustomLockPath(t *testing.T) {
 	root := t.TempDir()
 	external := t.TempDir()

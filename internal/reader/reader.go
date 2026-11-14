@@ -19,6 +19,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/astutil"
 	"github.com/janstol/rails-kit/internal/config"
+	"github.com/janstol/rails-kit/internal/suggest"
 	"github.com/janstol/rails-kit/internal/term"
 )
 
@@ -51,7 +52,20 @@ type Kind struct {
 // Resolve finds the file for the given name or path within railsRoot's
 // dirPath. The name may be a short resource name, the full file basename
 // (with Suffix), a CamelCase class name, or a file path ending in .rb.
+// When a name is not found, the error ends with a "did you mean" hint
+// listing close existing names.
 func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
+	return k.resolve(railsRoot, dirPath, input, true)
+}
+
+// Find is Resolve without the "did you mean" hint, for callers that probe
+// several names and discard the failures: building the hint walks dirPath
+// again, which is wasted when nobody reads the error.
+func (k Kind) Find(railsRoot, dirPath, input string) (string, error) {
+	return k.resolve(railsRoot, dirPath, input, false)
+}
+
+func (k Kind) resolve(railsRoot, dirPath, input string, hint bool) (string, error) {
 	dir := config.ResolvePath(railsRoot, dirPath)
 
 	if strings.HasSuffix(input, ".rb") {
@@ -109,7 +123,28 @@ func (k Kind) Resolve(railsRoot, dirPath, input string) (string, error) {
 			return matches[0], nil
 		}
 	}
-	return "", fmt.Errorf("%s file not found for '%s'", k.Noun, input)
+	if !hint {
+		return "", fmt.Errorf("%s file not found for '%s'", k.Noun, input)
+	}
+	return "", fmt.Errorf("%s file not found for '%s'%s", k.Noun, input, k.notFoundHint(railsRoot, dirPath, name))
+}
+
+// notFoundHint suggests existing names close to name (already underscored)
+// for the end of a not-found error, or returns "". Names under concerns/ are
+// left out: models and controllers keep their concerns in a subdirectory, and
+// those files are not what this reader resolves.
+func (k Kind) notFoundHint(railsRoot, dirPath, name string) string {
+	names, err := k.ListNames(railsRoot, dirPath)
+	if err != nil {
+		return ""
+	}
+	candidates := names[:0:0]
+	for _, n := range names {
+		if !strings.HasPrefix(n, "concerns/") {
+			candidates = append(candidates, n)
+		}
+	}
+	return suggest.Hint(suggest.Closest(k.stripSuffix(filepath.ToSlash(name)), candidates))
 }
 
 // resolveRubyPath handles the .rb branch of Resolve: input already names a

@@ -3,6 +3,7 @@ package concerns_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/janstol/rails-kit/internal/concerns"
@@ -513,5 +514,26 @@ func TestParse_ReturnsPartialDetailWithParseDiagnostics(t *testing.T) {
 	}
 	if d.ParseErrors[0].Line < 1 || d.ParseErrors[0].Message == "" {
 		t.Fatalf("invalid parse diagnostic: %#v", d.ParseErrors[0])
+	}
+}
+
+func TestFindConcern_NotFoundSuggestsNearbyNames(t *testing.T) {
+	modelDir := filepath.Join(testdataRoot, "app/models/concerns")
+	ctrlDir := filepath.Join(testdataRoot, "app/controllers/concerns")
+
+	tests := []struct {
+		input string
+		hint  string
+	}{
+		{"searchabel", "; did you mean 'searchable'?"},
+		{"authentcatable", "; did you mean 'authenticatable'?"},
+		{"model/searchabel", "; did you mean 'model/searchable'?"},
+		{"controller/authentcatable", "; did you mean 'controller/authenticatable'?"},
+	}
+	for _, tc := range tests {
+		_, _, _, err := concerns.FindConcern(modelDir, ctrlDir, testdataRoot, tc.input)
+		if err == nil || !strings.HasSuffix(err.Error(), tc.hint) {
+			t.Errorf("FindConcern(%q) = %v, want suffix %q", tc.input, err, tc.hint)
+		}
 	}
 }

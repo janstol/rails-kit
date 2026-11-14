@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/janstol/rails-kit/internal/astutil"
+	"github.com/janstol/rails-kit/internal/suggest"
 )
 
 // ConcernDetail holds parsed information about a single concern file.
@@ -100,19 +101,37 @@ func FindConcern(modelDir, controllerDir, railsRoot, name string) (string, strin
 		return ctrlFull, filepath.ToSlash(rel), "controller", nil
 	}
 
-	return "", "", "", fmt.Errorf("concern %q not found", name)
+	return "", "", "", fmt.Errorf("concern %q not found%s", name, nearbyHint(name, "", modelDir, controllerDir))
 }
 
 func findInDir(dir, railsRoot, name, concernType string) (string, string, string, error) {
 	fullPath, relPath, err := findFile(dir, name)
 	if err != nil {
-		return "", "", "", fmt.Errorf("concern %q not found in %s concerns", name, concernType)
+		return "", "", "", fmt.Errorf("concern %q not found in %s concerns%s", name, concernType, nearbyHint(name, concernType+"/", dir))
 	}
 	rel, relErr := filepath.Rel(railsRoot, relPath)
 	if relErr != nil {
 		rel = relPath
 	}
 	return fullPath, filepath.ToSlash(rel), concernType, nil
+}
+
+// nearbyHint suggests concern names in dirs close to name, each written with
+// prefix (e.g. "model/") so the suggestion can be pasted back as is.
+func nearbyHint(name, prefix string, dirs ...string) string {
+	var names []string
+	for _, dir := range dirs {
+		found, err := ListFiles(dir)
+		if err != nil {
+			continue
+		}
+		names = append(names, found...)
+	}
+	matches := suggest.Closest(name, names)
+	for i, m := range matches {
+		matches[i] = prefix + m
+	}
+	return suggest.Hint(matches)
 }
 
 // findFile looks for name.rb in dir, supporting namespaced names like "admin/searchable".

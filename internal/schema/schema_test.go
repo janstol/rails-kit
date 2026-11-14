@@ -275,3 +275,16 @@ func TestJoinTableWithExplicitTableName(t *testing.T) {
 		t.Fatalf("missing memberships foreign key:\n%s", out)
 	}
 }
+
+func TestExtractTables_UnknownSuggestsNearbyTables(t *testing.T) {
+	_, err := schema.ExtractTables(testdataSchema, []string{"userz"})
+	if err == nil || !strings.HasSuffix(err.Error(), "userz; did you mean 'users'?") {
+		t.Errorf("single: got %v", err)
+	}
+
+	_, err = schema.ExtractTables(testdataSchema, []string{"userz", "postz", "qqqq"})
+	want := "table(s) not found in schema: userz (did you mean 'users'?), postz (did you mean 'posts'?), qqqq"
+	if err == nil || err.Error() != want {
+		t.Errorf("multiple: got %v\nwant %s", err, want)
+	}
+}

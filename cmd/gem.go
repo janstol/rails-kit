@@ -7,6 +7,7 @@ import (
 
 	"github.com/janstol/rails-kit/internal/config"
 	"github.com/janstol/rails-kit/internal/gem"
+	"github.com/janstol/rails-kit/internal/suggest"
 )
 
 type gemListEntry struct {
@@ -58,7 +59,11 @@ source URL, git metadata, and dependencies.`,
 		name := args[0]
 		g := lockfile.Find(name)
 		if g == nil {
-			return coded(codeNotFound, fmt.Errorf("gem %q not found in Gemfile.lock", name))
+			var names []string
+			for _, g := range lockfile.List() {
+				names = append(names, g.Name)
+			}
+			return coded(codeNotFound, fmt.Errorf("gem %q not found in Gemfile.lock%s", name, suggest.Hint(suggest.Closest(name, names))))
 		}
 		if jsonFlag {
 			return printJSON(cmd, g)

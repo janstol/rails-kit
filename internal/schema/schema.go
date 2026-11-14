@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/janstol/rails-kit/internal/suggest"
 )
 
 var (
@@ -114,8 +116,19 @@ func (s *Schema) checkUnknown(names []string) error {
 			unknown = append(unknown, name)
 		}
 	}
-	if len(unknown) > 0 {
-		return fmt.Errorf("table(s) not found in schema: %s", strings.Join(unknown, ", "))
+	if len(unknown) == 1 {
+		return fmt.Errorf("table(s) not found in schema: %s%s", unknown[0], suggest.Hint(suggest.Closest(unknown[0], s.ListTables())))
+	}
+	if len(unknown) > 1 {
+		tables := s.ListTables()
+		parts := make([]string, len(unknown))
+		for i, u := range unknown {
+			parts[i] = u
+			if hint := suggest.Hint(suggest.Closest(u, tables)); hint != "" {
+				parts[i] += " (" + strings.TrimPrefix(hint, "; ") + ")"
+			}
+		}
+		return fmt.Errorf("table(s) not found in schema: %s", strings.Join(parts, ", "))
 	}
 	return nil
 }

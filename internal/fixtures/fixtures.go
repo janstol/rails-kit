@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/janstol/rails-kit/internal/suggest"
 )
 
 var interestingKeys = []string{"id", "name", "title", "email", "type", "status", "kind", "role"}
@@ -108,7 +110,7 @@ func Load(fixturesDir, name, plural string) (string, map[string]interface{}, err
 		}
 	}
 	if path == "" {
-		return "", nil, fmt.Errorf("fixture not found for '%s' (tried %s.yml/.yaml and %s.yml/.yaml)", name, plural, name)
+		return "", nil, fmt.Errorf("fixture not found for '%s' (tried %s.yml/.yaml and %s.yml/.yaml)%s", name, plural, name, nearbyHint(fixturesDir, name, plural))
 	}
 
 	content, err := os.ReadFile(path)
@@ -164,6 +166,24 @@ func validateFixturesDir(fixturesDir string) error {
 		return fmt.Errorf("fixtures path %s: not a directory", fixturesDir)
 	}
 	return nil
+}
+
+// nearbyHint suggests fixture files close to either the plural or the name as
+// typed, plural matches first, or returns "".
+func nearbyHint(fixturesDir, name, plural string) string {
+	files, err := ListFiles(fixturesDir)
+	if err != nil {
+		return ""
+	}
+	var matches []string
+	seen := map[string]bool{}
+	for _, m := range append(suggest.Closest(plural, files), suggest.Closest(name, files)...) {
+		if !seen[m] && len(matches) < 3 {
+			seen[m] = true
+			matches = append(matches, m)
+		}
+	}
+	return suggest.Hint(matches)
 }
 
 // Summarize formats a fixture entry's attributes into a compact string.
