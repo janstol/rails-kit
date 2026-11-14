@@ -26,7 +26,8 @@ var relatedCmd = &cobra.Command{
 	Long: `Find all files related to a model: model, controller, views, decorator,
 job, mailer, former, service, datagrid, tests, and fixtures.
 
-The name can be a model name (user, order_item) or a related file path
+The name can be a model name (user, order_item; a plural like users falls back
+to the singular model) or a related file path
 (model, controller, view, decorator, job, mailer, former, service, datagrid, test/spec, fixture).
 Matches stay within the exact namespace of the requested model.`,
 	Args:              cobra.ExactArgs(1),

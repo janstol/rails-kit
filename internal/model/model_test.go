@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/janstol/rails-kit/internal/model"
+	"github.com/janstol/rails-kit/internal/pluralize"
 	"github.com/janstol/rails-kit/internal/term"
 	"github.com/janstol/rails-kit/internal/testutil"
 )
@@ -719,4 +720,71 @@ func parseTempModel(t *testing.T, relPath, content string) *model.Summary {
 		t.Fatalf("Parse: %v", err)
 	}
 	return s
+}
+
+func TestResolveName_SingularFallback(t *testing.T) {
+	dir := t.TempDir()
+	models := filepath.Join(dir, "app", "models")
+	files := map[string]string{
+		"user":            "class User\nend\n",
+		"order_item":      "class OrderItem\nend\n",
+		"category":        "class Category\nend\n",
+		"person":          "class Person\nend\n",
+		"news":            "class News\nend\n",
+		"admin/dashboard": "class Admin::Dashboard\nend\n",
+		"billing/account": "class Billing::Account\nend\n",
+		"crm/account":     "class Crm::Account\nend\n",
+	}
+	for name, src := range files {
+		testutil.WriteFile(t, filepath.Join(models, name+".rb"), src)
+	}
+	p := pluralize.New(map[string]string{"person": "people"})
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"users", "user"},
+		{"Users", "user"},
+		{"order_items", "order_item"},
+		{"OrderItems", "order_item"},
+		{"categories", "category"},
+		{"people", "person"},
+		{"admin/dashboards", "admin/dashboard"},
+		{"Admin::Dashboards", "admin/dashboard"},
+		{"user", "user"},
+		{"news", "news"}, // a model whose own name is plural resolves to itself
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := model.ResolveName(dir, "app/models", tc.input, p)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			want := filepath.Join(models, tc.want+".rb")
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+
+	t.Run("missing keeps the original error", func(t *testing.T) {
+		_, err := model.ResolveName(dir, "app/models", "widgets", p)
+		if err == nil || !strings.Contains(err.Error(), "'widgets'") {
+			t.Fatalf("got %v, want a not-found error naming 'widgets'", err)
+		}
+	})
+
+	t.Run("rb path is not singularized", func(t *testing.T) {
+		if _, err := model.ResolveName(dir, "app/models", "app/models/users.rb", p); err == nil {
+			t.Fatal("expected not-found for users.rb, got a match")
+		}
+	})
+
+	t.Run("ambiguous singular is reported", func(t *testing.T) {
+		_, err := model.ResolveName(dir, "app/models", "accounts", p)
+		if !model.IsAmbiguousError(err) {
+			t.Fatalf("got %v, want an ambiguous-model error", err)
+		}
+	})
 }

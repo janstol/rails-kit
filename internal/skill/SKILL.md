@@ -109,6 +109,7 @@ List all files related to a model: model, controller, views, helper, decorator, 
 
 ```bash
 rails-kit related user
+rails-kit related users                # plural (table) names fall back to the singular model
 rails-kit related order
 rails-kit related app/models/user.rb   # accepts file paths too
 rails-kit related app/views/users/show.html.erb
@@ -198,6 +199,7 @@ Compact structural summary of a model file -- associations, validations, scopes,
 
 ```bash
 rails-kit model user
+rails-kit model users                # plural (table) names fall back to the singular model
 rails-kit model order
 rails-kit model product
 rails-kit model app/models/user.rb   # file path also accepted

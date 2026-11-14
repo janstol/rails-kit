@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/janstol/rails-kit/internal/model"
+	"github.com/janstol/rails-kit/internal/pluralize"
 )
 
 type modelJSON struct {
@@ -42,7 +43,9 @@ var modelCmd = &cobra.Command{
 Extracts: concerns, associations, validations, scopes, callbacks, enums, delegates.
 
 The name can be a model name (user, order_item), a CamelCase class name
-(OrderItem, S3BucketArchivePolicy), or a file path ending in .rb.`,
+(OrderItem, S3BucketArchivePolicy), or a file path ending in .rb. A plural
+name such as a table name (users, order_items) falls back to the singular
+model when no model has that exact name.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeModelNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +54,7 @@ The name can be a model name (user, order_item), a CamelCase class name
 			return err
 		}
 
-		modelPath, err := model.Resolve(root, cfg.ModelsPath, args[0])
+		modelPath, err := model.ResolveName(root, cfg.ModelsPath, args[0], pluralize.New(cfg.Plurals))
 		if err != nil {
 			return coded(codeNotFound, fmt.Errorf("resolving model: %w", err))
 		}

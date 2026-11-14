@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- `model` and `related` accept plural names. `rails-kit model users` used to fail with `model file not found for 'users'`, even though people (and agents) often type the table name and `fixtures` already accepted both forms. When no model has the exact name given, the last segment is singularized and tried again, so `users`, `Users`, `order_items` and `Admin::Dashboards` all resolve, using the same inflections as `fixtures`, including custom `plurals:` from `.rails-kit.yml`. A model whose own name is plural (`news`) still resolves to itself, and `.rb` paths are never rewritten.
 - Prism-backed commands (`model`, `skeleton`, `routes --static`, and every domain reader's detail mode) start about 10x faster after the first run. The AOT-compiled `prism.wasm` is now kept in a wazero compilation cache under the user cache directory (`~/Library/Caches/rails-kit/wazero` on macOS, `~/.cache/rails-kit/wazero` on Linux), so `model user` on the fixture app drops from about 114 ms to 10 ms and `skeleton app` from 276 ms to 22 ms. The first run after installing (or after a wazero upgrade) still pays the compile and writes about 1.6 MB to the cache. If the cache directory can't be used, rails-kit runs uncached as before, and a damaged cache entry is deleted and rebuilt instead of making every Prism command fail. Bumps go-ruby-prism to v1.3.0, which adds the option this needs.
 
 ### Fixed

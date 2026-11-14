@@ -26,7 +26,7 @@ func ResolveLookup(root string, cfg config.Config, input string, p *pluralize.Pl
 	}
 
 	name := NormalizeNameWithPrefixes(input, PathPrefixes(cfg))
-	resolved, err := model.Resolve(root, cfg.ModelsPath, name)
+	resolved, err := model.ResolveName(root, cfg.ModelsPath, name, p)
 	if err != nil {
 		return "", "", err
 	}

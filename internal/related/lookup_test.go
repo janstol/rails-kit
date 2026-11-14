@@ -651,3 +651,19 @@ func TestResolveLookup_ServiceTestPath(t *testing.T) {
 func defaultLookupTestConfig() config.Config {
 	return config.Defaults()
 }
+
+func TestResolveLookup_PluralName(t *testing.T) {
+	root := t.TempDir()
+	testutil.WriteFile(t, filepath.Join(root, "app", "models", "order_item.rb"), "class OrderItem\nend\n")
+
+	name, plural, err := related.ResolveLookup(root, defaultLookupTestConfig(), "order_items", pluralize.Default())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "order_item" {
+		t.Fatalf("name = %q, want order_item", name)
+	}
+	if plural != "order_items" {
+		t.Fatalf("plural = %q, want order_items", plural)
+	}
+}

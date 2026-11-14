@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/janstol/rails-kit/internal/astutil"
+	"github.com/janstol/rails-kit/internal/pluralize"
 	"github.com/janstol/rails-kit/internal/reader"
 	"github.com/janstol/rails-kit/internal/term"
 )
@@ -51,6 +52,36 @@ func IsAmbiguousError(err error) bool {
 // suffix, so the name is matched as-is (no `_model` is appended).
 func Resolve(railsRoot, modelsPath, input string) (string, error) {
 	return kind.Resolve(railsRoot, modelsPath, input)
+}
+
+// ResolveName is Resolve with a singular fallback for plural names, since
+// people often type the table name ("users", "order_items", "Admin::Users").
+// The name as given always wins, so a model whose name is itself plural
+// ("news", "settings") still resolves to its own file. Paths ending in .rb
+// are never rewritten. If the singular form doesn't resolve either, the
+// original error is returned, unless the singular is ambiguous, which is the
+// more useful thing to report.
+func ResolveName(railsRoot, modelsPath, input string, p *pluralize.Pluralizer) (string, error) {
+	path, err := Resolve(railsRoot, modelsPath, input)
+	if err == nil || IsAmbiguousError(err) || strings.HasSuffix(input, ".rb") {
+		return path, err
+	}
+
+	name := astutil.Underscore(input)
+	dir, base := "", name
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		dir, base = name[:i+1], name[i+1:]
+	}
+	singular := p.Singularize(base)
+	if singular == strings.ToLower(base) {
+		return "", err
+	}
+
+	path, singularErr := Resolve(railsRoot, modelsPath, dir+singular)
+	if singularErr == nil || IsAmbiguousError(singularErr) {
+		return path, singularErr
+	}
+	return "", err
 }
 
 // ListNames returns sorted snake_case model names (relative to the models
