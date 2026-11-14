@@ -4,11 +4,37 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 
 	"github.com/danielgatis/go-ruby-prism/parser"
+	"github.com/tetratelabs/wazero"
 )
+
+// newParser creates a go-ruby-prism parser whose WASM runtimes share an
+// on-disk compilation cache, so prism.wasm is AOT-compiled once per wazero
+// version instead of on every process start (~100 ms per command). Without a
+// usable user cache directory it falls back to the uncached default.
+//
+// wazero fails instantiation on a damaged cache entry (e.g. a truncated file)
+// rather than recompiling, which would break every Prism-backed command until
+// the cache was deleted by hand. So on any error with the cache, the cache
+// directory is removed and the parser is created again without it.
+func newParser(ctx context.Context, poolSize int) (*parser.Parser, error) {
+	if base, err := os.UserCacheDir(); err == nil {
+		dir := filepath.Join(base, "rails-kit", "wazero")
+		if cache, err := wazero.NewCompilationCacheWithDir(dir); err == nil {
+			config := wazero.NewRuntimeConfig().WithCompilationCache(cache)
+			p, err := parser.NewParser(ctx, parser.WithPoolSize(poolSize), parser.WithRuntimeConfig(config))
+			if err == nil {
+				return p, nil
+			}
+			_ = os.RemoveAll(dir)
+		}
+	}
+	return parser.NewParser(ctx, parser.WithPoolSize(poolSize))
+}
 
 // Runner parses Ruby files with an in-process Prism (via WASM) parser and
 // returns structural summaries for them.
@@ -19,15 +45,15 @@ type Runner struct{}
 // walks files lazily and interleaved (walk routes.rb, on `draw :admin` parse
 // config/routes/admin.rb, on `concern :foo` re-walk the stored block), so a
 // pre-collected batch fan-out does not fit. Pool size 1 is correct because
-// that walk is single-threaded. The one-time ~150 ms cold start is paid lazily
-// on the first Parse, matching the accepted routes --static budget.
+// that walk is single-threaded. The ~150 ms WASM compile is skipped when the
+// on-disk compilation cache is warm (see newParser).
 type Parser struct {
 	p *parser.Parser
 }
 
 // NewParser creates an on-demand parser owning a single pooled WASM instance.
 func NewParser(ctx context.Context) (*Parser, error) {
-	p, err := parser.NewParser(ctx, parser.WithPoolSize(1))
+	p, err := newParser(ctx, 1)
 	if err != nil {
 		return nil, fmt.Errorf("creating prism parser: %w", err)
 	}
@@ -158,7 +184,7 @@ func (r Runner) ParseFiles(ctx context.Context, paths []string) ([]File, error) 
 	}
 
 	workers := min(runtime.NumCPU(), len(paths))
-	p, err := parser.NewParser(ctx, parser.WithPoolSize(workers))
+	p, err := newParser(ctx, workers)
 	if err != nil {
 		return nil, fmt.Errorf("creating prism parser: %w", err)
 	}

@@ -26,6 +26,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   (`phone_validator`, `email_format_validator`), not after the model they run against, so there
   is no name-based link worth drawing. The detail view is AST-backed and single-file only.
 
+### Changed
+
+- Prism-backed commands (`model`, `skeleton`, `routes --static`, and every domain reader's detail mode) start about 10x faster after the first run. The AOT-compiled `prism.wasm` is now kept in a wazero compilation cache under the user cache directory (`~/Library/Caches/rails-kit/wazero` on macOS, `~/.cache/rails-kit/wazero` on Linux), so `model user` on the fixture app drops from about 114 ms to 10 ms and `skeleton app` from 276 ms to 22 ms. The first run after installing (or after a wazero upgrade) still pays the compile and writes about 1.6 MB to the cache. If the cache directory can't be used, rails-kit runs uncached as before, and a damaged cache entry is deleted and rebuilt instead of making every Prism command fail. Bumps go-ruby-prism to v1.3.0, which adds the option this needs.
+
 ### Fixed
 
 - `skeleton` now expands a quoted `**` glob across every directory level. Globs went through `filepath.Glob`, which treats `**` as a plain `*` that spans a single directory, so `rails-kit skeleton 'app/**/*.rb'` silently returned only the files at one depth (21 of 37 on the test fixture app) with nothing to say the list was incomplete. Patterns containing `**` are now matched with the same matcher `--exclude` already used.

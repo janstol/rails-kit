@@ -29,16 +29,16 @@ const (
 
 // `routes --static`, `model`, `skeleton`, and every domain reader's detail
 // mode (controllers, mailers, jobs, services, datagrids, helpers, ...) parse
-// via the Prism AST (go-ruby-prism, WASM via wazero). Each process pays a
-// one-time ~100-150 ms WASM-compile cold start on first parse. For routes
-// this buys an 8-17x per-parse throughput win; for model it buys
-// structurally reliable Ruby parsing in place of the regex line scanner.
-// That cold start dominates the per-process wall time this test measures
-// (every `cmd.Run` is a fresh process), so the tight schema/about budget does
-// not fit. The Prism budget is sized to accommodate the cold start with
-// headroom for slower runners and jitter; it is a coarse "did startup blow up
-// to multiple seconds" guard, not a fine-grained regression detector — that
-// lives in the parser benchmarks' ns/op.
+// via the Prism AST (go-ruby-prism, WASM via wazero). AOT-compiling
+// prism.wasm costs ~100-150 ms. internal/prism keeps the compiled module in an
+// on-disk wazero compilation cache under the user cache dir, so only the first
+// run after install (or after a wazero bump) pays it; later runs load from the
+// cache at ~5 ms over the version floor. Because medianRunTime takes the median
+// of many fresh processes, the median reflects the warm cache even on a fresh
+// runner. The Prism budget is still sized for the uncached cold start, which is
+// also what a user sees when the cache directory is unavailable; it is a coarse
+// "did startup blow up to multiple seconds" guard, not a fine-grained
+// regression detector — that lives in the parser benchmarks' ns/op.
 const (
 	prismStartupDelta   = 400 * time.Millisecond
 	prismStartupCeiling = 500 * time.Millisecond

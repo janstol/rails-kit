@@ -320,3 +320,58 @@ func TestParseFilesStressRepeatedBatchesNoTraps(t *testing.T) {
 		}
 	}
 }
+
+// isolateUserCacheDir points os.UserCacheDir at a fresh temp dir on every
+// platform and returns the rails-kit wazero cache path inside it.
+func isolateUserCacheDir(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("XDG_CACHE_HOME", tmp)
+	t.Setenv("LocalAppData", tmp)
+	base, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatalf("UserCacheDir: %v", err)
+	}
+	return filepath.Join(base, "rails-kit", "wazero")
+}
+
+func TestNewParserRecoversFromDamagedCompilationCache(t *testing.T) {
+	ctx := context.Background()
+	cacheDir := isolateUserCacheDir(t)
+	src := filepath.Join("..", "..", "testdata", "app", "models", "user.rb")
+
+	parse := func() {
+		t.Helper()
+		p, err := prism.NewParser(ctx)
+		if err != nil {
+			t.Fatalf("NewParser: %v", err)
+		}
+		defer func() { _ = p.Close(ctx) }()
+		if _, _, err := p.Parse(ctx, src); err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+	}
+
+	parse() // populates the on-disk cache
+
+	var entries []string
+	if err := filepath.WalkDir(cacheDir, func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			entries = append(entries, path)
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("walking cache dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected the first parse to write a compilation cache entry")
+	}
+	for _, path := range entries {
+		if err := os.WriteFile(path, []byte("WAZEVO"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	parse() // must fall back instead of failing on the truncated entries
+}
