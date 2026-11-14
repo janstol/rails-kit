@@ -8,23 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- `rails-kit validators [name]` lists validators, or shows one validator's parent class, included
-  concerns, class-level constants, other class-level DSL calls (surfaced as macros, e.g.
-  `validates`), and methods. Three shapes exist in the wild, distinguished by the header line
-  alone: an `ActiveModel::EachValidator` subclass overriding `validate_each`, an
-  `ActiveModel::Validator` subclass overriding `validate`, and a plain class (or module) that
-  includes `ActiveModel::Validations` and drives itself with `validates`. Like `helpers`,
-  `decorators`, `formers`, and `presenters`, each method renders as its full parameter signature
-  rather than a bare name -- for a validator that signature is what tells an `EachValidator`
-  apart from a `Validator` at a glance. Unlike `presenters`, there is no separate Attributes
-  section: `attr_reader`/`attr_accessor`/`attr_writer` fall through to macros, since attribute
-  readers are rare in real validators. Constants get their own section, and that's usually where
-  the actual rule lives -- a format regexp or an allowed-value list. `app/validators/concerns` is
-  listed like any other validator file rather than skipped, since nothing owns that directory the
-  way `app/controllers/concerns` is owned by the `concerns` command. Validators are deliberately
-  not wired into `related`: validator files are named after the rule they enforce
-  (`phone_validator`, `email_format_validator`), not after the model they run against, so there
-  is no name-based link worth drawing. The detail view is AST-backed and single-file only.
+- `rails-kit validators [name]` lists validators, or shows one validator's parent class, included concerns, class-level constants, other class-level DSL calls (surfaced as macros, e.g. `validates`), and methods. Three shapes exist in the wild, distinguished by the header line alone: an `ActiveModel::EachValidator` subclass overriding `validate_each`, an `ActiveModel::Validator` subclass overriding `validate`, and a plain class (or module) that includes `ActiveModel::Validations` and drives itself with `validates`. Like `helpers`, `decorators`, `formers`, and `presenters`, each method renders as its full parameter signature rather than a bare name -- for a validator that signature is what tells an `EachValidator` apart from a `Validator` at a glance. Unlike `presenters`, there is no separate Attributes section: `attr_reader`/`attr_accessor`/`attr_writer` fall through to macros, since attribute readers are rare in real validators. Constants get their own section, and that's usually where the actual rule lives -- a format regexp or an allowed-value list. `app/validators/concerns` is listed like any other validator file rather than skipped, since nothing owns that directory the way `app/controllers/concerns` is owned by the `concerns` command. Validators are deliberately not wired into `related`: validator files are named after the rule they enforce (`phone_validator`, `email_format_validator`), not after the model they run against, so there is no name-based link worth drawing. The detail view is AST-backed and single-file only.
 
 ### Changed
 
@@ -39,16 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `routes`/`routes --refresh` no longer publish a cache for a run whose route sources changed while `bundle exec rails routes` was booting, and `routes --watch` no longer misses an edit made during its first render. Booting Rails takes seconds, so an edit to `config/routes.rb` or `config/routes/` landing in that window used to get a cache mtime newer than the edit, which `CacheValid` read as fresh -- the stale output then stuck until the file was touched again. `Cache`/`Refresh` now re-fingerprint the route sources after the run and skip the cache write (with a warning on stderr) if they moved, and `--watch`'s baseline fingerprint is now captured by the caller before its own initial render instead of inside `Watch`, so an edit during that render is no longer folded into the baseline and lost.
 - `routes --watch` now cancels an in-flight `bundle exec rails routes` subprocess on Ctrl-C/SIGTERM instead of only stopping the poll loop. The watch signal context built in `RunE` was never threaded through: the render closure called `runRoutes` with the root command's context, which nothing cancels, so `Run`/`Refresh`/`Cache` and the `exec.CommandContext` child they start outlived the interrupt. The signal context is now passed explicitly into `runRoutes` and `runRoutesWatch`, so both the initial render and every polled reprint run under it and a signal now tears down the whole render path, subprocess included.
 - `locales` explains a scope given without its locale prefix. `rails-kit locales views.users` used to fail with `scope 'views.users' not found (missing key 'views')`, which reads like the key is missing or the YAML is broken. It now says the first segment is not a locale and suggests the prefixed scopes that resolve (`did you mean 'en.views.users'?`), or lists the available locales if none do. The bundled skill now says that scopes start with the locale and that this error means a missing prefix, not a missing key.
-- `locales` now normalizes non-string YAML keys (numbers, booleans, `null`, dates) to their
-  string form before merging locale files. yaml.v3 decodes a mapping as `map[interface{}]interface{}`
-  the moment even one key isn't a plain string -- an enum keyed by integer (`status: {0:
-  draft, 1: published}`), an HTTP status page (`404:`), or a boolean label (`true: Yes`) all
-  qualify -- and every consumer in the package only recognized `map[string]interface{}`. That
-  mismatch meant a later file's version of such a subtree silently replaced the earlier one
-  instead of merging, `locales en.status.404` failed with a misleading "key '404' is not a
-  map", the subtree was invisible to scope listing, and it printed as a raw Go map instead of a
-  tree. `--json` failed outright for some key types (booleans and `null`; integer keys happened
-  to work) with `json: unsupported value: jsontext: object member name must be a string`.
+- `locales` now normalizes non-string YAML keys (numbers, booleans, `null`, dates) to their string form before merging locale files. yaml.v3 decodes a mapping as `map[interface{}]interface{}` the moment even one key isn't a plain string -- an enum keyed by integer (`status: {0: draft, 1: published}`), an HTTP status page (`404:`), or a boolean label (`true: Yes`) all qualify -- and every consumer in the package only recognized `map[string]interface{}`. That mismatch meant a later file's version of such a subtree silently replaced the earlier one instead of merging, `locales en.status.404` failed with a misleading "key '404' is not a map", the subtree was invisible to scope listing, and it printed as a raw Go map instead of a tree. `--json` failed outright for some key types (booleans and `null`; integer keys happened to work) with `json: unsupported value: jsontext: object member name must be a string`.
 
 ## [0.6.0] - 2026-09-10
 
